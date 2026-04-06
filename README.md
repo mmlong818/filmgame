@@ -1,5 +1,7 @@
 # 猫叔的互动影游创作系统
 
+[English](README_EN.md) · 中文
+
 > 从一句故事核心，到可交付的互动影游剧本。AI 全程协作，编剧主导创意。
 
 ![Tech Stack](https://img.shields.io/badge/Next.js-16.2-black) ![React](https://img.shields.io/badge/React-19-61DAFB) ![TypeScript](https://img.shields.io/badge/TypeScript-5-3178C6) ![Tailwind](https://img.shields.io/badge/Tailwind-v4-38BDF8)
@@ -140,7 +142,7 @@ filmgame 支持多种 AI 接入方式，在设置页面切换：
 | UI | React 19 + Tailwind CSS v4 |
 | 状态管理 | Zustand v5 |
 | 流程图 | @xyflow/react v12 |
-| AI | Claude CLI (claude --print) |
+| AI | Claude CLI / Anthropic / OpenAI / Gemini / 自定义端点 |
 | 存储 | localStorage + 本地 JSON 文件 |
 | 语言 | TypeScript 5 |
 
