@@ -71,21 +71,7 @@ npm run dev
 
 ### 加载示例项目
 
-服务启动后，在浏览器 F12 → Console 粘贴以下脚本：
-
-```js
-fetch('/api/projects/quantum-detective-seed')
-  .then(r => r.json())
-  .then(d => {
-    var p = d.project;
-    localStorage.setItem('filmgame:project:' + p.id, JSON.stringify(p));
-    localStorage.setItem('filmgame:projects:index', JSON.stringify([{
-      id: p.id, title: p.title, updatedAt: p.updatedAt,
-      currentPhase: p.currentPhase, nodeCount: p.nodes.length
-    }]));
-    window.location.href = '/project/' + p.id + '/workshop';
-  });
-```
+**无需任何操作。** 启动服务后打开 [http://localhost:3000](http://localhost:3000)，项目列表会自动从服务端同步《量子侦探》示例项目。
 
 ### 生成新的种子项目
 
