@@ -24,7 +24,7 @@ export default function HomePage() {
           onMouseEnter={e => { e.currentTarget.style.borderColor = COPPER; e.currentTarget.style.color = 'var(--shell-fg)' }}
           onMouseLeave={e => { e.currentTarget.style.borderColor = COPPER_DIM; e.currentTarget.style.color = 'var(--shell-fg-2)' }}
         >
-          我的项目
+          开始创作
         </button>
       </div>
 
@@ -52,15 +52,6 @@ export default function HomePage() {
             ))}
           </div>
 
-          <button
-            onClick={() => router.push('/projects')}
-            className="mt-10 px-8 py-3 text-sm font-medium tracking-widest transition-all"
-            style={{ border: `1px solid ${COPPER}`, color: 'var(--shell-fg)', background: 'rgba(200,120,88,0.08)' }}
-            onMouseEnter={e => { e.currentTarget.style.background = 'rgba(200,120,88,0.18)' }}
-            onMouseLeave={e => { e.currentTarget.style.background = 'rgba(200,120,88,0.08)' }}
-          >
-            开始创作
-          </button>
         </div>
       </div>
 
