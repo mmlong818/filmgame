@@ -285,7 +285,7 @@ export function ShellWordmark({ size = 'lg' }: { size?: 'sm' | 'lg' }) {
           <rect x="7" y="2.5" width="6" height="11" rx="0.5" fill="var(--gold-dim)" fillOpacity="0.3"/>
         </svg>
         <span className="text-sm font-bold tracking-[0.2em] uppercase" style={{ color: 'var(--shell-fg)' }}>
-          Filmgame
+          猫叔影游
         </span>
       </div>
     )
@@ -309,14 +309,14 @@ export function ShellWordmark({ size = 'lg' }: { size?: 'sm' | 'lg' }) {
           className="text-4xl font-bold tracking-[0.35em] uppercase"
           style={{ color: 'var(--shell-fg)', letterSpacing: '0.35em' }}
         >
-          Filmgame
+          猫叔的互动影游创作系统
         </div>
         <div style={{ height: '2px', marginTop: '8px', background: 'linear-gradient(90deg, transparent, var(--gold-mid), var(--gold-bright), var(--gold-mid), transparent)' }} />
         <div
           className="text-xs tracking-[0.4em] uppercase mt-2"
           style={{ color: 'var(--gold-mid)' }}
         >
-          互动影游创作系统
+          Interactive Film Game Studio
         </div>
       </div>
     </div>
