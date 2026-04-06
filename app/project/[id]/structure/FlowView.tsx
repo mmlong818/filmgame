@@ -27,13 +27,14 @@ function StoryNodeView({ data }: NodeProps) {
   const d = data as {
     label: string; nodeType: string; highlighted: boolean; dimmed: boolean
     dialogueCount: number; hasChoices: boolean; deadEnd: boolean
+    onEdit: () => void
   }
   const s = TYPE_STYLE[d.nodeType] ?? TYPE_STYLE.normal
   const opacity = d.dimmed ? 'opacity-20' : 'opacity-100'
 
   return (
     <div
-      className={`border ${s.border} ${s.bg} rounded-xl shadow-xl transition-all duration-150 ${opacity} backdrop-blur-sm cursor-pointer hover:brightness-125`}
+      className={`border ${s.border} ${s.bg} rounded-xl shadow-xl transition-all duration-150 ${opacity} backdrop-blur-sm cursor-grab active:cursor-grabbing hover:brightness-110`}
       style={{
         minWidth: NODE_W,
         maxWidth: NODE_W,
@@ -54,7 +55,7 @@ function StoryNodeView({ data }: NodeProps) {
       </div>
 
       {/* Title */}
-      <div className="px-3 pb-2.5">
+      <div className="px-3 pb-1">
         <div
           className="text-sm font-medium text-zinc-100 leading-snug"
           style={{ display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}
@@ -62,12 +63,20 @@ function StoryNodeView({ data }: NodeProps) {
         >
           {d.label}
         </div>
-        {/* Dialogue count */}
         {d.dialogueCount > 0 && (
-          <div className="mt-1.5 text-[10px] text-zinc-600">
-            {d.dialogueCount} 行对白
-          </div>
+          <div className="mt-1 text-[10px] text-zinc-600">{d.dialogueCount} 行对白</div>
         )}
+      </div>
+
+      {/* Edit button */}
+      <div className="px-3 pb-2.5 pt-1">
+        <button
+          onClick={(e) => { e.stopPropagation(); d.onEdit() }}
+          className="text-[10px] text-zinc-500 hover:text-zinc-200 border border-zinc-700/60 hover:border-zinc-500 rounded px-2 py-0.5 transition-colors cursor-pointer"
+          style={{ lineHeight: '1.6' }}
+        >
+          编辑
+        </button>
       </div>
 
       <Handle type="source" position={Position.Right}
@@ -206,7 +215,7 @@ function autoLayout(
 
 // ── Build React Flow data ───────────────────────────────────────────────────
 
-function buildFlowData(project: Project, hoveredNodeId: string | null, manualPos: Map<string, { x: number; y: number }>): { nodes: Node[]; edges: Edge[] } {
+function buildFlowData(project: Project, hoveredNodeId: string | null, manualPos: Map<string, { x: number; y: number }>, onEditNode?: (id: string) => void): { nodes: Node[]; edges: Edge[] } {
   const flowNodes: Node[] = []
   const edges: Edge[] = []
 
@@ -254,6 +263,7 @@ function buildFlowData(project: Project, hoveredNodeId: string | null, manualPos
         dialogueCount: (node.dialogue ?? []).length,
         hasChoices: validChoices.length > 0,
         deadEnd,
+        onEdit: onEditNode ? () => onEditNode(node.id) : undefined,
       },
     })
 
@@ -297,18 +307,16 @@ function buildFlowData(project: Project, hoveredNodeId: string | null, manualPos
 export default function FlowView({ project }: { project: Project }) {
   const router = useRouter()
   const params = useParams()
+  const onEditNode = (nodeId: string) => router.push(`/project/${params.id}/workshop?node=${nodeId}`)
   const [hoveredNodeId, setHoveredNodeId] = useState<string | null>(null)
   // Manual positions: user-dragged overrides that take precedence over auto-layout
   const [manualPos, setManualPos] = useState<Map<string, { x: number; y: number }>>(new Map())
 
   const { nodes, edges } = useMemo(
-    () => buildFlowData(project, hoveredNodeId, manualPos),
+    () => buildFlowData(project, hoveredNodeId, manualPos, onEditNode),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     [project, hoveredNodeId, manualPos]
   )
-
-  const handleNodeClick: NodeMouseHandler = useCallback((_evt, node) => {
-    router.push(`/project/${params.id}/workshop?node=${node.id}`)
-  }, [router, params.id])
 
   const handleNodeMouseEnter: NodeMouseHandler = useCallback((_evt, node) => {
     setHoveredNodeId(node.id)
@@ -345,7 +353,6 @@ export default function FlowView({ project }: { project: Project }) {
         nodesDraggable={true}
         nodesConnectable={false}
         elementsSelectable={true}
-        onNodeClick={handleNodeClick}
         onNodeMouseEnter={handleNodeMouseEnter}
         onNodeMouseLeave={handleNodeMouseLeave}
         onNodeDragStop={handleNodeDragStop}
