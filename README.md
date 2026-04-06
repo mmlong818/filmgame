@@ -103,25 +103,21 @@ npm run dev
 
 ### 加载示例项目
 
-**无需任何操作。** 启动服务后打开项目列表，《量子侦探》会自动从本地存储加载。
-
-### 生成新的种子项目
-
-```bash
-node seed-project.mjs
-```
-
-> 需要 Next.js 服务运行中，耗时约 20-40 分钟（全量 AI 生成）
+**无需任何操作。** 首次打开项目列表时，《量子侦探》会自动写入本地存储，直接可用。
 
 ---
 
 ## AI 集成
 
-filmgame 通过 Claude CLI 调用 AI，**无需 API Key**，使用你已登录的 Claude 账号：
+filmgame 支持多种 AI 接入方式，在设置页面切换：
 
-```
-POST /api/ai → child_process.spawn('claude', ['--print', ...])
-```
+| 模式 | 说明 |
+|------|------|
+| **Claude CLI**（默认） | 无需 API Key，使用已登录的 Claude 订阅账号，`claude --print` 调用 |
+| **Anthropic API** | 填入 API Key，直连官方接口 |
+| **OpenAI API** | 填入 API Key，使用 GPT 系列模型 |
+| **Google Gemini API** | 填入 API Key，使用 Gemini 系列模型 |
+| **自定义端点** | 任意 OpenAI 兼容接口（本地部署、中转等） |
 
 支持的 AI 阶段和动作：
 
@@ -176,4 +172,6 @@ filmgame/
 
 ## License
 
-MIT
+版权所有 © 2026 猫叔（[mmlong818](https://github.com/mmlong818)）
+
+本项目源代码可用于个人学习与非商业研究，但**任何形式的使用、修改或再分发，须在显著位置保留原始作者署名及本版权声明**。未经书面授权，不得将本软件或其衍生版本用于商业用途。
