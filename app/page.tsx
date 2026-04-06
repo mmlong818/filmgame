@@ -29,7 +29,7 @@ export default function HomePage() {
       </div>
 
       {/* ── Hero ── */}
-      <div className="relative z-10 flex-1 flex flex-col items-center justify-center" style={{ marginBottom: '160px' }}>
+      <div className="relative z-10 flex-1 flex flex-col items-center justify-center" style={{ marginBottom: '130px' }}>
         <div className="text-center" style={{ maxWidth: '640px' }}>
           <ShellWordmark size="lg" />
 
