@@ -7,6 +7,7 @@ import { createEmptyProject, useProjectStore } from '@/lib/store/projectStore'
 import { PHASES } from '@/lib/types/phase'
 import type { ProjectSummary } from '@/lib/types/project'
 import { useToast } from '@/app/components/toast'
+import demoProject from '@/data/projects/quantum-detective-seed.json'
 import { ArtDecoRule, ArtDecoStepCorner, ShellWordmark, GoldBar } from '@/app/components/art-deco'
 import { AISettingsModal } from '@/app/components/ai-settings-modal'
 
@@ -70,24 +71,13 @@ function ProjectsPageInner() {
   }, [])
 
   useEffect(() => {
+    // 首次打开（无任何项目）时写入内置示例项目
+    if (listProjects().length === 0) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      saveProject(demoProject as any)
+    }
     refresh()
     if (searchParams.get('new') === '1') setShowNew(true)
-    // 静默从服务端同步：将服务端有而本地没有的项目导入 localStorage
-    fetch('/api/projects')
-      .then(r => r.json())
-      .then(async data => {
-        if (!data.ok) return
-        const localIds = new Set(listProjects().map((p: ProjectSummary) => p.id))
-        const missing = (data.projects as ProjectSummary[]).filter(p => !localIds.has(p.id))
-        if (missing.length === 0) return
-        await Promise.all(missing.map(async s => {
-          const r = await fetch(`/api/projects/${s.id}`)
-          const d = await r.json()
-          if (d.ok && d.project) saveProject(d.project)
-        }))
-        refresh()
-      })
-      .catch(() => {})
   }, [refresh, searchParams])
 
   function handleCreate() {
