@@ -7,7 +7,6 @@ import { createEmptyProject, useProjectStore } from '@/lib/store/projectStore'
 import { PHASES } from '@/lib/types/phase'
 import type { ProjectSummary } from '@/lib/types/project'
 import { useToast } from '@/app/components/toast'
-import demoProject from '@/data/projects/quantum-detective-seed.json'
 import { ArtDecoRule, ArtDecoStepCorner, ShellWordmark, GoldBar } from '@/app/components/art-deco'
 import { AISettingsModal } from '@/app/components/ai-settings-modal'
 
@@ -71,11 +70,6 @@ function ProjectsPageInner() {
   }, [])
 
   useEffect(() => {
-    // 首次打开（无任何项目）时写入内置示例项目
-    if (listProjects().length === 0) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      saveProject(demoProject as any)
-    }
     refresh()
     if (searchParams.get('new') === '1') setShowNew(true)
   }, [refresh, searchParams])

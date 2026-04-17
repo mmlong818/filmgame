@@ -2,10 +2,12 @@
 
 import { useState, useCallback, useEffect } from 'react'
 import Link from 'next/link'
-import { useParams } from 'next/navigation'
+import { useParams, useSearchParams, useRouter, usePathname } from 'next/navigation'
 import { useProjectStore } from '@/lib/store/projectStore'
 import { evalConditions } from '@/lib/conditions'
 import type { StoryNode } from '@/lib/types/project'
+
+type PreviewMode = 'author' | 'player'
 
 const CHOICE_LABELS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'
 
@@ -56,6 +58,32 @@ function findStartNode(nodes: StoryNode[]): StoryNode | undefined {
   return nodes.find(n => n.type === 'start') ?? nodes[0]
 }
 
+const themeKey = (projectId: string) => `filmgame:preview-theme:${projectId}`
+const unlockedKey = (projectId: string) => `filmgame:unlocked:${projectId}`
+
+function loadTheme(projectId: string): 'dark' | 'light' {
+  if (typeof window === 'undefined') return 'dark'
+  try { return localStorage.getItem(themeKey(projectId)) === 'light' ? 'light' : 'dark' } catch { return 'dark' }
+}
+
+function persistTheme(projectId: string, theme: 'dark' | 'light'): void {
+  if (typeof window === 'undefined') return
+  try { localStorage.setItem(themeKey(projectId), theme) } catch { /* ignore */ }
+}
+
+function loadUnlockedEndings(projectId: string): string[] {
+  if (typeof window === 'undefined') return []
+  try {
+    const raw = localStorage.getItem(unlockedKey(projectId))
+    return raw ? JSON.parse(raw) : []
+  } catch { return [] }
+}
+
+function persistUnlockedEndings(projectId: string, ids: string[]): void {
+  if (typeof window === 'undefined') return
+  try { localStorage.setItem(unlockedKey(projectId), JSON.stringify(ids)) } catch { /* ignore */ }
+}
+
 function applyVariableEffect(state: Record<string, string | number>, effect: string): Record<string, string | number> {
   if (!effect.trim()) return state
   const next = { ...state }
@@ -83,11 +111,33 @@ function applyVariableEffect(state: Record<string, string | number>, effect: str
 
 export default function PreviewPage() {
   const params = useParams()
+  const searchParams = useSearchParams()
+  const router = useRouter()
+  const pathname = usePathname()
   const projectId = params.id as string
   const project = useProjectStore(s => s.project)
+  const mode: PreviewMode = searchParams.get('mode') === 'player' ? 'player' : 'author'
+
+  const setMode = useCallback((next: PreviewMode) => {
+    const usp = new URLSearchParams(searchParams.toString())
+    if (next === 'player') usp.set('mode', 'player')
+    else usp.delete('mode')
+    const qs = usp.toString()
+    router.replace(qs ? `${pathname}?${qs}` : pathname)
+  }, [router, pathname, searchParams])
   const [currentNodeId, setCurrentNodeId] = useState<string | null>(null)
   const [history, setHistory] = useState<string[]>([])
   const [varState, setVarState] = useState<Record<string, string | number>>({})
+  const [unlockedEndings, setUnlockedEndings] = useState<string[]>([])
+  const [theme, setThemeState] = useState<'dark' | 'light'>('dark')
+
+  const toggleTheme = useCallback(() => {
+    setThemeState(prev => {
+      const next = prev === 'dark' ? 'light' : 'dark'
+      if (projectId) persistTheme(projectId, next)
+      return next
+    })
+  }, [projectId])
 
   const nodes = project?.nodes ?? []
   const nodeMap = new Map(nodes.map(n => [n.id, n]))
@@ -149,20 +199,32 @@ export default function PreviewPage() {
       project.variables?.forEach(v => { init[v.name] = v.defaultValue ?? 0 })
       return init
     })
+    setUnlockedEndings(loadUnlockedEndings(project.id))
+    setThemeState(loadTheme(project.id))
   }, [project?.id])
+
+  useEffect(() => {
+    if (!project || !currentNodeId) return
+    const node = project.nodes.find(n => n.id === currentNodeId)
+    if (node?.type !== 'ending') return
+    if (unlockedEndings.includes(node.id)) return
+    const next = [...unlockedEndings, node.id]
+    setUnlockedEndings(next)
+    persistUnlockedEndings(project.id, next)
+  }, [currentNodeId, project?.id])
 
   if (!project) return null
 
   if (nodes.length === 0) {
     return (
-      <div className="min-h-full bg-slate-50 flex items-center justify-center">
+      <div className={`min-h-full bg-slate-50 flex items-center justify-center ${theme === 'dark' ? 'preview-dark' : ''}`}>
         <div className="text-center">
           <div className="text-slate-300 text-5xl mb-6">🎬</div>
           <h2 className="text-slate-700 text-lg font-medium mb-2">暂无内容可预览</h2>
           <p className="text-slate-400 text-sm mb-6">请先在编辑器中创建节点和对白</p>
           <Link
             href={`/project/${projectId}/structure`}
-            className="text-purple-500 hover:text-purple-700 text-sm transition-colors"
+            className="text-amber-500 hover:text-amber-400 text-sm transition-colors"
           >
             前往结构编辑 →
           </Link>
@@ -186,7 +248,7 @@ export default function PreviewPage() {
   const emotionFunction = currentNode.emotionFunction ?? {}
 
   return (
-    <div className="min-h-full bg-slate-50 flex flex-col">
+    <div className={`min-h-full bg-slate-50 flex flex-col ${theme === 'dark' ? 'preview-dark' : ''}`}>
       <div className="bg-white/80 border-b border-slate-200 px-6 py-2.5 flex items-center gap-4">
         <Link
           href={`/project/${projectId}/${project.currentPhase === 'workshop' || project.currentPhase === 'validate' ? 'workshop' : 'structure'}`}
@@ -201,6 +263,29 @@ export default function PreviewPage() {
         <span className="text-slate-400 text-xs">
           {visitedCount} / {nodes.length} 节点
         </span>
+        <div className="flex items-center border border-slate-200 rounded overflow-hidden text-[11px]">
+          <button
+            onClick={() => setMode('author')}
+            className={`px-2 py-0.5 transition-colors ${mode === 'author' ? 'bg-slate-700 text-white' : 'bg-white text-slate-500 hover:text-slate-700'}`}
+            title="编辑预览：显示调试信息"
+          >
+            编辑
+          </button>
+          <button
+            onClick={() => setMode('player')}
+            className={`px-2 py-0.5 transition-colors ${mode === 'player' ? 'bg-slate-700 text-white' : 'bg-white text-slate-500 hover:text-slate-700'}`}
+            title="玩家视角：隐藏调试，仅叙事"
+          >
+            玩家
+          </button>
+        </div>
+        <button
+          onClick={toggleTheme}
+          className="text-slate-400 hover:text-slate-700 text-xs transition-colors"
+          title={theme === 'dark' ? '切换到浅色' : '切换到影院模式'}
+        >
+          {theme === 'dark' ? '☾ 影院' : '☀ 浅色'}
+        </button>
         <button
           onClick={reset}
           className="text-slate-400 hover:text-slate-700 text-xs transition-colors"
@@ -281,10 +366,20 @@ export default function PreviewPage() {
                 )}
               </div>
             </div>
-            <div className="absolute bottom-6 left-0 right-0 text-center">
-              <span className="text-xs text-slate-400">
+            <div className="absolute bottom-6 left-0 right-0 text-center space-y-1">
+              {project.endings.length > 0 && (
+                <div className="text-xs font-medium" style={{ color: 'var(--tw-amber, #d97706)' }}>
+                  <span className={theme.labelColor}>
+                    已解锁结局 {unlockedEndings.length} / {project.endings.length}
+                  </span>
+                  {unlockedEndings.length < project.endings.length && (
+                    <span className="text-slate-400 ml-2">· 还有 {project.endings.length - unlockedEndings.length} 条路径未发现</span>
+                  )}
+                </div>
+              )}
+              <div className="text-xs text-slate-400">
                 {history.length + 1} 步到达此结局 · {nodes.length} 个节点探索了 {visitedCount} 个
-              </span>
+              </div>
             </div>
           </div>
         )
@@ -316,7 +411,11 @@ export default function PreviewPage() {
 
             {isDeadEnd && (
               <div className="text-center mb-8">
-                <div className="text-slate-400 text-sm mb-4">此路不通 — 该节点没有可用的选择分支</div>
+                <div className="text-slate-400 text-sm mb-4 leading-relaxed">
+                  {mode === 'player'
+                    ? '…故事在此戛然而止。'
+                    : '此路不通 — 该节点没有可用的选择分支'}
+                </div>
                 {history.length > 0 && (
                   <button
                     onClick={goBack}
@@ -330,16 +429,16 @@ export default function PreviewPage() {
           </div>
         )}
 
-        {!isEnding && (
+        {!isEnding && (mode === 'author' || project.variables.length > 0) && (
           <div className="absolute bottom-6 right-6 bg-white/90 border border-slate-200 rounded-lg px-4 py-3 max-w-[220px] space-y-2">
-            {(emotionFunction.emotionIn || emotionFunction.emotionOut) && (
+            {mode === 'author' && (emotionFunction.emotionIn || emotionFunction.emotionOut) && (
               <div className="text-slate-400 text-xs">
                 <span className="text-slate-600">{emotionFunction.emotionIn || '—'}</span>
                 <span className="text-slate-300 mx-1">→</span>
                 <span className="text-slate-600">{emotionFunction.emotionOut || '—'}</span>
               </div>
             )}
-            {emotionFunction.tension > 0 && (
+            {mode === 'author' && emotionFunction.tension > 0 && (
               <div>
                 <div className="text-slate-400 text-xs mb-1">紧张度 {emotionFunction.tension}/10</div>
                 <div className="h-1 bg-slate-200 rounded-full overflow-hidden">

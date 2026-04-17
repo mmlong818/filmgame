@@ -72,19 +72,6 @@ Click "Preview" at any phase to play through the full interactive story — with
 
 ---
 
-## Demo Project: Quantum Detective
-
-A built-in sample project — **Quantum Detective** — a sci-fi mystery interactive film game:
-
-> An amnesiac quantum physicist travels between parallel universes trying to recover his memories, only to discover that every version of himself made completely different choices.
-
-- **Scale**: 3 chapters · 9 acts · 63 nodes
-- **Endings**: 3 paths (Forgotten · Rebuilt / Fused · Reborn / Reset · Continued)
-- **Characters**: Lin Yu (protagonist), Alpha (antagonist / mirror self), Chen Xiao (side arc)
-- **Filled**: 54 nodes with complete dialogue and emotion design
-
----
-
 ## Getting Started
 
 ### Requirements
@@ -101,11 +88,7 @@ npm install
 npm run dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000)
-
-### Demo Project
-
-**No setup needed.** On first launch, *Quantum Detective* is automatically written to local storage and ready to open.
+Open [http://localhost:3000](http://localhost:3000) and start from the Projects screen — pick a template or create a blank project.
 
 ---
 

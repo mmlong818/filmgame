@@ -5,26 +5,28 @@ import { useToast } from '@/app/components/toast'
 import { useProjectStore } from '@/lib/store/projectStore'
 import type { StoryNode, DialogueLine, EmotionFunction } from '@/lib/types/project'
 import { nanoid } from 'nanoid'
+import {
+  inputClass,
+  NODE_TYPE_LABEL,
+  NODE_TYPE_STYLE,
+  speakerColor,
+  NodeTypeBadge,
+  SceneDescHint,
+  Section,
+  BulkProgressOverlay,
+} from './components/widgets'
+import {
+  SceneAnalysisPanel,
+  SceneTensionPanel,
+  ChoiceConsequencePanel,
+  ChoiceSuggestionsPanel,
+} from './components/AIPanels'
+import { NodeTreeSidebar } from './components/NodeTreeSidebar'
 
 type NodeDraft = {
   emotionFunction?: EmotionFunction
   sceneDesc?: string
   dialogue?: DialogueLine[]
-}
-
-function nodeCompleteness(node: StoryNode): number {
-  let score = 0
-  if (node.sceneDesc && node.sceneDesc.length > 20) score++
-  if ((node.dialogue ?? []).length >= 3) score++
-  if (node.emotionFunction?.tension > 0) score++
-  if ((node.choices ?? []).length > 0 || node.type === 'ending') score++
-  return score
-}
-
-function speakerColor(name: string): string {
-  const colors = ['text-amber-600', 'text-blue-600', 'text-purple-600', 'text-green-700', 'text-rose-600', 'text-teal-600']
-  const hash = name.split('').reduce((acc, ch) => acc + ch.charCodeAt(0), 0)
-  return colors[hash % colors.length]
 }
 
 function WorkshopPageInner() {
@@ -58,15 +60,6 @@ function WorkshopPageInner() {
     return () => window.removeEventListener('beforeunload', handler)
   }, [hasPendingDraft])
 
-  if (!project) return (
-    <div className="flex items-center justify-center h-64 text-gray-400 text-sm">
-      加载中...
-    </div>
-  )
-
-  const selected = project.nodes.find(n => n.id === selectedId)
-  const currentDraft = selectedId ? nodeDrafts[selectedId] : null
-
   useEffect(() => {
     function handleKey(e: KeyboardEvent) {
       if (['INPUT', 'TEXTAREA'].includes((e.target as HTMLElement).tagName)) return
@@ -88,6 +81,15 @@ function WorkshopPageInner() {
     window.addEventListener('keydown', handleKey)
     return () => window.removeEventListener('keydown', handleKey)
   }, [selectedId, project?.nodes])
+
+  if (!project) return (
+    <div className="flex items-center justify-center h-64 text-gray-400 text-sm">
+      加载中...
+    </div>
+  )
+
+  const selected = project.nodes.find(n => n.id === selectedId)
+  const currentDraft = selectedId ? nodeDrafts[selectedId] : null
 
   function linkExploreNode(fromNodeId: string, exploreNodeId: string) {
     if (!exploreNodeId || !project) return
@@ -345,26 +347,7 @@ function WorkshopPageInner() {
   return (
     <div className="flex flex-col h-[calc(100vh-112px)] relative">
       {bulkLoading && bulkProgress && (
-        <div className="absolute inset-0 z-50 bg-white/80 backdrop-blur-sm flex flex-col items-center justify-center gap-6">
-          <div className="text-center">
-            <div className="text-sm font-medium text-gray-700 mb-1">
-              {bulkProgress.phase === 'generate' ? '第一轮：生成内容' : '第二轮：精修对白'}
-            </div>
-            <div className="text-xs text-gray-400 mb-4">{bulkProgress.done} / {bulkProgress.total} 个节点</div>
-            <div className="w-64 h-1.5 bg-gray-100 rounded-full overflow-hidden">
-              <div
-                className="h-full bg-amber-400 rounded-full transition-all duration-300"
-                style={{ width: `${(bulkProgress.done / bulkProgress.total) * 100}%` }}
-              />
-            </div>
-          </div>
-          <button
-            onClick={() => { bulkCancelRef.current = true }}
-            className="text-xs text-gray-400 hover:text-red-500 border border-gray-200 hover:border-red-300 rounded-lg px-4 py-1.5 transition-colors"
-          >
-            取消
-          </button>
-        </div>
+        <BulkProgressOverlay progress={bulkProgress} onCancel={() => { bulkCancelRef.current = true }} />
       )}
       <div className="flex-shrink-0 px-6 py-3 border-b border-gray-200 bg-white flex items-center gap-3">
         <button
@@ -389,174 +372,22 @@ function WorkshopPageInner() {
       </div>
 
       <div className="flex flex-1 overflow-hidden">
-        <div className="w-72 bg-white border-r border-zinc-200 overflow-y-auto flex-shrink-0">
-          <div className="p-3 border-b border-gray-100 space-y-2">
-            <input
-              value={nodeSearch}
-              onChange={e => setNodeSearch(e.target.value)}
-              placeholder="搜索节点…"
-              className="w-full text-xs border border-gray-200 rounded-lg px-2.5 py-1.5 focus:outline-none focus:ring-1 focus:ring-amber-400 bg-white"
-            />
-            <DurationBar nodes={project.nodes} target={project.worldAnchor?.durationMinutes ?? 90} />
-            <CompletionBar nodes={project.nodes} />
-          </div>
-          <div className="p-2">
-            {project.chapters.sort((a, b) => a.order - b.order).map(ch => {
-              const chActs = project.acts.filter(a => a.chapterId === ch.id)
-              return (
-                <div key={ch.id} className="mb-3">
-                  <p className="text-xs font-semibold text-gray-500 px-2 py-1.5 border-b border-gray-100 mb-1">{ch.title}</p>
-                  {chActs.sort((a, b) => a.order - b.order).map(act => (
-                    <div key={act.id} className="mb-1">
-                      <p className="text-xs text-gray-400 px-2 py-0.5">{act.title}</p>
-                      {project.nodes.filter(n => {
-                        if (!act.nodeIds.includes(n.id)) return false
-                        if (!nodeSearch) return true
-                        if (n.title.includes(nodeSearch)) return true
-                        if (n.notes.includes(nodeSearch)) return true
-                        if ((n.sceneDesc ?? '').includes(nodeSearch)) return true
-                        if (n.dialogue.some(d => d.text.includes(nodeSearch) || d.speaker.includes(nodeSearch))) return true
-                        return false
-                      }).map(node => {
-                        const matchedLine = nodeSearch && !node.title.includes(nodeSearch)
-                          ? node.dialogue.find(d => d.text.includes(nodeSearch))
-                          : null
-                        const matchedSnippet = matchedLine
-                          ? matchedLine.text.slice(0, 40) + (matchedLine.text.length > 40 ? '…' : '')
-                          : null
-                        return (
-                        <button
-                          key={node.id}
-                          onClick={() => { setSelectedId(node.id); setChoiceSuggestions(null); setSceneAnalysis(null); setSceneTension(null); setChoiceConsequence(null) }}
-                          className={`w-full text-left px-2 py-1.5 rounded-lg text-xs transition-colors mb-0.5 flex items-center gap-1.5 ${selectedId === node.id ? 'bg-amber-50 text-amber-700 font-medium' : 'text-gray-700 hover:bg-gray-50'}`}
-                        >
-                          <NodeTypeBadge type={node.type} />
-                          <span className="flex-1 text-left leading-snug min-w-0">
-                            <span className="break-words line-clamp-2 block">{node.title}</span>
-                            {matchedSnippet && (
-                              <span className="block text-gray-400 italic mt-0.5">「{matchedSnippet}」</span>
-                            )}
-                          </span>
-                          {nodeDrafts[node.id] && <span className="w-1.5 h-1.5 rounded-full bg-amber-400 flex-shrink-0" />}
-                          <Completenessbadge score={nodeCompleteness(node)} />
-                        </button>
-                        )
-                      })}
-                      <button
-                        onClick={() => { const n = addNode(act.id); setSelectedId(n.id); setChoiceSuggestions(null); setSceneAnalysis(null); setSceneTension(null); setChoiceConsequence(null) }}
-                        className="w-full text-left px-2 py-1 rounded text-xs text-gray-300 hover:text-amber-500 hover:bg-amber-50 transition-colors mt-0.5"
-                      >
-                        + 添加节点
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              )
-            })}
-          </div>
-          {project.characters.length > 0 && (
-            <div className="border-t border-gray-100 p-3">
-              <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">角色速查</p>
-              <div className="space-y-2">
-                {project.characters.map(ch => (
-                  <div key={ch.id} className="text-xs">
-                    <span className="font-medium text-gray-700">{ch.name}</span>
-                    <span className="text-gray-400 ml-1">·</span>
-                    <span className="text-gray-500 ml-1">{ch.motivation || '动机未填'}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {project.characters.length > 0 && (() => {
-            const arcs = project.characters.map(ch => ({
-              ch,
-              nodes: project.nodes.filter(n => n.dialogue.some(d => d.speaker === ch.name)),
-            })).filter(({ nodes }) => nodes.length > 0)
-            if (arcs.length === 0) return null
-            return (
-              <div className="border-t border-gray-100 p-3">
-                <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">角色弧线</p>
-                <div className="space-y-2.5">
-                  {arcs.map(({ ch, nodes }) => (
-                    <div key={ch.id}>
-                      <p className="text-xs font-medium text-gray-600 mb-1">
-                        {ch.name} <span className="text-gray-400 font-normal">· {nodes.length}节点</span>
-                      </p>
-                      <div className="flex flex-wrap gap-1">
-                        {nodes.map(n => (
-                          <button
-                            key={n.id}
-                            onClick={() => { setSelectedId(n.id); setChoiceSuggestions(null); setSceneAnalysis(null); setSceneTension(null); setChoiceConsequence(null) }}
-                            className="text-[10px] px-1.5 py-0.5 rounded border border-gray-100 text-gray-500 hover:border-amber-200 hover:text-amber-600 transition-colors"
-                          >
-                            {n.title || '无标题'}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )
-          })()}
-
-          {project.variables.length > 0 && (() => {
-            const varUsage = project.variables.map(v => {
-              const readNodes = project.nodes.filter(n => n.systemFunction.variablesRead.includes(v.name))
-              const writeNodes = project.nodes.filter(n => n.systemFunction.variablesWrite.includes(v.name))
-              const effectNodes = project.nodes.filter(n => n.choices.some(c => c.variableEffects.includes(v.name)))
-              const total = new Set([...readNodes.map(n => n.id), ...writeNodes.map(n => n.id), ...effectNodes.map(n => n.id)]).size
-              return { v, readNodes, writeNodes, effectNodes, total }
-            }).filter(({ total }) => total > 0)
-            if (varUsage.length === 0) return null
-            return (
-              <div className="border-t border-gray-100 p-3">
-                <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">变量索引</p>
-                <div className="space-y-2.5">
-                  {varUsage.map(({ v, readNodes, writeNodes, effectNodes }) => (
-                    <div key={v.id}>
-                      <p className="text-xs font-medium text-gray-600 mb-1">
-                        {v.name}
-                        <span className="text-gray-400 font-normal ml-1">({v.type})</span>
-                      </p>
-                      <div className="space-y-1">
-                        {readNodes.length > 0 && (
-                          <div className="flex flex-wrap items-center gap-1">
-                            <span className="text-[10px] text-blue-500 w-6 shrink-0">读</span>
-                            {readNodes.map(n => (
-                              <button key={n.id} onClick={() => { setSelectedId(n.id); setChoiceSuggestions(null); setSceneAnalysis(null); setSceneTension(null); setChoiceConsequence(null) }}
-                                className="text-[10px] px-1.5 py-0.5 rounded border border-blue-100 text-blue-600 hover:bg-blue-50 transition-colors">{n.title || '无标题'}</button>
-                            ))}
-                          </div>
-                        )}
-                        {writeNodes.length > 0 && (
-                          <div className="flex flex-wrap items-center gap-1">
-                            <span className="text-[10px] text-amber-500 w-6 shrink-0">写</span>
-                            {writeNodes.map(n => (
-                              <button key={n.id} onClick={() => { setSelectedId(n.id); setChoiceSuggestions(null); setSceneAnalysis(null); setSceneTension(null); setChoiceConsequence(null) }}
-                                className="text-[10px] px-1.5 py-0.5 rounded border border-amber-100 text-amber-600 hover:bg-amber-50 transition-colors">{n.title || '无标题'}</button>
-                            ))}
-                          </div>
-                        )}
-                        {effectNodes.length > 0 && (
-                          <div className="flex flex-wrap items-center gap-1">
-                            <span className="text-[10px] text-rose-500 w-6 shrink-0">效</span>
-                            {effectNodes.map(n => (
-                              <button key={n.id} onClick={() => { setSelectedId(n.id); setChoiceSuggestions(null); setSceneAnalysis(null); setSceneTension(null); setChoiceConsequence(null) }}
-                                className="text-[10px] px-1.5 py-0.5 rounded border border-rose-100 text-rose-600 hover:bg-rose-50 transition-colors">{n.title || '无标题'}</button>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )
-          })()}
-        </div>
+        <NodeTreeSidebar
+          project={project}
+          nodeSearch={nodeSearch}
+          onSearchChange={setNodeSearch}
+          selectedId={selectedId}
+          onSelectNode={(id) => {
+            setSelectedId(id)
+            setChoiceSuggestions(null); setSceneAnalysis(null); setSceneTension(null); setChoiceConsequence(null)
+          }}
+          hasDraft={(id) => !!nodeDrafts[id]}
+          onAddNode={(actId) => {
+            const n = addNode(actId)
+            setSelectedId(n.id)
+            setChoiceSuggestions(null); setSceneAnalysis(null); setSceneTension(null); setChoiceConsequence(null)
+          }}
+        />
 
         <div className="flex-1 overflow-y-auto">
           {!selected ? (
@@ -824,65 +655,16 @@ function WorkshopPageInner() {
               </Section>
 
               {sceneAnalysis && (
-                <div className="border border-amber-100 rounded-xl overflow-hidden">
-                  <div className="flex items-center justify-between px-4 py-2.5 bg-amber-50 border-b border-amber-100">
-                    <span className="text-xs font-semibold text-amber-700">场景分析报告</span>
-                    <button onClick={() => setSceneAnalysis(null)} className="text-xs text-gray-400 hover:text-gray-600">✕</button>
-                  </div>
-                  <div className="p-4 space-y-4">
-                    <div className="bg-green-50 border border-green-100 rounded-lg p-3">
-                      <p className="text-xs font-semibold text-green-700 mb-1">有效之处</p>
-                      <p className="text-xs text-green-800 leading-relaxed">{sceneAnalysis.working}</p>
-                    </div>
-                    {sceneAnalysis.issues.length > 0 && (
-                      <div className="space-y-2">
-                        <p className="text-xs font-semibold text-gray-600">需要修改</p>
-                        {sceneAnalysis.issues.map((issue, i) => (
-                          <div key={i} className="bg-gray-50 border border-gray-100 rounded-lg p-3 space-y-1.5">
-                            <p className="text-xs text-gray-500 italic">"{issue.line}"</p>
-                            <p className="text-xs text-red-600">{issue.problem}</p>
-                            <p className="text-xs text-gray-700 font-medium">→ {issue.fix}</p>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                    <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
-                      <p className="text-xs font-semibold text-amber-700 mb-1">杀手台词建议</p>
-                      <p className="text-xs text-amber-900 leading-relaxed">{sceneAnalysis.killer_line}</p>
-                    </div>
-                  </div>
-                </div>
+                <SceneAnalysisPanel data={sceneAnalysis} onClose={() => setSceneAnalysis(null)} />
               )}
 
               {sceneTension && (
-                <div className="border border-violet-100 rounded-xl overflow-hidden">
-                  <div className="flex items-center justify-between px-4 py-2.5 bg-violet-50 border-b border-violet-100">
-                    <span className="text-xs font-semibold text-violet-700">⚡ 场景张力诊断</span>
-                    <div className="flex items-center gap-2">
-                      <button onClick={() => setSceneTensionOpen(o => !o)} className="text-xs text-gray-400 hover:text-gray-600">{sceneTensionOpen ? '收起' : '展开'}</button>
-                      <button onClick={() => setSceneTension(null)} className="text-xs text-gray-400 hover:text-gray-600">✕</button>
-                    </div>
-                  </div>
-                  {sceneTensionOpen && (
-                    <div className="p-4 space-y-2 text-xs">
-                      {([
-                        { key: 'tension_diagnosis', label: '张力诊断' },
-                        { key: 'missing_element', label: '缺失元素' },
-                        { key: 'rewrite_suggestion', label: '改写建议' },
-                        { key: 'upgraded_line', label: '升级台词' },
-                        { key: 'mcguffin', label: '麦格芬' },
-                        { key: 'dramatic_irony', label: '戏剧性反讽' },
-                      ] as { key: keyof typeof sceneTension; label: string }[]).map(({ key, label }) =>
-                        sceneTension[key] ? (
-                          <div key={key} className="flex gap-2">
-                            <span className="text-violet-500 font-medium shrink-0 w-20">{label}</span>
-                            <span className="text-gray-700 leading-relaxed">{sceneTension[key]}</span>
-                          </div>
-                        ) : null
-                      )}
-                    </div>
-                  )}
-                </div>
+                <SceneTensionPanel
+                  data={sceneTension}
+                  open={sceneTensionOpen}
+                  onToggle={() => setSceneTensionOpen(o => !o)}
+                  onClose={() => setSceneTension(null)}
+                />
               )}
 
               {selected.type === 'explore' && (
@@ -1052,41 +834,11 @@ function WorkshopPageInner() {
                   })()}
 
                   {choiceConsequence && (
-                    <div className="bg-rose-50 border border-rose-100 rounded-xl p-4 mt-2">
-                      <div className="flex items-center justify-between mb-3">
-                        <span className="text-xs font-semibold text-rose-700">🎯 选项后果推演</span>
-                        <button onClick={() => setChoiceConsequence(null)} className="text-xs text-gray-400 hover:text-gray-600">✕</button>
-                      </div>
-                      <div className="space-y-2 text-xs">
-                        {Object.entries(choiceConsequence).map(([key, val]) => (
-                          <div key={key} className="flex gap-2">
-                            <span className="text-rose-500 font-medium shrink-0 w-24">{key}</span>
-                            <span className="text-gray-700 leading-relaxed">{val}</span>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
+                    <ChoiceConsequencePanel data={choiceConsequence} onClose={() => setChoiceConsequence(null)} />
                   )}
 
                   {choiceSuggestions && (
-                    <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 mt-2">
-                      <div className="flex items-center justify-between mb-3">
-                        <span className="text-xs font-semibold text-amber-700">AI 建议选项</span>
-                        <button onClick={() => setChoiceSuggestions(null)} className="text-xs text-gray-400 hover:text-gray-600">✕</button>
-                      </div>
-                      <div className="space-y-2">
-                        {choiceSuggestions.map((s, i) => (
-                          <div key={i} className="bg-white rounded-lg p-3 border border-amber-100 space-y-1">
-                            <div className="text-sm font-medium text-gray-800">{s.text}</div>
-                            <div className="text-xs text-gray-500">即时：{s.consequence}</div>
-                            <div className="text-xs text-gray-400">长期：{s.longterm}</div>
-                            {s.dramatic_cost && <div className="text-xs text-red-500 mt-1">代价：{s.dramatic_cost}</div>}
-                            {s.thematic_resonance && <div className="text-xs text-amber-600 italic">主题：{s.thematic_resonance}</div>}
-                          </div>
-                        ))}
-                      </div>
-                      <p className="text-xs text-amber-600 mt-2 opacity-70">以上为参考建议，请手动在节点选择中添加</p>
-                    </div>
+                    <ChoiceSuggestionsPanel data={choiceSuggestions} onClose={() => setChoiceSuggestions(null)} />
                   )}
                 </Section>
               )}
@@ -1128,133 +880,5 @@ export default function WorkshopPage() {
     <Suspense fallback={<div className="flex items-center justify-center h-64 text-gray-400 text-sm">加载中...</div>}>
       <WorkshopPageInner />
     </Suspense>
-  )
-}
-
-const inputClass = 'w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500 bg-white'
-
-const NODE_TYPE_LABEL: Record<string, string> = {
-  start:   '开场节点 · 故事起点',
-  ending:  '结局节点 · 故事终点',
-  branch:  '分支节点 · 玩家做出选择',
-  merge:   '汇聚节点 · 多线收束',
-  normal:  '推进节点 · 情节推进',
-  explore: '探索节点 · 可选旁支内容',
-}
-
-const NODE_TYPE_STYLE: Record<string, {
-  icon: string; label: string
-  badgeBg: string; badgeText: string; badgeBorder: string
-  sidebarText: string; sidebarIcon: string
-}> = {
-  start:   { icon: '▶', label: '开场', badgeBg: 'bg-emerald-50', badgeText: 'text-emerald-700', badgeBorder: 'border-emerald-200', sidebarText: 'text-emerald-600', sidebarIcon: '▶' },
-  ending:  { icon: '★', label: '结局', badgeBg: 'bg-amber-50',   badgeText: 'text-amber-700',   badgeBorder: 'border-amber-200',   sidebarText: 'text-amber-600',   sidebarIcon: '★' },
-  branch:  { icon: '◆', label: '分支', badgeBg: 'bg-violet-50',  badgeText: 'text-violet-700',  badgeBorder: 'border-violet-200',  sidebarText: 'text-violet-600',  sidebarIcon: '◆' },
-  merge:   { icon: '◀', label: '汇聚', badgeBg: 'bg-rose-50',    badgeText: 'text-rose-700',    badgeBorder: 'border-rose-200',    sidebarText: 'text-rose-600',    sidebarIcon: '◀' },
-  normal:  { icon: '·', label: '推进', badgeBg: 'bg-zinc-50',    badgeText: 'text-zinc-600',    badgeBorder: 'border-zinc-200',    sidebarText: 'text-zinc-400',    sidebarIcon: '·' },
-  explore: { icon: '◎', label: '探索', badgeBg: 'bg-teal-50',    badgeText: 'text-teal-700',    badgeBorder: 'border-teal-200',    sidebarText: 'text-teal-500',    sidebarIcon: '◎' },
-}
-
-function NodeTypeBadge({ type, size = 'sm' }: { type: string; size?: 'sm' | 'md' }) {
-  const s = NODE_TYPE_STYLE[type] ?? NODE_TYPE_STYLE.normal
-  if (size === 'md') {
-    return (
-      <span className={`inline-flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-full border ${s.badgeBg} ${s.badgeText} ${s.badgeBorder}`}>
-        <span className="text-[10px]">{s.icon}</span>
-        {s.label}
-      </span>
-    )
-  }
-  return (
-    <span className={`text-[11px] font-bold shrink-0 w-5 text-center ${s.sidebarText}`}>{s.sidebarIcon}</span>
-  )
-}
-
-function DurationBar({ nodes, target }: { nodes: StoryNode[]; target: number }) {
-  const estimated = Math.round(nodes.reduce((s, n) => s + n.dialogue.length * 18, 0) / 60)
-  const ratio = target > 0 ? Math.min(estimated / target, 1.5) : 0
-  const pct = Math.min(ratio / 1.5 * 100, 100)
-  const isOver = estimated > target * 1.2
-  const isUnder = estimated < target * 0.5
-  const barColor = isOver || isUnder ? 'bg-red-400' : estimated < target * 0.8 ? 'bg-amber-400' : 'bg-green-400'
-  const textColor = isOver ? 'text-red-500' : isUnder ? 'text-red-400' : 'text-gray-400'
-  return (
-    <div className="mt-2">
-      <div className="flex items-center justify-between mb-1">
-        <span className="text-xs text-gray-400">预计时长</span>
-        <span className={`text-xs font-medium ${textColor}`}>
-          {estimated} / {target} 分钟
-          {isOver && ' ⚠ 超长'}{isUnder && estimated === 0 && ' · 待填充'}
-        </span>
-      </div>
-      <div className="w-full h-1.5 bg-gray-100 rounded-full overflow-hidden">
-        <div className={`h-full rounded-full transition-all ${barColor}`} style={{ width: `${pct}%` }} />
-      </div>
-    </div>
-  )
-}
-
-function CompletionBar({ nodes }: { nodes: StoryNode[] }) {
-  const total = nodes.length
-  if (total === 0) return null
-  const done = nodes.filter(n => nodeCompleteness(n) === 4).length
-  const pct = Math.round((done / total) * 100)
-  return (
-    <div className="mt-1">
-      <div className="flex items-center justify-between mb-1">
-        <span className="text-xs text-gray-400">已填充 {done}/{total} 节点 ({pct}%)</span>
-      </div>
-      <div className="w-full h-1.5 bg-gray-100 rounded-full overflow-hidden">
-        <div
-          className={`h-full rounded-full transition-all ${pct === 100 ? 'bg-green-400' : pct >= 50 ? 'bg-yellow-400' : 'bg-red-300'}`}
-          style={{ width: `${pct}%` }}
-        />
-      </div>
-    </div>
-  )
-}
-
-function Completenessbadge({ score }: { score: number }) {
-  const colorClass = score === 4
-    ? 'bg-green-100 text-green-700'
-    : score >= 2
-    ? 'bg-yellow-100 text-yellow-700'
-    : 'bg-red-100 text-red-600'
-  return (
-    <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded flex-shrink-0 ${colorClass}`}>
-      {score}/4
-    </span>
-  )
-}
-
-function SceneDescHint({ n }: { n: number }) {
-  if (n === 0) return null
-  if (n < 60) return <p className="text-gray-400 text-xs mt-1">建议 60+ 字以呈现镜头感</p>
-  if (n <= 120) return <p className="text-green-500 text-xs mt-1">✓ {n} 字</p>
-  return <p className="text-green-600 text-xs mt-1">✓ {n} 字 · 场景感充足</p>
-}
-
-function Section({ title, action, children }: {
-  title: string
-  action?: { label: string; loading: boolean; onClick: () => void }
-  children: React.ReactNode
-}) {
-  return (
-    <div>
-      <div className="flex items-center justify-between mb-3">
-        <h3 className="text-sm font-semibold text-gray-700">{title}</h3>
-        {action && (
-          <button
-            onClick={action.onClick}
-            disabled={action.loading}
-            className="text-xs text-amber-600 hover:text-amber-700 disabled:opacity-40 flex items-center gap-1"
-          >
-            {action.loading && <span className="w-2.5 h-2.5 border border-amber-400 border-t-transparent rounded-full animate-spin" />}
-            {action.label}
-          </button>
-        )}
-      </div>
-      {children}
-    </div>
   )
 }
