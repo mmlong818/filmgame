@@ -1,9 +1,42 @@
 import { spawn } from 'child_process'
-import { createReadStream } from 'fs'
+import { createReadStream, existsSync } from 'fs'
 import { writeFile, unlink } from 'fs/promises'
 import { join } from 'path'
 import path from 'path'
 import os from 'os'
+
+type ClaudeCommand = { exe: string; args: string[] }
+
+function resolveClaudeCommand(): ClaudeCommand {
+  const isWin = process.platform === 'win32'
+  const home = os.homedir()
+
+  // 1) Standalone exe (new install method) — prefer local bin
+  const standaloneCandidates = isWin
+    ? [
+        process.env.CLAUDE_CLI_PATH,
+        path.join(home, '.local', 'bin', 'claude.exe'),
+        path.join(home, '.claude', 'bin', 'claude.exe'),
+      ]
+    : [
+        process.env.CLAUDE_CLI_PATH,
+        path.join(home, '.local', 'bin', 'claude'),
+        path.join(home, '.claude', 'bin', 'claude'),
+        '/usr/local/bin/claude',
+      ]
+  for (const p of standaloneCandidates) {
+    if (p && existsSync(p)) return { exe: p, args: ['--print', '--output-format', 'text'] }
+  }
+
+  // 2) Legacy npm-global install — run via node
+  const npmJs = path.join(home, 'AppData/Roaming/npm/node_modules/@anthropic-ai/claude-code/cli.js')
+  if (existsSync(npmJs)) {
+    return { exe: process.execPath, args: [npmJs, '--print', '--output-format', 'text'] }
+  }
+
+  // 3) Fallback: trust PATH (shell-resolved)
+  return { exe: isWin ? 'claude.exe' : 'claude', args: ['--print', '--output-format', 'text'] }
+}
 
 export async function callClaude(prompt: string, timeoutMs: number): Promise<string> {
   const tmpDir = process.env.TEMP || process.env.TMP || os.tmpdir()
@@ -19,8 +52,8 @@ export async function callClaude(prompt: string, timeoutMs: number): Promise<str
       delete spawnEnv.ANTHROPIC_API_KEY
     }
 
-    const claudeScript = path.join(os.homedir(), 'AppData/Roaming/npm/node_modules/@anthropic-ai/claude-code/cli.js')
-    const proc = spawn(process.execPath, [claudeScript, '--print', '--output-format', 'text'], {
+    const cmd = resolveClaudeCommand()
+    const proc = spawn(cmd.exe, cmd.args, {
       shell: false,
       cwd: tmpDir,
       stdio: ['pipe', 'pipe', 'pipe'],
