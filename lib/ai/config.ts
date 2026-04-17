@@ -23,7 +23,7 @@ export const PROVIDER_LABELS: Record<AIProvider, string> = {
   custom: '自定义端点（OpenAI 兼容）',
 }
 
-export const SETTINGS_KEY = 'filmgame:ai-settings'
+const SETTINGS_KEY = 'filmgame:ai-settings'
 
 export function loadAIConfig(): AIConfig {
   if (typeof window === 'undefined') return { provider: 'claude_cli' }

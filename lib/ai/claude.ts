@@ -38,7 +38,7 @@ function resolveClaudeCommand(): ClaudeCommand {
   return { exe: isWin ? 'claude.exe' : 'claude', args: ['--print', '--output-format', 'text'] }
 }
 
-export async function callClaude(prompt: string, timeoutMs: number): Promise<string> {
+async function callClaude(prompt: string, timeoutMs: number): Promise<string> {
   const tmpDir = process.env.TEMP || process.env.TMP || os.tmpdir()
   const promptFile = join(tmpDir, `claude_prompt_${Date.now()}_${Math.random().toString(36).slice(2)}.txt`)
   await writeFile(promptFile, prompt, 'utf8')

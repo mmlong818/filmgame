@@ -24,29 +24,6 @@ export function loadProject(id: string): Project | null {
   } catch { return null }
 }
 
-export async function loadProjectWithFallback(id: string): Promise<Project | null> {
-  const local = loadProject(id)
-  try {
-    const res = await fetch(`/api/projects/${id}`)
-    if (res.ok) {
-      const { project: serverData } = await res.json()
-      if (serverData) {
-        if (local && local.updatedAt && serverData.updatedAt) {
-          if (new Date(local.updatedAt) > new Date(serverData.updatedAt)) {
-            return local
-          }
-        }
-        try {
-          localStorage.setItem(projectKey(id), JSON.stringify(serverData))
-          updateIndex(serverData)
-        } catch { /* ignore */ }
-        return serverData
-      }
-    }
-  } catch { /* server unavailable, fall through */ }
-  return local
-}
-
 function updateIndex(project: Project): void {
   const summaries = listProjects()
   const summary: ProjectSummary = {

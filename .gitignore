@@ -49,3 +49,8 @@ scripts/.seed-witness-state.json
 
 # data logs
 data/gen-log.txt
+
+# real-world check artifacts (local evidence, not app content)
+/public/rwc
+/public/rwc-ai
+/public/rwc-full

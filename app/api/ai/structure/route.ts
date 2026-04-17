@@ -35,7 +35,7 @@ export async function POST(req: NextRequest) {
       const prompt = buildPrompt('structure', 'chapter', {
         worldAnchor, scalePlan, characters, spine, chapterIndex: i,
       })
-      return callClaudeWithRetry(prompt, CHAPTER_TIMEOUT).then(({ json, raw }) => {
+      return callClaudeWithRetry(prompt, CHAPTER_TIMEOUT).then(({ json }) => {
         if (isFallback(json)) {
           console.warn(`[structure/route] 第${i+1}章解析失败`)
           return null

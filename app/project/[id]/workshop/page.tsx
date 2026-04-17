@@ -8,7 +8,6 @@ import { nanoid } from 'nanoid'
 import {
   inputClass,
   NODE_TYPE_LABEL,
-  NODE_TYPE_STYLE,
   speakerColor,
   NodeTypeBadge,
   SceneDescHint,

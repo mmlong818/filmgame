@@ -230,45 +230,6 @@ export function ArtDecoStepCorner({
   )
 }
 
-/** Corner fan — kept for narrower contexts */
-export function ArtDecoCornerFan({
-  corner,
-  size = 80,
-  opacity = 0.55,
-  className = '',
-}: {
-  corner: 'tl' | 'tr' | 'bl' | 'br'
-  size?: number
-  opacity?: number
-  className?: string
-}) {
-  const rotations = { tl: 0, tr: 90, br: 180, bl: 270 }
-  const r = size - 6
-  return (
-    <svg
-      width={size}
-      height={size}
-      viewBox={`0 0 ${size} ${size}`}
-      style={{ opacity, transform: `rotate(${rotations[corner]}deg)` }}
-      className={`absolute pointer-events-none ${className}`}
-    >
-      {[0, 18, 36, 54, 72, 90].map((angle, i) => {
-        const rad = (angle * Math.PI) / 180
-        const x2 = (Math.cos(rad) * r).toFixed(1)
-        const y2 = (Math.sin(rad) * r).toFixed(1)
-        return (
-          <line key={i} x1="0" y1="0" x2={x2} y2={y2}
-            stroke="var(--gold-bright)" strokeWidth="1.5" />
-        )
-      })}
-      <path d={`M ${r},0 A ${r},${r} 0 0 1 0,${r}`}
-        fill="none" stroke="var(--gold-bright)" strokeWidth="2" />
-      <path d={`M ${r * 0.6},0 A ${r * 0.6},${r * 0.6} 0 0 1 0,${r * 0.6}`}
-        fill="none" stroke="var(--gold-dim)" strokeWidth="1" />
-    </svg>
-  )
-}
-
 /** Wordmark — the brand centerpiece */
 export function ShellWordmark({ size = 'lg' }: { size?: 'sm' | 'lg' }) {
   if (size === 'sm') {

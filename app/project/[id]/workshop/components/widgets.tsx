@@ -12,7 +12,7 @@ export const NODE_TYPE_LABEL: Record<string, string> = {
   explore: '探索节点 · 可选旁支内容',
 }
 
-export const NODE_TYPE_STYLE: Record<string, {
+const NODE_TYPE_STYLE: Record<string, {
   icon: string; label: string
   badgeBg: string; badgeText: string; badgeBorder: string
   sidebarText: string; sidebarIcon: string
