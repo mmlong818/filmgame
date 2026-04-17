@@ -217,7 +217,7 @@ export default function PreviewPage() {
 
   if (nodes.length === 0) {
     return (
-      <div className={`min-h-full bg-slate-50 flex items-center justify-center ${theme === 'dark' ? 'preview-dark' : ''}`}>
+      <div data-preview-theme={theme} className="min-h-full bg-slate-50 flex items-center justify-center">
         <div className="text-center">
           <div className="text-slate-300 text-5xl mb-6">🎬</div>
           <h2 className="text-slate-700 text-lg font-medium mb-2">暂无内容可预览</h2>
@@ -248,7 +248,7 @@ export default function PreviewPage() {
   const emotionFunction = currentNode.emotionFunction ?? {}
 
   return (
-    <div className={`min-h-full bg-slate-50 flex flex-col ${theme === 'dark' ? 'preview-dark' : ''}`}>
+    <div data-preview-theme={theme} className="min-h-full bg-slate-50 flex flex-col">
       <div className="bg-white/80 border-b border-slate-200 px-6 py-2.5 flex items-center gap-4">
         <Link
           href={`/project/${projectId}/${project.currentPhase === 'workshop' || project.currentPhase === 'validate' ? 'workshop' : 'structure'}`}

@@ -866,7 +866,7 @@ function WorkshopPageInner() {
         </button>
       </div>
 
-      <div className="fixed bottom-20 right-6 text-xs text-gray-300 space-y-0.5">
+      <div className="fixed bottom-4 left-6 text-xs text-gray-300 space-y-0.5 pointer-events-none">
         <div>J / ↓ 下一节点</div>
         <div>K / ↑ 上一节点</div>
         <div>Esc 取消选择</div>
