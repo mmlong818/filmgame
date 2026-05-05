@@ -8,14 +8,29 @@ import { RETRY_SUFFIX } from './lc-cli-model'
 const SPINE_TIMEOUT = 90000
 const CHAPTER_TIMEOUT = 300000
 
-function extractJsonObject(text: string): unknown {
+function extractJson(text: string): unknown {
   const t = text.trim()
+  if ((t.startsWith('"') && t.endsWith('"')) || (t.startsWith("'") && t.endsWith("'"))) {
+    try {
+      const inner = JSON.parse(t)
+      if (typeof inner === 'string') {
+        try { return JSON.parse(inner) } catch {}
+      }
+    } catch {}
+  }
   const blockMatch = t.match(/```(?:json)?\s*([\s\S]*?)```/)
-  const jsonStr = blockMatch ? blockMatch[1].trim() : t
-  const start = jsonStr.indexOf('{')
-  const end = jsonStr.lastIndexOf('}')
+  if (blockMatch) {
+    try { return JSON.parse(blockMatch[1].trim()) } catch {}
+  }
+  const start = t.indexOf('{')
+  const end = t.lastIndexOf('}')
   if (start !== -1 && end > start) {
-    try { return JSON.parse(jsonStr.slice(start, end + 1)) } catch {}
+    try { return JSON.parse(t.slice(start, end + 1)) } catch {}
+  }
+  const astart = t.indexOf('[')
+  const aend = t.lastIndexOf(']')
+  if (astart !== -1 && aend > astart) {
+    try { return JSON.parse(t.slice(astart, aend + 1)) } catch {}
   }
   return null
 }
@@ -33,7 +48,7 @@ async function generateSpineWithModel(
     const input = i === 0 ? prompt : prompt + RETRY_SUFFIX
     const result = await model.invoke([new HumanMessage(input)])
     const raw = typeof result.content === 'string' ? result.content : JSON.stringify(result.content)
-    const extracted = extractJsonObject(raw)
+    const extracted = extractJson(raw)
     if (extracted !== null) {
       const parsed = SpineSchema.safeParse(extracted)
       if (parsed.success) return parsed.data
@@ -59,7 +74,7 @@ async function generateChapterWithModel(
     const input = i === 0 ? prompt : prompt + RETRY_SUFFIX
     const result = await model.invoke([new HumanMessage(input)])
     const raw = typeof result.content === 'string' ? result.content : JSON.stringify(result.content)
-    const extracted = extractJsonObject(raw)
+    const extracted = extractJson(raw)
     if (extracted !== null) {
       const parsed = ChapterDraftSchema.safeParse(extracted)
       if (parsed.success) return parsed.data
@@ -88,7 +103,7 @@ export async function runStructureGraph(input: StructureGraphInput): Promise<Str
   // Phase 1: generate spine
   const spine = await generateSpineWithModel(worldAnchor, scalePlan, characters)
   if (!spine) {
-    console.warn('[lg-structure] spine 解析失败，使用空骨干继续')
+    // spine 解析失败时使用空骨干继续
   }
 
   // Phase 2: parallel chapter generation
