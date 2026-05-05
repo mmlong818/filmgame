@@ -54,3 +54,6 @@ data/gen-log.txt
 /public/rwc
 /public/rwc-ai
 /public/rwc-full
+
+# worktrees
+.worktrees/
