@@ -1,8 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { buildPrompt } from '@/lib/ai/prompts'
-import { isFallback } from '@/lib/ai/claude'
-import { callProvider } from '@/lib/ai/call-provider'
-import { loadServerAIConfig } from '@/lib/ai/server-config'
+import { runChain } from '@/lib/ai/lc-chains'
 import type { Phase } from '@/lib/types/phase'
 
 function getTimeout(phase: string, action: string): number {
@@ -15,9 +12,10 @@ function getTimeout(phase: string, action: string): number {
   return 120000
 }
 
-function classifyError(msg: string): { error: string; errorType: 'no_cli' | 'timeout' | 'parse_failed' | 'unknown' } {
-  if (msg.startsWith('no_cli:')) return { error: msg.replace('no_cli: ', ''), errorType: 'no_cli' }
-  if (msg.startsWith('timeout:')) return { error: msg.replace('timeout: ', ''), errorType: 'timeout' }
+function classifyError(msg: string): { error: string; errorType: string } {
+  if (msg.startsWith('no_cli:')) return { error: msg, errorType: 'no_cli' }
+  if (msg.startsWith('timeout:')) return { error: msg, errorType: 'timeout' }
+  if (msg.startsWith('parse_failed:')) return { error: msg, errorType: 'parse_failed' }
   return { error: msg, errorType: 'unknown' }
 }
 
@@ -26,26 +24,12 @@ export async function POST(req: NextRequest) {
   let action: string | undefined
   try {
     const body = await req.json()
-    ;({ phase, action } = body as { phase: Phase; action: string; context: Record<string, unknown> })
+    ;({ phase, action } = body as { phase: Phase; action: string })
     const context = body.context as Record<string, unknown>
-    const prompt = buildPrompt(phase as Phase, action, context)
     const timeoutMs = getTimeout(phase ?? '', action ?? '')
 
-    const config = await loadServerAIConfig()
-    const { raw, json } = await callProvider(prompt, config, timeoutMs)
-
-    if (isFallback(json)) {
-      return NextResponse.json({
-        ok: false,
-        error: 'parse_failed: AI response could not be parsed as JSON after 3 attempts',
-        errorType: 'parse_failed',
-        phase,
-        action,
-        raw,
-      }, { status: 502 })
-    }
-
-    return NextResponse.json({ ok: true, result: json })
+    const result = await runChain({ phase: phase!, action: action!, context, timeoutMs })
+    return NextResponse.json({ ok: true, result })
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err)
     const { error, errorType } = classifyError(msg)
