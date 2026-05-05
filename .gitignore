@@ -33,6 +33,7 @@ dev.log
 
 # env files
 .env*
+!.env.local.example
 
 # vercel
 .vercel
