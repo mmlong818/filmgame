@@ -22,10 +22,14 @@ export async function GET() {
   }
 }
 
+const SAFE_ID = /^[a-zA-Z0-9_-]{1,64}$/
+
 export async function POST(req: NextRequest) {
   try {
     const project = await req.json()
-    if (!project?.id) return NextResponse.json({ ok: false, error: 'missing id' }, { status: 400 })
+    if (!project?.id || !SAFE_ID.test(project.id)) {
+      return NextResponse.json({ ok: false, error: 'invalid id' }, { status: 400 })
+    }
     const { mkdir } = await import('fs/promises')
     await mkdir(DATA_DIR, { recursive: true })
     await writeFile(join(DATA_DIR, `${project.id}.json`), JSON.stringify(project, null, 2), 'utf8')

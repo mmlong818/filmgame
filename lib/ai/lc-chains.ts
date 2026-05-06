@@ -75,13 +75,14 @@ export interface ChainRunOptions {
 
 // 模块级缓存，避免每次请求重新创建 LangChain 实例导致内存泄漏
 let cachedModel: BaseChatModel | null = null
-let cachedProvider = ''
+let cachedCacheKey = ''
 
 async function getModel(timeoutMs: number): Promise<{ model: BaseChatModel; provider: string }> {
   const config = await loadServerAIConfig()
-  if (!cachedModel || cachedProvider !== config.provider) {
+  const cacheKey = `${config.provider}:${config.apiKey ?? ''}:${config.baseUrl ?? ''}`
+  if (!cachedModel || cachedCacheKey !== cacheKey) {
     cachedModel = createModel(config, { timeoutMs })
-    cachedProvider = config.provider
+    cachedCacheKey = cacheKey
   }
   return { model: cachedModel, provider: config.provider }
 }

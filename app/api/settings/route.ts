@@ -1,5 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { z } from 'zod'
 import { loadServerAIConfig, saveServerAIConfig } from '@/lib/ai/server-config'
+
+const AIConfigSchema = z.object({
+  provider: z.enum(['claude_cli', 'anthropic', 'openai', 'gemini', 'custom']),
+  apiKey: z.string().max(256).optional(),
+  model: z.string().max(128).optional(),
+  baseUrl: z.string().url().max(512).optional(),
+})
 
 export async function GET() {
   const config = await loadServerAIConfig()
@@ -13,9 +21,13 @@ export async function GET() {
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json()
-    await saveServerAIConfig(body)
+    const parsed = AIConfigSchema.safeParse(body)
+    if (!parsed.success) {
+      return NextResponse.json({ ok: false, error: 'invalid config' }, { status: 400 })
+    }
+    await saveServerAIConfig(parsed.data)
     return NextResponse.json({ ok: true })
-  } catch (err) {
-    return NextResponse.json({ ok: false, error: String(err) }, { status: 500 })
+  } catch {
+    return NextResponse.json({ ok: false, error: 'internal error' }, { status: 500 })
   }
 }
