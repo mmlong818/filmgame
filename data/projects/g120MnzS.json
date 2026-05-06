@@ -1,0 +1,3625 @@
+{
+  "id": "g120MnzS",
+  "title": "未命名爱情项目",
+  "createdAt": "2026-05-05T23:25:58.442Z",
+  "updatedAt": "2026-05-06T08:58:44.587Z",
+  "currentPhase": "validate",
+  "phaseProgress": {
+    "world": "done",
+    "scale": "done",
+    "structure": "done",
+    "workshop": "done",
+    "validate": "in_progress"
+  },
+  "worldAnchor": {
+    "storyCore": "两个人在错误的时间相遇，爱上了彼此，但他们各自都有无法共存的过去。",
+    "theme": "爱的本质——是占有还是放手？",
+    "genre": "浪漫剧情",
+    "worldRules": "1. 每个人都在寻找被真正理解的感觉\n2. 过去的伤害会以意想不到的方式重现\n3. 选择意味着放弃另一种可能",
+    "durationMinutes": 75,
+    "endingCount": 4
+  },
+  "characters": [],
+  "selectedScalePlanId": "plan_a",
+  "scalePlanOptions": [
+    {
+      "id": "plan_a",
+      "label": "精简版",
+      "chapterCount": 2,
+      "totalNodes": 12,
+      "chapters": [
+        {
+          "title": "第一章：错误的相遇",
+          "brief": "男女主角在命运的交叉点相遇，彼此的过去隐约浮现，爱意悄然滋生却暗藏隐患"
+        },
+        {
+          "title": "第二章：占有还是放手",
+          "brief": "两人各自的过去正面冲突，玩家面临核心抉择——紧握这段爱或放手成全，走向四种不同结局"
+        }
+      ],
+      "estimatedHours": 50
+    },
+    {
+      "id": "plan_b",
+      "label": "标准版",
+      "chapterCount": 3,
+      "totalNodes": 24,
+      "chapters": [
+        {
+          "title": "第一章：在错误的时间",
+          "brief": "两人在各自带着伤痕的人生节点相撞，建立情感连结，玩家选择影响亲密程度与信任基础"
+        },
+        {
+          "title": "第二章：无法共存的过去",
+          "brief": "彼此隐藏的秘密与创伤逐一暴露，矛盾激化，选择节点决定两人如何面对对方的过去"
+        },
+        {
+          "title": "第三章：爱的本质",
+          "brief": "两段过去在现实中正面碰撞，玩家最终抉择定义这段爱的意义，四条结局线各自收束"
+        }
+      ],
+      "estimatedHours": 100
+    },
+    {
+      "id": "plan_c",
+      "label": "史诗版",
+      "chapterCount": 5,
+      "totalNodes": 45,
+      "chapters": [
+        {
+          "title": "第一章：两个破碎的人",
+          "brief": "分别展开男女主角各自的伤痕与渴望，铺垫他们为何在错误时间寻找被理解的渴求"
+        },
+        {
+          "title": "第二章：相撞的瞬间",
+          "brief": "两人相遇并迅速陷入彼此，爱意真实却脆弱，玩家选择塑造这段关系的底色与边界"
+        },
+        {
+          "title": "第三章：过去的幽灵",
+          "brief": "双方隐藏的过去开始以意想不到的方式重现，信任动摇，核心反转揭示两人真正的恐惧"
+        },
+        {
+          "title": "第四章：占有的代价",
+          "brief": "矛盾全面爆发，两人被迫直面自己究竟是要占有对方还是真正爱对方，选择分叉至不同命运"
+        },
+        {
+          "title": "第五章：放手或永恒",
+          "brief": "四条结局线完整展开——共同愈合、各自放手、痛苦占有、无声牺牲，每条线都回应主题"
+        }
+      ],
+      "estimatedHours": 220
+    }
+  ],
+  "chapters": [
+    {
+      "id": "GKrpNdoa",
+      "title": "第一章：错误的相遇",
+      "order": 0
+    },
+    {
+      "id": "7XvsbDQW",
+      "title": "第二章：占有还是放手",
+      "order": 1
+    }
+  ],
+  "acts": [
+    {
+      "id": "S70sr9Jw",
+      "chapterId": "GKrpNdoa",
+      "title": "第1幕：雨夜偶遇",
+      "order": 0,
+      "nodeIds": [
+        "PgV2x2aE",
+        "1znz5H__",
+        "PC-Hr0nm",
+        "iaxoa9N2",
+        "0wqEUGnI",
+        "fmmimd88"
+      ]
+    },
+    {
+      "id": "t6PNSy_s",
+      "chapterId": "GKrpNdoa",
+      "title": "第2幕：无法说出口的过去",
+      "order": 1,
+      "nodeIds": [
+        "vCmXnN1U",
+        "_67s-iG7",
+        "MAVgqUTS",
+        "RW1KHfIF",
+        "JGk5LJeR",
+        "LyS38qJR"
+      ]
+    },
+    {
+      "id": "8Dj1z0Bu",
+      "chapterId": "GKrpNdoa",
+      "title": "第3幕：触发事件与第一个道德裂缝",
+      "order": 2,
+      "nodeIds": [
+        "wHLQQ2Vv",
+        "F70UiwYG",
+        "rRsD7hX1",
+        "9ZtNFNNO",
+        "GbfkKX9T",
+        "IrJ8pynI"
+      ]
+    },
+    {
+      "id": "1H9mEsjr",
+      "chapterId": "7XvsbDQW",
+      "title": "第1幕：裂缝之下",
+      "order": 0,
+      "nodeIds": [
+        "4aniSSZ4",
+        "6qrbGFdn",
+        "NZtE9Ygt",
+        "Qxw6tNN1",
+        "Gh_n0Pm-",
+        "mM6PcwWG"
+      ]
+    },
+    {
+      "id": "0KnAKUbc",
+      "chapterId": "7XvsbDQW",
+      "title": "第2幕：不可共存的过去",
+      "order": 1,
+      "nodeIds": [
+        "g_JNciL9",
+        "8XbgZvXu",
+        "JJuDABlj",
+        "FNuxO6xp",
+        "BPACXknN",
+        "QRYNcbjz"
+      ]
+    },
+    {
+      "id": "_WkRPdk2",
+      "chapterId": "7XvsbDQW",
+      "title": "第3幕：放手或抓紧",
+      "order": 2,
+      "nodeIds": [
+        "IO4l7UiH",
+        "G_qoW2Kg",
+        "f93_7g7H",
+        "OlpynAH8",
+        "-j1XrVku",
+        "q3QU0BIp",
+        "HwinnZwO",
+        "WS9fy8Vi",
+        "qTrCxD7K",
+        "ZCRvI3cE",
+        "rNaiVYWn"
+      ]
+    }
+  ],
+  "nodes": [
+    {
+      "id": "PgV2x2aE",
+      "actId": "S70sr9Jw",
+      "title": "开场",
+      "type": "start",
+      "order": 0,
+      "position": {
+        "x": 0,
+        "y": 0
+      },
+      "emotionFunction": {
+        "emotionIn": "形销骨立的平静，像一个已经做完决定的人",
+        "emotionOut": "被意外的一句地址钉在原地，平静的外壳开始碎裂",
+        "tension": 7,
+        "internal_lie": "投进这个死邮筒，就等于从来没有说过——既不是勇气，也不是懦弱，只是一封永远不会被收到的信",
+        "fear": "被人真正看见之后，对方依然选择来找她——那样她就再也没有借口逃跑了"
+      },
+      "systemFunction": {
+        "variablesRead": [],
+        "variablesWrite": [],
+        "requirements": ""
+      },
+      "sceneDesc": "暴雨把地铁出口的玻璃打成不透明的白屏。一只锈黄色废弃邮筒靠在承重柱旁，投币口已锈死，沈晚把信封压进去时用了两只手。信封从缝隙里滑落，啪一声落进柱脚的积水，她的手还维持着刚才的姿势——五根手指悬在半空，没有来得及接住。林深蹲下去捡，抬头，沈晚已经转身，正看着他。",
+      "dialogue": [
+        {
+          "speaker": "沈晚",
+          "text": "那是垃圾。",
+          "emotion": "镇定，评估",
+          "id": "opetfZ"
+        },
+        {
+          "speaker": "林深",
+          "text": "掉出来了。",
+          "emotion": "中立，试探",
+          "id": "XLxf70"
+        },
+        {
+          "speaker": "沈晚",
+          "text": "你看了吗。",
+          "emotion": "控制，审视",
+          "id": "cXhAki"
+        },
+        {
+          "speaker": "林深",
+          "text": "字太小，光线又不好。",
+          "emotion": "迂回，小心",
+          "id": "Z_fuvc"
+        },
+        {
+          "speaker": "沈晚",
+          "text": "谢谢你捡起来。",
+          "emotion": "表面礼貌，实为终结",
+          "id": "2FaP62"
+        },
+        {
+          "speaker": "林深",
+          "text": "这个地址——",
+          "emotion": "轻描淡写，实则扣押",
+          "id": "w4Ha1W"
+        },
+        {
+          "speaker": "沈晚",
+          "text": "你不需要知道那是哪里。",
+          "emotion": "警戒，收紧",
+          "id": "M_ONw9"
+        },
+        {
+          "speaker": "林深",
+          "text": "我知道那是哪里。明天我要去拆它。",
+          "emotion": "平静，不动声色",
+          "id": "gJC7SI"
+        },
+        {
+          "speaker": "沈晚",
+          "text": "……",
+          "emotion": "沉默，权力悬空",
+          "id": "FsJfBO"
+        },
+        {
+          "speaker": "林深",
+          "text": "信让我留着吗。",
+          "emotion": "佯装随意，实则设局",
+          "id": "ZqLGsG"
+        }
+      ],
+      "choices": [
+        {
+          "id": "V4ojpG01",
+          "nodeId": "PgV2x2aE",
+          "text": "走进旧楼",
+          "order": 0,
+          "targetNodeId": "1znz5H__",
+          "conditions": "",
+          "variableEffects": "",
+          "choiceWeight": "light"
+        }
+      ],
+      "durationSeconds": 120,
+      "notes": "主角林深（28岁，城市规划师）在暴雨夜的地铁站避雨，偶然目睹一名女子（沈晚）将一个信封塞入废弃邮筒后转身离开。信封掉落，林深捡起——内有一张单程车票和一句话：「如果你看到这封信，请不要来找我。」林深抬头，沈晚已消失在人群中。世界观建立：故事发生在一座新旧交叠的南方城市，拆迁与记忆并存。触发事件：林深发现信封背面有一个地址——正是他明天要去拆迁评估的那栋旧楼。"
+    },
+    {
+      "id": "1znz5H__",
+      "actId": "S70sr9Jw",
+      "title": "第一个道德选择：信封的去向",
+      "type": "branch",
+      "order": 1,
+      "position": {
+        "x": 200,
+        "y": 0
+      },
+      "emotionFunction": {
+        "emotionIn": "表面若无其事，内心翻涌不安",
+        "emotionOut": "因选择而产生的沉甸甸的清醒",
+        "tension": 8,
+        "internal_lie": "他告诉自己不管做哪个选择都只是出于好意，并不是真正的侵犯",
+        "fear": "承认自己对她的执念早已越过了关心的边界"
+      },
+      "systemFunction": {
+        "variablesRead": [],
+        "variablesWrite": [],
+        "requirements": ""
+      },
+      "sceneDesc": "地铁出口台阶下，邮筒的红漆在路灯里显得掉皮陈旧。林深背对着邮筒站着，右手将白色信封压在外套与肋骨之间，姿势像是挡风，却没有风。沈宁从台阶上走下来，视线先扫过邮筒，再落到他身上，停了整整一秒。",
+      "dialogue": [
+        {
+          "speaker": "沈宁",
+          "text": "你在等人？",
+          "emotion": "随口问、实则打量",
+          "id": "N0Fle3"
+        },
+        {
+          "speaker": "林深",
+          "text": "不是，只是地铁还有几分钟，我觉得站着等和走着等其实没什么本质区别，就停在这里了。",
+          "emotion": "平静、字比需要的多",
+          "id": "pyMeZ6"
+        },
+        {
+          "speaker": "沈宁",
+          "text": "你从来不站着等的。",
+          "emotion": "陈述、不带问号",
+          "id": "eUjCDc"
+        },
+        {
+          "speaker": "林深",
+          "text": "你怎么知道。",
+          "emotion": "反问、右手收紧了一度",
+          "id": "s5r2Kb"
+        },
+        {
+          "speaker": "沈宁",
+          "text": "你上次等我，从街头走到街尾又走回来，我从三楼窗户看见的，你走了将近四十分钟。",
+          "emotion": "平淡、像在复述天气",
+          "id": "Ev-ViQ"
+        },
+        {
+          "speaker": "林深",
+          "text": "那只是——我那天心里压着事，走路只是顺手，跟等你没什么关系，你不要什么事都往自己身上套。",
+          "emotion": "辩解过快、停顿在'关系'之后",
+          "id": "berz4_"
+        },
+        {
+          "speaker": "沈宁",
+          "text": "我没有。",
+          "emotion": "后退半步、声音变薄",
+          "id": "QQKNCM"
+        },
+        {
+          "speaker": "林深",
+          "text": "你刚才明明——",
+          "emotion": "意识到自己说多了、话截断",
+          "id": "_eETil"
+        },
+        {
+          "speaker": "沈宁",
+          "text": "我说我看见你走路。我没说为什么。",
+          "emotion": "视线落在他右侧衣袋上、一闪即收",
+          "id": "jXTtBS"
+        },
+        {
+          "speaker": "林深",
+          "text": "地铁来了。",
+          "emotion": "转身、没有看她",
+          "id": "Flt438"
+        }
+      ],
+      "choices": [
+        {
+          "id": "tXfmk6tA",
+          "nodeId": "1znz5H__",
+          "text": "原封不动归还",
+          "order": 0,
+          "targetNodeId": "PC-Hr0nm",
+          "conditions": "",
+          "variableEffects": "trust+1,respect+1",
+          "choiceWeight": "heavy"
+        },
+        {
+          "id": "HmicV5Qx",
+          "nodeId": "1znz5H__",
+          "text": "偷偷拆开查看",
+          "order": 1,
+          "targetNodeId": "iaxoa9N2",
+          "conditions": "",
+          "variableEffects": "control+1,trust-1",
+          "choiceWeight": "heavy"
+        },
+        {
+          "id": "QfbLlThQ",
+          "nodeId": "1znz5H__",
+          "text": "悄悄藏入口袋",
+          "order": 2,
+          "targetNodeId": "0wqEUGnI",
+          "conditions": "",
+          "variableEffects": "control+2,affection-1",
+          "choiceWeight": "heavy"
+        },
+        {
+          "id": "bGFgxR6N",
+          "nodeId": "1znz5H__",
+          "text": "带去听证会公开",
+          "order": 3,
+          "targetNodeId": "vCmXnN1U",
+          "conditions": "",
+          "variableEffects": "honesty+2,affection+1",
+          "choiceWeight": "heavy"
+        }
+      ],
+      "durationSeconds": 120,
+      "notes": "林深站在地铁站出口，手握信封。选择A：将信封原封不动重新放回邮筒，假装什么都没发生（trust+1，curiosity=low，respect=true）。选择B：拿走信封，决定明天去那栋楼找到她，亲手归还（curiosity=high，intrusion=true，trust-1）。选择C：撕掉车票，只保留地址——既不让她离开，也不承认自己窥探了秘密（control=true，trust-1，hidden_agenda=true）。variableEffects：A→respect+1；B→curiosity+1，intrusion=true；C→control+1，hidden_agenda=true"
+    },
+    {
+      "id": "PC-Hr0nm",
+      "actId": "S70sr9Jw",
+      "title": "尊重的代价",
+      "type": "normal",
+      "order": 2,
+      "position": {
+        "x": 400,
+        "y": 0
+      },
+      "emotionFunction": {
+        "emotionIn": "表面从容，内心暗潮汹涌",
+        "emotionOut": "如遭雷击，强撑镇定",
+        "tension": 8,
+        "internal_lie": "昨晚的克制只是偶然，和她没有任何关系",
+        "fear": "被她看见的那一刻，善意将成为伤害她的刀"
+      },
+      "systemFunction": {
+        "variablesRead": [],
+        "variablesWrite": [],
+        "requirements": ""
+      },
+      "sceneDesc": "走廊灯管嗡嗡作响，光打在林深手里的评估夹上，表格第一页已被他反复翻折出折痕。沈晚从602室的门缝侧身出来，背抵着门框，没有为他腾出通行的位置——她的一只脚仍踩在门槛里。",
+      "dialogue": [
+        {
+          "speaker": "沈晚",
+          "text": "你没有打开它。",
+          "emotion": "审视",
+          "id": "NkCq3q"
+        },
+        {
+          "speaker": "林深",
+          "text": "这栋楼需要做结构评估。六层，承重墙有记录在案的裂缝，你们住户应该已经收到过书面通知。",
+          "emotion": "回避",
+          "id": "plThI4"
+        },
+        {
+          "speaker": "沈晚",
+          "text": "裂缝。",
+          "emotion": "讽刺",
+          "id": "uwuOfF"
+        },
+        {
+          "speaker": "林深",
+          "text": "你是最后一户。",
+          "emotion": "施压",
+          "id": "fLiGNz"
+        },
+        {
+          "speaker": "沈晚",
+          "text": "你昨天站在邮筒旁边，雨下了很久，你一直没走。",
+          "emotion": "平静",
+          "id": "sqsEGX"
+        },
+        {
+          "speaker": "林深",
+          "text": "那不在评估报告里。",
+          "emotion": "警惕",
+          "id": "tiQp8D"
+        },
+        {
+          "speaker": "沈晚",
+          "text": "但你记得信封的重量。",
+          "emotion": "试探",
+          "id": "-tChe5"
+        },
+        {
+          "speaker": "林深",
+          "text": "需要你在这里签名确认入户时间。",
+          "emotion": "控制",
+          "id": "49SklA"
+        },
+        {
+          "speaker": "沈晚",
+          "text": "先回答我。",
+          "emotion": "坚持",
+          "id": "AQja8H"
+        },
+        {
+          "id": "UH7y9u",
+          "speaker": "",
+          "text": "",
+          "emotion": ""
+        }
+      ],
+      "choices": [
+        {
+          "id": "-DcSGzjO",
+          "nodeId": "PC-Hr0nm",
+          "text": "继续前行",
+          "order": 0,
+          "targetNodeId": "_67s-iG7",
+          "conditions": "",
+          "variableEffects": "",
+          "choiceWeight": "light"
+        }
+      ],
+      "durationSeconds": 120,
+      "notes": "[路径A] 林深将信封放回邮筒，淋雨回家。次日作为拆迁评估员抵达旧楼，却发现沈晚就住在这里——她是最后一个拒绝搬迁的住户。两人在楼道狭路相逢，沈晚认出他就是昨晚的陌生人，神情复杂：「你没有打开它。」这是一种审视，也是一种感激。林深第一次感受到：有些人，你越是不靠近，她越会走向你。"
+    },
+    {
+      "id": "iaxoa9N2",
+      "actId": "S70sr9Jw",
+      "title": "闯入者的重量",
+      "type": "normal",
+      "order": 3,
+      "position": {
+        "x": 600,
+        "y": 0
+      },
+      "emotionFunction": {
+        "emotionIn": "表面从容，内心悬在半空",
+        "emotionOut": "沉默压顶，无处遁逃",
+        "tension": 8,
+        "internal_lie": "他告诉自己只是还了信封、做了该做的事，之后可以全然抽身",
+        "fear": "自己的闯入已经打破了某种不可逆的平衡，而他根本没有资格留下来收拾残局"
+      },
+      "systemFunction": {
+        "variablesRead": [],
+        "variablesWrite": [],
+        "requirements": ""
+      },
+      "sceneDesc": "楼道的灯管嗡嗡低鸣，沈晚一只手扶着门框，目光从林深手里那个拆开的信封移上来，在他脸上停了两秒，没有再往深处看。门没有开大，她用半个身子挡着身后那些码放整齐的纸箱。林深站在门槛外，两脚没有迈进去。",
+      "dialogue": [
+        {
+          "speaker": "沈晚",
+          "text": "你打开了。",
+          "emotion": "辨认中的冷静",
+          "id": "y8l2mB"
+        },
+        {
+          "speaker": "林深",
+          "text": "信封掉在三楼楼道，我以为是外卖底单，打开之后才看到抬头——我知道这个解释听起来很蠢，但我当时真的没有想到里面会是——",
+          "emotion": "自我拆解的慌乱",
+          "id": "GOquis"
+        },
+        {
+          "speaker": "沈晚",
+          "text": "那你已经知道我要走了。",
+          "emotion": "确认事实的平静",
+          "id": "3CgAMv"
+        },
+        {
+          "speaker": "林深",
+          "text": "我不是来拦你的。",
+          "emotion": "言不由衷的克制",
+          "id": "Y0R94t"
+        },
+        {
+          "speaker": "沈晚",
+          "text": "那把信封还给我，你就可以走了。",
+          "emotion": "收拢中的距离感",
+          "id": "EJHzy-"
+        },
+        {
+          "speaker": "林深",
+          "text": "你去哪里？",
+          "emotion": "压制的关切",
+          "id": "02scRb"
+        },
+        {
+          "speaker": "沈晚",
+          "text": "和你有什么关系。",
+          "emotion": "刻意的漠然",
+          "id": "pfl_Qv"
+        },
+        {
+          "speaker": "林深",
+          "text": "你的行李箱在门口放了三天了。",
+          "emotion": "说出后的悔意",
+          "id": "qonboe"
+        },
+        {
+          "speaker": "沈晚",
+          "text": "你有观察陌生人习惯的癖好。",
+          "emotion": "掩护下的动摇",
+          "id": "LsALVB"
+        },
+        {
+          "speaker": "林深",
+          "text": "信封我先留着。",
+          "emotion": "倔强的撤退",
+          "id": "zzk6r8"
+        }
+      ],
+      "choices": [
+        {
+          "id": "HUTDjFED",
+          "nodeId": "iaxoa9N2",
+          "text": "带着秘密前行",
+          "order": 0,
+          "targetNodeId": "_67s-iG7",
+          "conditions": "",
+          "variableEffects": "",
+          "choiceWeight": "light"
+        }
+      ],
+      "durationSeconds": 120,
+      "notes": "[路径B] 林深带着信封找到旧楼，敲开沈晚的门。沈晚见到信封，脸色骤变，随即平静下来：「你打开了？」林深承认。沈晚没有愤怒，只是说：「那你已经知道我要走了。」两人第一次对话充满张力——林深试图解释，沈晚却用沉默将他推开。林深离开时意识到：他闯入了一段他不该知道的故事，而他已经无法假装不在意。"
+    },
+    {
+      "id": "0wqEUGnI",
+      "actId": "S70sr9Jw",
+      "title": "掌控者的孤独",
+      "type": "normal",
+      "order": 4,
+      "position": {
+        "x": 800,
+        "y": 0
+      },
+      "emotionFunction": {
+        "emotionIn": "克制而专注，以观察者的冷静掩盖内心的异样搅动",
+        "emotionOut": "带着一种无处安放的沉重离开，像是偷走了什么又无法归还",
+        "tension": 6,
+        "internal_lie": "他告诉自己这只是工作需要的信息收集，他只是在观察，并没有真正靠近她",
+        "fear": "他最怕的不是被她识破身份，而是这种单向的了解永远无法变成真正的相互认识——他注定只能是一个看见她、却永远不被她看见的陌生人"
+      },
+      "systemFunction": {
+        "variablesRead": [],
+        "variablesWrite": [],
+        "requirements": ""
+      },
+      "sceneDesc": "林深背对那面照片墙站着，评估夹板夹在臂弯里还没打开。他和沈晚之间隔着整间屋子的距离——她站在靠门的位置，钥匙串垂在手边，始终没有请他坐下。阳光从他身后的窗口斜打过来，把他的脸压在阴影里，让她看不清他在看什么。",
+      "dialogue": [
+        {
+          "speaker": "林深",
+          "text": "格局没动过。",
+          "emotion": "例行公事",
+          "id": "1xDi-p"
+        },
+        {
+          "speaker": "沈晚",
+          "text": "需要测量什么，自便。",
+          "emotion": "礼貌的疏离",
+          "id": "VwJWGg"
+        },
+        {
+          "speaker": "林深",
+          "text": "住了多少年了。",
+          "emotion": "随口",
+          "id": "zs5MZs"
+        },
+        {
+          "speaker": "沈晚",
+          "text": "评估表上有这一栏吗。",
+          "emotion": "戒备",
+          "id": "JlxNny"
+        },
+        {
+          "speaker": "林深",
+          "text": "没有。",
+          "emotion": "停顿一拍",
+          "id": "qu562s"
+        },
+        {
+          "speaker": "沈晚",
+          "text": "那就不需要我回答。",
+          "emotion": "冷淡",
+          "id": "-7gK6h"
+        },
+        {
+          "speaker": "林深",
+          "text": "这些照片拍得不像留念——更像是在留证。",
+          "emotion": "不动声色",
+          "id": "Wk7QQW"
+        },
+        {
+          "speaker": "沈晚",
+          "text": "你是来评估房子的。",
+          "emotion": "冷硬",
+          "id": "CPJIE3"
+        },
+        {
+          "speaker": "林深",
+          "text": "是。",
+          "emotion": "翻开夹板，停笔",
+          "id": "HYgpBr"
+        },
+        {
+          "speaker": "沈晚",
+          "text": "那就评估房子。",
+          "emotion": "背对他",
+          "id": "CH5UBO"
+        }
+      ],
+      "choices": [
+        {
+          "id": "8bDs1XSk",
+          "nodeId": "0wqEUGnI",
+          "text": "独自离开",
+          "order": 0,
+          "targetNodeId": "_67s-iG7",
+          "conditions": "",
+          "variableEffects": "",
+          "choiceWeight": "light"
+        }
+      ],
+      "durationSeconds": 120,
+      "notes": "[路径C] 林深销毁车票，次日以评估员身份出现在旧楼。沈晚不知道他昨晚捡到信封，对他保持礼貌的距离。林深全程观察她——她的倔强、她墙上贴满的老照片、她拒绝签字的理由。他掌握着她的秘密，却无法用它做任何事。这种单方面的了解让他感到一种扭曲的亲密：他认识她，她却只看到一个陌生的公务员。"
+    },
+    {
+      "id": "fmmimd88",
+      "actId": "S70sr9Jw",
+      "title": "探索：旧楼的秘密",
+      "type": "explore",
+      "order": 5,
+      "position": {
+        "x": 1000,
+        "y": 0
+      },
+      "emotionFunction": {
+        "emotionIn": "漫不经心地探索，内心却被某种莫名的引力牵着",
+        "emotionOut": "手指触碰报纸边缘的瞬间，一切不可挽回地改变了",
+        "tension": 6,
+        "internal_lie": "他告诉自己只是好奇，发现这些不代表他必须承担什么",
+        "fear": "一旦真正理解沈晚的执念，他将再也无法以旁观者的身份置身事外"
+      },
+      "systemFunction": {
+        "variablesRead": [],
+        "variablesWrite": [],
+        "requirements": ""
+      },
+      "sceneDesc": "走廊尽头的报纸从墙角撕开一道口，林深单膝跪地，手电筒斜夹在腋下，用指甲沿着一条手绘线条往上划——地图在昏黄光圈里显出完整的轮廓，密密的街道名用小楷写满了空白处。沈晚站在走廊另一端，右手食指勾着一串钥匙，钥匙没有发出任何声音。",
+      "dialogue": [
+        {
+          "speaker": "林深",
+          "text": "你父亲的字。",
+          "emotion": "平静，试探",
+          "id": "AD3ZoT"
+        },
+        {
+          "speaker": "沈晚",
+          "text": "报纸是我贴的。那堵墙漏水，贴了七八年了，没什么好看的。",
+          "emotion": "轻描淡写，警觉",
+          "id": "EUlh_D"
+        },
+        {
+          "speaker": "林深",
+          "text": "他标了拆迁前的路名。这条——现在叫什么？",
+          "emotion": "漫不经心，施压",
+          "id": "YBT2jp"
+        },
+        {
+          "speaker": "沈晚",
+          "text": "他记性不好。很多地方画错了，走向全是乱的，你别当真。",
+          "emotion": "急于否定，克制",
+          "id": "7Wa5uA"
+        },
+        {
+          "speaker": "林深",
+          "text": "你记得哪里错了。",
+          "emotion": "平静，收紧",
+          "id": "Buc6SN"
+        },
+        {
+          "speaker": "沈晚",
+          "text": "——我小时候跟他走过那几条路。没什么，只是走过。",
+          "emotion": "滑落，迅速封闭",
+          "id": "UQr9Em"
+        },
+        {
+          "speaker": "林深",
+          "text": "2003年他在这栋楼住了多久？",
+          "emotion": "不动声色，进逼",
+          "id": "yyMiOb"
+        },
+        {
+          "speaker": "沈晚",
+          "text": "你查过。",
+          "emotion": "冷，确认",
+          "id": "MFDgIc"
+        },
+        {
+          "speaker": "林深",
+          "text": "名字在档案里。",
+          "emotion": "给出，等待",
+          "id": "tDecqy"
+        },
+        {
+          "speaker": "沈晚",
+          "text": "不要用手碰那张纸。",
+          "emotion": "克制之下的命令",
+          "id": "RfOh56"
+        }
+      ],
+      "choices": [],
+      "durationSeconds": 120,
+      "notes": "可选隐藏内容：林深在旧楼走廊发现一面被报纸糊住的墙，揭开后露出一幅手绘的城市地图——标注了所有已被拆除的街道。角落写着一个名字和年份：「沈怀远，2003」。这是沈晚父亲留下的遗作，也是她拒绝搬迁的真正原因。玩家获得变量：knows_father_map=true，后续可解锁沈晚的隐藏对话线。"
+    },
+    {
+      "id": "vCmXnN1U",
+      "actId": "t6PNSy_s",
+      "title": "拆迁听证会",
+      "type": "normal",
+      "order": 0,
+      "position": {
+        "x": 0,
+        "y": 120
+      },
+      "emotionFunction": {
+        "emotionIn": "强撑着倔强与克制，表面镇定如常",
+        "emotionOut": "被一句话击中软肋，平静外壳出现了裂缝",
+        "tension": 7,
+        "internal_lie": "她告诉自己：只要说出来，就算没有结果也是值得的——其实她比任何人都清楚，这场仗赢不了",
+        "fear": "被他看见她的无力——不是因为他是对手，而是因为他可能是第一个真正听懂她的人"
+      },
+      "systemFunction": {
+        "variablesRead": [],
+        "variablesWrite": [],
+        "requirements": ""
+      },
+      "sceneDesc": "走廊感应灯已经灭了一半，紧急出口指示牌的红光把林深手里评估文件夹的边缘照出一道暗红。沈晚背对着他停在推出门的把手位置，肩膀没有动——但她也没有推门。",
+      "dialogue": [
+        {
+          "speaker": "林深",
+          "text": "你知道结果的。",
+          "emotion": "试探",
+          "id": "FZ9QXF"
+        },
+        {
+          "speaker": "沈晚",
+          "text": "知道又怎样，总得有人说。",
+          "emotion": "平静带刃",
+          "id": "Qy6i1D"
+        },
+        {
+          "speaker": "林深",
+          "text": "说给谁听。",
+          "emotion": "短促，近乎追迫",
+          "id": "3jER_o"
+        },
+        {
+          "speaker": "沈晚",
+          "text": "说给那里住了二十年的人听，说给一直没人修的三楼走廊听，说给我自己——反正不是说给你们的流程听的。",
+          "emotion": "克制中有烈度",
+          "id": "ihaX1C"
+        },
+        {
+          "speaker": "林深",
+          "text": "我今天的评估数据是准确的。",
+          "emotion": "防御，不合时宜",
+          "id": "HBkAcC"
+        },
+        {
+          "speaker": "沈晚",
+          "text": "我知道。",
+          "emotion": "两字，第一次转身正面对他",
+          "id": "YGHXyu"
+        },
+        {
+          "speaker": "林深",
+          "text": "那栋楼里你还有没处理完的事吗。",
+          "emotion": "越出职权的问",
+          "id": "chsGIF"
+        },
+        {
+          "speaker": "沈晚",
+          "text": "陈述截止之前，你会一直待在那个厅里吗。",
+          "emotion": "答非所问，悬停",
+          "id": "adG65V"
+        }
+      ],
+      "choices": [
+        {
+          "id": "EMCtWq_-",
+          "nodeId": "vCmXnN1U",
+          "text": "参加听证会",
+          "order": 0,
+          "targetNodeId": "_67s-iG7",
+          "conditions": "",
+          "variableEffects": "",
+          "choiceWeight": "light"
+        },
+        {
+          "id": "gQZp_REq",
+          "nodeId": "vCmXnN1U",
+          "text": "先去探索旧楼",
+          "order": 1,
+          "targetNodeId": "fmmimd88",
+          "conditions": "",
+          "variableEffects": "",
+          "choiceWeight": "light"
+        }
+      ],
+      "durationSeconds": 120,
+      "notes": "市政府召开拆迁听证会，沈晚是唯一出席反对的住户。林深作为官方评估员坐在对立席，他们第一次在公开场合正式交锋。沈晚的陈述打动了旁听者，却无法改变程序。散场后，林深在走廊追上她：「你其实知道结果的。」沈晚停下来：「知道又怎样，总得有人说。」两人第一次有了真正意义上的对话。林深发现自己不再只是想完成评估——他开始想理解她为什么留下来。"
+    },
+    {
+      "id": "_67s-iG7",
+      "actId": "t6PNSy_s",
+      "title": "秘密交换：你告诉我一件事",
+      "type": "branch",
+      "order": 1,
+      "position": {
+        "x": 200,
+        "y": 120
+      },
+      "emotionFunction": {
+        "emotionIn": "表面从容克制，内心悄然动摇",
+        "emotionOut": "因被触碰到核心伤痛而短暂失守，随即重新筑起防线",
+        "tension": 7,
+        "internal_lie": "他告诉自己这份工作与过去无关，只要不主动提起，那段记忆就不会反噬自己",
+        "fear": "一旦说出当年的旧居被拆迁，他就再也无法用「职业理性」掩盖自己究竟在为谁服务、为何而留"
+      },
+      "systemFunction": {
+        "variablesRead": [],
+        "variablesWrite": [],
+        "requirements": ""
+      },
+      "sceneDesc": "档案室有一盏荧光灯在轻微闪烁，光一明一暗打在铁皮文件柜上。林深坐在柜前，手里握着红色核准章，悬在一份拆迁同意书正上方，始终没有落下来。沈晚站在他左侧半步远，手指压着桌沿，俯身看他，比他高了半个头。",
+      "dialogue": [
+        {
+          "speaker": "沈晚",
+          "text": "你做这份工作多久了？",
+          "emotion": "平静，在测量",
+          "id": "swSkIe"
+        },
+        {
+          "speaker": "林深",
+          "text": "够久了。",
+          "emotion": "警惕",
+          "id": "Vfia1p"
+        },
+        {
+          "speaker": "沈晚",
+          "text": "够久了是多久——久到你每天把那个章盖下去，不觉得自己在亲手抹掉一条街的记忆？",
+          "emotion": "压抑的锋利",
+          "id": "8Z_Qw_"
+        },
+        {
+          "speaker": "林深",
+          "text": "你手里那张票，是去哪里的？",
+          "emotion": "反守为攻",
+          "id": "E_n_hJ"
+        },
+        {
+          "speaker": "沈晚",
+          "text": "我在问你。",
+          "emotion": "强硬",
+          "id": "5qDJQB"
+        },
+        {
+          "speaker": "林深",
+          "text": "我知道你在问我。",
+          "emotion": "某处在松动",
+          "id": "vWJKFX"
+        },
+        {
+          "speaker": "沈晚",
+          "text": "那你为什么不回答。",
+          "emotion": "逼近，声音软了",
+          "id": "EwQyCe"
+        },
+        {
+          "speaker": "林深",
+          "text": "有些人进这个系统，是因为恨它。有些人是怕被它压死。还有些人——",
+          "emotion": "低沉，句子断掉",
+          "id": "BOC6kJ"
+        },
+        {
+          "speaker": "沈晚",
+          "text": "还有些人是什么？",
+          "emotion": "屏住",
+          "id": "CrSljs"
+        },
+        {
+          "speaker": "林深",
+          "text": "你先告诉我那张票要去哪里。",
+          "emotion": "收回，目光落回文件",
+          "id": "xWnFm0"
+        }
+      ],
+      "choices": [
+        {
+          "id": "BhRE4q-u",
+          "nodeId": "_67s-iG7",
+          "text": "率先坦白一件事",
+          "order": 0,
+          "targetNodeId": "MAVgqUTS",
+          "conditions": "",
+          "variableEffects": "openness+2,trust+1",
+          "choiceWeight": "heavy"
+        },
+        {
+          "id": "OHun5oNy",
+          "nodeId": "_67s-iG7",
+          "text": "要求对方先说",
+          "order": 1,
+          "targetNodeId": "RW1KHfIF",
+          "conditions": "",
+          "variableEffects": "control+1,trust+0",
+          "choiceWeight": "heavy"
+        },
+        {
+          "id": "V0HJ0_BS",
+          "nodeId": "_67s-iG7",
+          "text": "沉默观察对方",
+          "order": 2,
+          "targetNodeId": "JGk5LJeR",
+          "conditions": "",
+          "variableEffects": "openness-1,control+1",
+          "choiceWeight": "heavy"
+        },
+        {
+          "id": "twlDJ3j_",
+          "nodeId": "_67s-iG7",
+          "text": "转移话题到拆迁",
+          "order": 3,
+          "targetNodeId": "wHLQQ2Vv",
+          "conditions": "",
+          "variableEffects": "honesty-1,openness-1",
+          "choiceWeight": "heavy"
+        }
+      ],
+      "durationSeconds": 120,
+      "notes": "沈晚问林深：「你做这份工作多久了？你不觉得自己每天在亲手抹去别人的记忆吗？」林深面临选择——如何回应这个触碰他内心深处的问题。选择A：坦白说出自己当年的旧居也曾被拆迁，他选择加入系统是因为想在里面做出改变（vulnerability+1，intimacy+1，trust+1）。选择B：回避问题，反问沈晚那张车票是要去哪里——将话题转向她的秘密（deflection=true，curiosity_exchange=true，trust+0）。选择C：冷淡否认，说这只是一份工作（guard=true，distance+1，trust-1）。variableEffects：A→vulnerability+1，intimacy+1；B→deflection=true，mutual_secret=true；C→guard=true，distance+1"
+    },
+    {
+      "id": "MAVgqUTS",
+      "actId": "t6PNSy_s",
+      "title": "共同的伤口",
+      "type": "normal",
+      "order": 2,
+      "position": {
+        "x": 400,
+        "y": 120
+      },
+      "emotionFunction": {
+        "emotionIn": "克制而戒备，像习惯了收拾自己碎片的人",
+        "emotionOut": "防线悄然松动，带着一种既被接住又更加脆弱的颤抖",
+        "tension": 6,
+        "internal_lie": "我只是在分享，这不代表我真的需要他——我只是在说一个故事",
+        "fear": "如果他看见了我伤口的形状，我就再也无法假装自己是完整的"
+      },
+      "systemFunction": {
+        "variablesRead": [],
+        "variablesWrite": [],
+        "requirements": ""
+      },
+      "sceneDesc": "那幅手绘地图占满整面北墙，墨线里夹有针尖般细小的批注，几处街道名被改写过，旧字迹没完全磨去。林深停在距地图不足半步处，双手插在口袋里，视线沿左下角一带缓慢移动。沈晚站在他右侧半步，食指轻搭在偏东某条街道旁，身体没有转向他。",
+      "dialogue": [
+        {
+          "speaker": "林深",
+          "text": "东兴里，就在这一片。",
+          "emotion": "平静",
+          "id": "dFiA-O"
+        },
+        {
+          "speaker": "沈晚",
+          "text": "拆了多少年了。",
+          "emotion": "静（试探）",
+          "id": "Wg7B-0"
+        },
+        {
+          "speaker": "林深",
+          "text": "我父亲站在废墟前，到天黑一句话没说。那时候我以为——没事了，不重要。",
+          "emotion": "克制（撤退）",
+          "id": "XJ5DS2"
+        },
+        {
+          "speaker": "沈晚",
+          "text": "说完。",
+          "emotion": "直接",
+          "id": "elBw9s"
+        },
+        {
+          "speaker": "林深",
+          "text": "我以为他不想看见我。后来才明白，他只是不知道该对一个消失了的东西说什么。",
+          "emotion": "低沉（卸防）",
+          "id": "D6oPP5"
+        },
+        {
+          "speaker": "沈晚",
+          "text": "我父亲走这条街走了两天才量完距离。中间遇了一场雨，他在路口等雨停，又从头走了一遍。",
+          "emotion": "克制（给予）",
+          "id": "KwjR8r"
+        },
+        {
+          "speaker": "林深",
+          "text": "你父亲。",
+          "emotion": "轻（确认）",
+          "id": "o6wgkp"
+        },
+        {
+          "speaker": "沈晚",
+          "text": "画完这张图三年以后，他——地图还在。",
+          "emotion": "压制",
+          "id": "awgWIH"
+        },
+        {
+          "speaker": "林深",
+          "text": "你把这扇门锁上了。",
+          "emotion": "平稳",
+          "id": "JEuK98"
+        },
+        {
+          "speaker": "沈晚",
+          "text": "锁了三年。",
+          "emotion": "脆弱（悬停）",
+          "id": "JGYsmT"
+        }
+      ],
+      "choices": [
+        {
+          "id": "QIRFALPm",
+          "nodeId": "MAVgqUTS",
+          "text": "深入彼此的伤",
+          "order": 0,
+          "targetNodeId": "F70UiwYG",
+          "conditions": "",
+          "variableEffects": "",
+          "choiceWeight": "light"
+        }
+      ],
+      "durationSeconds": 120,
+      "notes": "[路径A] 林深罕见地开口，说起自己十二岁时家所在的胡同被夷平建商业楼，父亲站在废墟前一句话都没说。沈晚听完沉默许久，然后带他去看父亲那幅地图——她第一次主动向一个外人开门。两人并肩站在地图前，林深第一次感受到：爱也许不是找到一个完整的人，而是找到一个伤口形状相似的人。"
+    },
+    {
+      "id": "RW1KHfIF",
+      "actId": "t6PNSy_s",
+      "title": "交换筹码",
+      "type": "normal",
+      "order": 3,
+      "position": {
+        "x": 600,
+        "y": 120
+      },
+      "emotionFunction": {
+        "emotionIn": "表面轻松调侃，内心高度戒备",
+        "emotionOut": "奇异的平静与温热，像伤口被轻轻触碰",
+        "tension": 6,
+        "internal_lie": "我只是在陪她玩这个游戏，保留秘密并不代表我真的在乎",
+        "fear": "如果连「不完整」都被对方接纳了，我就再也没有理由保持距离"
+      },
+      "systemFunction": {
+        "variablesRead": [],
+        "variablesWrite": [],
+        "requirements": ""
+      },
+      "sceneDesc": "候车室的塑料椅排成一列，沈晚坐在最靠近出口的那把，车票夹在食指与中指之间立着，始终没有收进包里。林深站在她椅背斜后方，他的影子落在她肩上，但他没有坐下。",
+      "dialogue": [
+        {
+          "speaker": "沈晚",
+          "text": "你说赎罪——是因为觉得这个词有用，还是因为暂时没找到更诚实的说法。",
+          "emotion": "探测的，轻",
+          "id": "G7Rz8-"
+        },
+        {
+          "speaker": "林深",
+          "text": "有区别吗。",
+          "emotion": "警觉，平",
+          "id": "o9fgcN"
+        },
+        {
+          "speaker": "沈晚",
+          "text": "有。一种是你真的相信它能抵什么，一种是你只是需要一个出发的理由。",
+          "emotion": "笑着，但眼睛没动",
+          "id": "Dv4TSY"
+        },
+        {
+          "speaker": "林深",
+          "text": "那你的票——你答应过的那个地方，你去了，那个承诺就算还清了，还是你只是在让自己有个方向可以看。",
+          "emotion": "压着，把问题推回去",
+          "id": "LWigyh"
+        },
+        {
+          "speaker": "沈晚",
+          "text": "……你也不是真的想知道答案。",
+          "emotion": "顿了一下，把票翻了个面",
+          "id": "dpxBSe"
+        },
+        {
+          "speaker": "林深",
+          "text": "不是。",
+          "emotion": "平的，一个字",
+          "id": "JQ7csN"
+        },
+        {
+          "speaker": "沈晚",
+          "text": "所以我们现在在谈什么。",
+          "emotion": "轻，像是问椅子",
+          "id": "5soQs7"
+        },
+        {
+          "speaker": "林深",
+          "text": "我们各自欠着什么，以及打算用什么去还。",
+          "emotion": "慢，但清楚",
+          "id": "KmcaYG"
+        },
+        {
+          "speaker": "沈晚",
+          "text": "听起来挺公平的。",
+          "emotion": "重新抬头，眼神变了什么",
+          "id": "6MrKNN"
+        },
+        {
+          "speaker": "林深",
+          "text": "不。",
+          "emotion": "一个字，停顿，不解释",
+          "id": "e_nKBQ"
+        }
+      ],
+      "choices": [
+        {
+          "id": "34NZuQO1",
+          "nodeId": "RW1KHfIF",
+          "text": "继续谈判",
+          "order": 0,
+          "targetNodeId": "F70UiwYG",
+          "conditions": "",
+          "variableEffects": "",
+          "choiceWeight": "light"
+        }
+      ],
+      "durationSeconds": 120,
+      "notes": "[路径B] 沈晚被林深的反问惊到，随即笑了：「你也不想回答。」两人达成一种奇异的默契——各自保留秘密，但彼此承认对方有秘密。沈晚说她的车票是去一个她答应过却一直没去的地方。林深说他的工作是他对某人的赎罪。没有细节，但这种「共同的不完整」让两人比任何坦白都靠得更近。"
+    },
+    {
+      "id": "JGk5LJeR",
+      "actId": "t6PNSy_s",
+      "title": "玻璃墙后的观察",
+      "type": "normal",
+      "order": 4,
+      "position": {
+        "x": 800,
+        "y": 120
+      },
+      "emotionFunction": {
+        "emotionIn": "冷漠克制，如同隔着玻璃看世界",
+        "emotionOut": "表面仍是沉默，内心已被一种陌生的空洞刺穿",
+        "tension": 7,
+        "internal_lie": "他告诉自己沉默是保护她，让她离开才是对的",
+        "fear": "真正害怕的不是失去她，而是一旦开口，那道墙就再也立不起来——而那道墙是他唯一还相信的东西"
+      },
+      "systemFunction": {
+        "variablesRead": [],
+        "variablesWrite": [],
+        "requirements": ""
+      },
+      "sceneDesc": "落地窗的光把房间斜切成两块，林深站在靠窗那侧，拇指抵着玻璃边框，没有转身。沈晚站在他身后两步，背包的带子从肩头滑了下来，她的手悬在半空，没有去扶。",
+      "dialogue": [
+        {
+          "speaker": "沈晚",
+          "text": "你刚才说的那句话，我后来想了很久，还是没弄明白你是什么意思。",
+          "emotion": "试探·克制",
+          "id": "5CFbdH"
+        },
+        {
+          "speaker": "林深",
+          "text": "不用弄明白。",
+          "emotion": "漠然",
+          "id": "Oe-0YZ"
+        },
+        {
+          "speaker": "沈晚",
+          "text": "我在问你。",
+          "emotion": "执着",
+          "id": "W0blWh"
+        },
+        {
+          "speaker": "林深",
+          "text": "我知道你在问我。",
+          "emotion": "平静",
+          "id": "KDFHM-"
+        },
+        {
+          "speaker": "沈晚",
+          "text": "你说话的方式，好像每次都在等我先撑不住——我都不知道我为什么每次还是会来问你。",
+          "emotion": "疲惫·倔强",
+          "id": "nTV0E3"
+        },
+        {
+          "speaker": "林深",
+          "text": "那就别问了。",
+          "emotion": "冷",
+          "id": "n4BXVE"
+        },
+        {
+          "speaker": "沈晚",
+          "text": "好。",
+          "emotion": "收·平",
+          "id": "k4tSXC"
+        },
+        {
+          "speaker": "林深",
+          "text": "沈晚。",
+          "emotion": "空",
+          "id": "RoQlPC"
+        },
+        {
+          "speaker": "沈晚",
+          "text": "怎么了。",
+          "emotion": "背对着他·未转身",
+          "id": "tkxa5S"
+        },
+        {
+          "speaker": "林深",
+          "text": "没事。",
+          "emotion": "空洞",
+          "id": "rro6uN"
+        }
+      ],
+      "choices": [
+        {
+          "id": "DQErTl6e",
+          "nodeId": "JGk5LJeR",
+          "text": "保持安全距离",
+          "order": 0,
+          "targetNodeId": "F70UiwYG",
+          "conditions": "",
+          "variableEffects": "",
+          "choiceWeight": "light"
+        }
+      ],
+      "durationSeconds": 120,
+      "notes": "[路径C] 林深的冷淡让沈晚不再追问，她转身要离开。林深站在原地，看着她的背影，第一次感到一种他说不清的痛——不是因为她走了，而是因为他明明可以留住她却选择了沉默。他开始意识到：他用来保护自己的那道墙，正在成为他失去所有真实连结的原因。"
+    },
+    {
+      "id": "LyS38qJR",
+      "actId": "t6PNSy_s",
+      "title": "探索：林深的抽屉",
+      "type": "explore",
+      "order": 5,
+      "position": {
+        "x": 1000,
+        "y": 120
+      },
+      "emotionFunction": {
+        "emotionIn": "表面漫不经心，实则手脚发凉",
+        "emotionOut": "强撑镇定，内心已经开始崩塌",
+        "tension": 6,
+        "internal_lie": "三年前的事和现在无关，他只是碰巧关注过那片区域",
+        "fear": "被沈晚发现自己从一开始就知道那栋楼——那将意味着他们之间所有的相遇都可能是一场蓄谋"
+      },
+      "systemFunction": {
+        "variablesRead": [],
+        "variablesWrite": [],
+        "requirements": ""
+      },
+      "sceneDesc": "办公桌上摆着两支笔，间距相等，像是被人刻意摆放过。抽屉没关严，留了一道缝，露出折叠地图的一角。沈晚把地图从抽屉里抽出来，动作很慢，像是在等什么声音。",
+      "dialogue": [
+        {
+          "speaker": "沈晚",
+          "text": "这里……",
+          "emotion": "迟疑，停住",
+          "id": "Ut0WT7"
+        },
+        {
+          "speaker": "沈晚",
+          "text": "三年前。",
+          "emotion": "压低声音，像在确认",
+          "id": "3MyIoF"
+        },
+        {
+          "speaker": "林深",
+          "text": "你在翻我东西？",
+          "emotion": "平静，没有升调",
+          "id": "5vXoTV"
+        },
+        {
+          "speaker": "沈晚",
+          "text": "没有，抽屉是开着的，我只是想把它推回去，结果里面的东西滑出来了，就是地图，就这样，地图掉出来了。",
+          "emotion": "过快，解释太多",
+          "id": "f7YPb2"
+        },
+        {
+          "speaker": "林深",
+          "text": "掉出来了。",
+          "emotion": "复述，不评价",
+          "id": "tvvhdH"
+        },
+        {
+          "speaker": "沈晚",
+          "text": "对。我是说，这种地图我见过很多，规划图嘛，你们做这行的手边都有这种东西，没什么特别的，对吧。",
+          "emotion": "说服自己多于说服他",
+          "id": "joIHZw"
+        },
+        {
+          "speaker": "林深",
+          "text": "对。",
+          "emotion": "短促",
+          "id": "MNEeQJ"
+        },
+        {
+          "speaker": "沈晚",
+          "text": "那个红圈是——",
+          "emotion": "话说一半，没停",
+          "id": "a-0Q_v"
+        },
+        {
+          "speaker": "林深",
+          "text": "旧项目。",
+          "emotion": "截断，比她更快",
+          "id": "G7noQr"
+        }
+      ],
+      "choices": [],
+      "durationSeconds": 120,
+      "notes": "可选隐藏内容：玩家可选择查看林深办公桌抽屉，发现一张已经褪色的土地规划图，上面有他用红笔圈出的一块区域——正是沈晚旧楼所在的地块。但圈注的日期是三年前，远早于本次拆迁项目启动。这暗示林深与这栋楼之间存在更早的交集，玩家获得变量：early_connection=true，解锁第3幕隐藏对话。"
+    },
+    {
+      "id": "wHLQQ2Vv",
+      "actId": "8Dj1z0Bu",
+      "title": "拆迁令下达",
+      "type": "normal",
+      "order": 0,
+      "position": {
+        "x": 0,
+        "y": 240
+      },
+      "emotionFunction": {
+        "emotionIn": "职责在身，神情克制，眼神却在回避",
+        "emotionOut": "手续已交，内心某扇门悄然关上",
+        "tension": 9,
+        "internal_lie": "他告诉自己这只是公务，只要保持专业就不算伤害她",
+        "fear": "她会从这份文件里读出他选择了制度而不是她"
+      },
+      "systemFunction": {
+        "variablesRead": [],
+        "variablesWrite": [],
+        "requirements": ""
+      },
+      "sceneDesc": "走廊灯管缺了一盏，光打在林深半张脸上，另半张沉进暗里。他的拇指压着公文夹的金属扣，没有松开。门开的瞬间，他把公文夹横移到两人之间的空气里，像一道临时的墙。",
+      "dialogue": [
+        {
+          "speaker": "林深",
+          "text": "需要签收。",
+          "emotion": "正式、收紧",
+          "id": "4EFmNB"
+        },
+        {
+          "speaker": "沈晚",
+          "text": "进来。",
+          "emotion": "平静、刻意",
+          "id": "G5DqGM"
+        },
+        {
+          "speaker": "林深",
+          "text": "在门口就够了，你不用——",
+          "emotion": "犹豫、后退",
+          "id": "LDBYnG"
+        },
+        {
+          "speaker": "沈晚",
+          "text": "笔在桌上。",
+          "emotion": "平静、背对他走进去",
+          "id": "M9ay2O"
+        },
+        {
+          "speaker": "林深",
+          "text": "这只是程序，沈晚，跟我个人没有……这件事从立项开始就不是我能决定的，你知道的。",
+          "emotion": "辩解、堆叠",
+          "id": "oApmXY"
+        },
+        {
+          "speaker": "沈晚",
+          "text": "三十天。",
+          "emotion": "确认、轻",
+          "id": "h9w7F1"
+        },
+        {
+          "speaker": "林深",
+          "text": "沈晚。",
+          "emotion": "求饶、只剩名字",
+          "id": "_KFJR7"
+        },
+        {
+          "speaker": "沈晚",
+          "text": "别。",
+          "emotion": "警告、骨头里发出来的",
+          "id": "dV7OrK"
+        },
+        {
+          "speaker": "林深",
+          "text": "我没有选择。",
+          "emotion": "闭合、用绝望掩护",
+          "id": "48bEMv"
+        },
+        {
+          "speaker": "沈晚",
+          "text": "你第一次来这里的时候——你当时知道会是今天吗。",
+          "emotion": "裂缝、笔在手里没有落下",
+          "id": "eYdLNu"
+        }
+      ],
+      "choices": [
+        {
+          "id": "1_NZ6RCB",
+          "nodeId": "wHLQQ2Vv",
+          "text": "直面现实",
+          "order": 0,
+          "targetNodeId": "F70UiwYG",
+          "conditions": "",
+          "variableEffects": "",
+          "choiceWeight": "light"
+        },
+        {
+          "id": "j6H7rjhW",
+          "nodeId": "wHLQQ2Vv",
+          "text": "翻看林深抽屉",
+          "order": 1,
+          "targetNodeId": "LyS38qJR",
+          "conditions": "",
+          "variableEffects": "",
+          "choiceWeight": "light"
+        }
+      ],
+      "durationSeconds": 120,
+      "notes": "拆迁最终裁定书下达，旧楼须在30天内清空。林深被上级要求亲自送达通知书给沈晚——这是他职责所在，也是他们关系的最大张力时刻。林深站在沈晚门口，手里拿着公文。沈晚开门，看到文件，看到他。两人都明白：此刻他站在这里的方式，将决定接下来一切的走向。这一刻没有台词，只有选择。"
+    },
+    {
+      "id": "F70UiwYG",
+      "actId": "8Dj1z0Bu",
+      "title": "第一个真正的道德选择：你选择站在哪里",
+      "type": "branch",
+      "order": 1,
+      "position": {
+        "x": 200,
+        "y": 240
+      },
+      "emotionFunction": {
+        "emotionIn": "表面克制，内藏灼热",
+        "emotionOut": "决意已定，却如失血般空洞",
+        "tension": 8,
+        "internal_lie": "他告诉自己，只要选了，就不用再纠结了——好像选择本身能替他承担后果",
+        "fear": "无论选哪条路，都会成为伤害她的那个人"
+      },
+      "systemFunction": {
+        "variablesRead": [],
+        "variablesWrite": [],
+        "requirements": ""
+      },
+      "sceneDesc": "林深站在屋子中央，文件夹夹在臂弯里一直没有放下。顾念坐在桌边背对着门，右手的笔搁在纸上超过一分钟没有动过。两人之间隔着整张桌子的宽度，文件夹的角压进他的手臂，留下一道白痕。",
+      "dialogue": [
+        {
+          "speaker": "顾念",
+          "text": "你可以放门口就走的。",
+          "emotion": "先发制人",
+          "id": "9P3i1k"
+        },
+        {
+          "speaker": "林深",
+          "text": "文件需要当面签收。",
+          "emotion": "克制",
+          "id": "nBdG_N"
+        },
+        {
+          "speaker": "顾念",
+          "text": "程序要求，还是你要求？",
+          "emotion": "质问",
+          "id": "CrhM8Y"
+        },
+        {
+          "speaker": "林深",
+          "text": "结论不是我最后的意见。我是说——里面有些地方，我还有话要说的，只是现在这份文件的措辞不代表我全部的判断。",
+          "emotion": "辩解/撕裂",
+          "id": "rnzPt-"
+        },
+        {
+          "speaker": "顾念",
+          "text": "那你说。",
+          "emotion": "平静",
+          "id": "gl6erx"
+        },
+        {
+          "speaker": "林深",
+          "text": "现在说了，不算数。",
+          "emotion": "压制",
+          "id": "KHqX-6"
+        },
+        {
+          "speaker": "顾念",
+          "text": "所以你来这里，是为了什么。",
+          "emotion": "疲惫/精准",
+          "id": "dkmKpz"
+        },
+        {
+          "speaker": "林深",
+          "text": "送文件。",
+          "emotion": "矛盾",
+          "id": "RnZRGv"
+        },
+        {
+          "speaker": "顾念",
+          "text": "那就放这儿。",
+          "emotion": "收回权力",
+          "id": "Z0aRgZ"
+        },
+        {
+          "speaker": "林深",
+          "text": "你今晚会看完它吗。",
+          "emotion": "悬停",
+          "id": "JrUaZu"
+        }
+      ],
+      "choices": [
+        {
+          "id": "tYS2GBgv",
+          "nodeId": "F70UiwYG",
+          "text": "沉默转身离开",
+          "order": 0,
+          "targetNodeId": "rRsD7hX1",
+          "conditions": "",
+          "variableEffects": "affection-1,trust-1",
+          "choiceWeight": "heavy"
+        },
+        {
+          "id": "MceDvBeG",
+          "nodeId": "F70UiwYG",
+          "text": "说出全部真相",
+          "order": 1,
+          "targetNodeId": "9ZtNFNNO",
+          "conditions": "",
+          "variableEffects": "honesty+2,affection+1",
+          "choiceWeight": "heavy"
+        },
+        {
+          "id": "KGjI5i2i",
+          "nodeId": "F70UiwYG",
+          "text": "干涉对方决定",
+          "order": 2,
+          "targetNodeId": "GbfkKX9T",
+          "conditions": "",
+          "variableEffects": "control+2,trust-1",
+          "choiceWeight": "heavy"
+        },
+        {
+          "id": "j9lErYU-",
+          "nodeId": "F70UiwYG",
+          "text": "用旧伤换立场",
+          "order": 3,
+          "targetNodeId": "4aniSSZ4",
+          "conditions": "",
+          "variableEffects": "openness+1,affection+1",
+          "choiceWeight": "heavy"
+        }
+      ],
+      "durationSeconds": 120,
+      "notes": "林深必须决定如何送达这份文件——这不只是程序问题，而是他第一次必须在职责与情感之间明确站队。选择A：将文件放在门口地上，转身离开，没有解释，让她自己发现（abandon=true，guilt+1，distance+1）。选择B：亲手交给她，告诉她他会想办法申请延期，但无法保证结果——这是他能给的全部诚实（honesty=true，intimacy+1，risk+1）。选择C：伪造一份评估补充意见，在系统内部为她争取更多时间，但这意味着他违规操作（sacrifice=true，betrayal_of_duty=true，bond+2）。variableEffects：A→abandon=true，guilt+1；B→honesty=true，intimacy+1；C→sacrifice=true，bond+2，risk_flag=true"
+    },
+    {
+      "id": "rRsD7hX1",
+      "actId": "8Dj1z0Bu",
+      "title": "沉默的告别",
+      "type": "normal",
+      "order": 2,
+      "position": {
+        "x": 400,
+        "y": 240
+      },
+      "emotionFunction": {
+        "emotionIn": "强装平静，眼神空洞",
+        "emotionOut": "冰冷而决绝，情感断联",
+        "tension": 8,
+        "internal_lie": "他告诉自己沉默是保护她，不说出口的爱不会伤害任何人",
+        "fear": "承认自己用懦弱亲手毁掉了唯一真正爱过的人"
+      },
+      "systemFunction": {
+        "variablesRead": [],
+        "variablesWrite": [],
+        "requirements": ""
+      },
+      "sceneDesc": "沈晚站在窗边，文件对折压在左手掌心，手机贴着右耳举着，扬声器朝上。窗外路灯的光从背后打来，把她的影子投在空荡荡的地板上——影子很长，一直延伸到门口。",
+      "dialogue": [
+        {
+          "speaker": "沈晚",
+          "text": "你放的，还是忘了拿走。",
+          "emotion": "平静",
+          "id": "59D4VR"
+        },
+        {
+          "speaker": "林深",
+          "text": "沈晚，我……那天我其实到楼下了，在车里坐了两个小时，我以为自己能上去的。",
+          "emotion": "压抑",
+          "id": "H1waLs"
+        },
+        {
+          "speaker": "沈晚",
+          "text": "然后呢。",
+          "emotion": "平静",
+          "id": "jFIAP9"
+        },
+        {
+          "speaker": "林深",
+          "text": "然后我想，如果我上去，我没办法说出我需要说的话。我怕我一开口，说出来的都是错的——这样对你，其实更公平一点。",
+          "emotion": "自欺",
+          "id": "nFd1oT"
+        },
+        {
+          "speaker": "沈晚",
+          "text": "公平。",
+          "emotion": "讽刺",
+          "id": "RoGhjV"
+        },
+        {
+          "speaker": "林深",
+          "text": "我只是不想再伤害你——",
+          "emotion": "无力",
+          "id": "aCT9Ir"
+        },
+        {
+          "speaker": "沈晚",
+          "text": "你以为沉默不是伤害。",
+          "emotion": "清醒",
+          "id": "9Ako0s"
+        },
+        {
+          "speaker": "林深",
+          "text": "沈晚——",
+          "emotion": "慌乱",
+          "id": "cUnGk9"
+        },
+        {
+          "speaker": "沈晚",
+          "text": "你是个懦夫。",
+          "emotion": "清醒",
+          "id": "TTpAvS"
+        }
+      ],
+      "choices": [
+        {
+          "id": "Nj0eccx1",
+          "nodeId": "rRsD7hX1",
+          "text": "独自踏上归途",
+          "order": 0,
+          "targetNodeId": "6qrbGFdn",
+          "conditions": "",
+          "variableEffects": "",
+          "choiceWeight": "light"
+        }
+      ],
+      "durationSeconds": 120,
+      "notes": "[路径A] 沈晚发现地上的文件，拿起来，走到窗边看了很久。她没有哭，只是打开手机拨了一个号码——林深的。电话那头，林深接起来，两人都沉默着。最后沈晚说：「你是个懦夫。」挂断。林深坐在车里，第一次意识到：有时候不选择，本身就是一种最深的伤害。他爱上了一个人，却在关键时刻用沉默抛弃了她。"
+    },
+    {
+      "id": "9ZtNFNNO",
+      "actId": "8Dj1z0Bu",
+      "title": "诚实的代价",
+      "type": "normal",
+      "order": 3,
+      "position": {
+        "x": 600,
+        "y": 240
+      },
+      "emotionFunction": {
+        "emotionIn": "小心翼翼，强撑着冷静",
+        "emotionOut": "卸下防备，却更沉更重",
+        "tension": 6,
+        "internal_lie": "她告诉自己，只要保持距离就不会再受伤——被看见不等于被留下",
+        "fear": "真正被理解之后，却依然要失去对方"
+      },
+      "systemFunction": {
+        "variablesRead": [],
+        "variablesWrite": [],
+        "requirements": ""
+      },
+      "sceneDesc": "文件夹压在茶几的角上，两个人都没有去碰它。沈晚坐在靠墙一侧，双手握着一杯没喝的茶，杯底在她膝盖上印了一个湿圈。林深的椅子离桌子有半步远，像是已经替自己留好了退路。",
+      "dialogue": [
+        {
+          "speaker": "林深",
+          "text": "你父亲那张车票——是去哪里的？",
+          "emotion": "克制",
+          "id": "GeYTbJ"
+        },
+        {
+          "speaker": "沈晚",
+          "text": "你问这个做什么。",
+          "emotion": "戒备",
+          "id": "0Ysv5P"
+        },
+        {
+          "speaker": "林深",
+          "text": "因为我父亲也有一件没来得及做的事，不是什么大事，就是一句他一直觉得'以后再说'的话，后来就再也没有以后了。",
+          "emotion": "平稳，像在说一件第一次说出口的事",
+          "id": "xJn5e9"
+        },
+        {
+          "speaker": "沈晚",
+          "text": "贵港。他说等他退休就带我去看一次花市，我每年都说好，每年都没去成。",
+          "emotion": "陈述，不带起伏",
+          "id": "SlDXXH"
+        },
+        {
+          "speaker": "林深",
+          "text": "我父亲当年签的第一块拆迁地，合同上写的是'无常住人口'，他以为那是块废地。",
+          "emotion": "缓慢",
+          "id": "IcfON1"
+        },
+        {
+          "speaker": "沈晚",
+          "text": "但是有人住。",
+          "emotion": "锐利，像在核对一件已知的事",
+          "id": "FXjK0s"
+        },
+        {
+          "speaker": "林深",
+          "text": "九十二岁的老人。我父亲后来再没提过那件事，我也没有问，我们都选择了不知道。",
+          "emotion": "平静里有什么东西在裂开",
+          "id": "qEFBL9"
+        },
+        {
+          "speaker": "沈晚",
+          "text": "你现在告诉我这个，是想让我相信他不知情，还是你自己需要说出来才能相信？",
+          "emotion": "冷，但不是残忍",
+          "id": "mwiBXn"
+        },
+        {
+          "speaker": "林深",
+          "text": "我不知道。",
+          "emotion": "第一次真实",
+          "id": "USBksR"
+        },
+        {
+          "speaker": "沈晚",
+          "text": "我也不知道他走那天，我的电话响没响。",
+          "emotion": "低沉，几乎是对自己说的",
+          "id": "9QyByq"
+        }
+      ],
+      "choices": [
+        {
+          "id": "Q0Cij_BK",
+          "nodeId": "9ZtNFNNO",
+          "text": "承担真相重量",
+          "order": 0,
+          "targetNodeId": "6qrbGFdn",
+          "conditions": "",
+          "variableEffects": "",
+          "choiceWeight": "light"
+        }
+      ],
+      "durationSeconds": 120,
+      "notes": "[路径B] 沈晚接过文件，听完林深的话，沉默半晌后说：「谢谢你没有骗我。」她让他进门，两人第一次真正坐下来谈——不是关于拆迁，而是关于各自无法放下的过去。林深说出他父亲的事，沈晚说出那张车票的目的地：是父亲生前想带她去却没来得及的地方。他们在彼此的故事里，第一次感受到一种比爱情更沉的东西：被真实地看见。"
+    },
+    {
+      "id": "GbfkKX9T",
+      "actId": "8Dj1z0Bu",
+      "title": "越界的重量",
+      "type": "normal",
+      "order": 4,
+      "position": {
+        "x": 800,
+        "y": 240
+      },
+      "emotionFunction": {
+        "emotionIn": "表面镇定，内心颤栗",
+        "emotionOut": "悬于道德深渊边缘，无法回头",
+        "tension": 8,
+        "internal_lie": "我这样做是为了她，不是为了我自己——爱可以让规则让步",
+        "fear": "终有一天她会知道，而那一刻她看他的眼神里只有陌生"
+      },
+      "systemFunction": {
+        "variablesRead": [],
+        "variablesWrite": [],
+        "requirements": ""
+      },
+      "sceneDesc": "林深背对着门站在文件柜旁，台灯的光圈没有打到他站的位置。沈晚的档案摊开在桌上，像是被人翻阅过又推到一边。沈晚进门时他没有转身，只是把手搭在柜子边缘，指节轻轻压着金属边框。",
+      "dialogue": [
+        {
+          "speaker": "沈晚",
+          "text": "系统批了六十天延期。我刚查到通知的时候以为自己看错了。",
+          "emotion": "困惑，松动",
+          "id": "ghw3aE"
+        },
+        {
+          "speaker": "林深",
+          "text": "程序有时候会走到这一步。",
+          "emotion": "刻意平静",
+          "id": "-h0Ftg"
+        },
+        {
+          "speaker": "沈晚",
+          "text": "你之前说不会有缓冲期的。",
+          "emotion": "试探",
+          "id": "vQ0JYB"
+        },
+        {
+          "speaker": "林深",
+          "text": "我说的是通常情况。",
+          "emotion": "收紧",
+          "id": "tG2uzH"
+        },
+        {
+          "speaker": "沈晚",
+          "text": "你有没有那种感觉——某件事情本来应该往坏的方向走，突然没有了，然后你不知道该不该去追问原因。",
+          "emotion": "若有所思",
+          "id": "WEucHC"
+        },
+        {
+          "speaker": "林深",
+          "text": "有。",
+          "emotion": "停顿，极短",
+          "id": "rcTXrW"
+        },
+        {
+          "speaker": "沈晚",
+          "text": "我不打算追问。我只是想让你知道，这六十天对我来说是真实的。不是侥幸，不是缓冲。是某种意义上的喘息。",
+          "emotion": "没有看他",
+          "id": "8gSzRy"
+        },
+        {
+          "speaker": "林深",
+          "text": "如果给你这口气的人越界了呢。",
+          "emotion": "声音变低",
+          "id": "yULXX6"
+        }
+      ],
+      "choices": [
+        {
+          "id": "rAPkFLFL",
+          "nodeId": "GbfkKX9T",
+          "text": "意识到越界",
+          "order": 0,
+          "targetNodeId": "6qrbGFdn",
+          "conditions": "",
+          "variableEffects": "",
+          "choiceWeight": "light"
+        }
+      ],
+      "durationSeconds": 120,
+      "notes": "[路径C] 林深将伪造的补充评估意见提交系统，为沈晚争取了额外60天。沈晚不知道这件事，她以为是程序延误。林深独自承受着这个秘密——他做了一件违背职业道德的事，却是他做过最真实的决定。他第一次在镜子里看到一个他不确定该喜欢还是该憎恶的自己：爱是否给了他越界的权利？还是他只是用爱来包装自己的控制欲？"
+    },
+    {
+      "id": "IrJ8pynI",
+      "actId": "8Dj1z0Bu",
+      "title": "探索：沈晚的相册",
+      "type": "explore",
+      "order": 5,
+      "position": {
+        "x": 1000,
+        "y": 240
+      },
+      "emotionFunction": {
+        "emotionIn": "表面漫不经心，实则心存戒备",
+        "emotionOut": "伪装崩塌边缘，被过去猝不及防地抓住",
+        "tension": 6,
+        "internal_lie": "她告诉自己那段关系已经翻篇，撕去的脸只是一个不值得被记住的人",
+        "fear": "被人发现她曾经主动选择伤害爱她的人，而她可能会再次这样做"
+      },
+      "systemFunction": {
+        "variablesRead": [],
+        "variablesWrite": [],
+        "requirements": ""
+      },
+      "sceneDesc": "林深站在书架前，相册摊开在手掌上，翻到最后一页。他没有把那张照片取出来——只用拇指轻轻压住照片右下角那块撕去的空白，像是在确认那里真的什么都没有。沈晚推开门，手指还搭在门把上，视线先落在他手里的相册，然后移向窗外。",
+      "dialogue": [
+        {
+          "speaker": "沈晚",
+          "text": "那本我以为早放到箱子里去了。",
+          "emotion": "平静，收紧",
+          "id": "V4bKku"
+        },
+        {
+          "speaker": "林深",
+          "text": "最后一张，有人被撕掉了。",
+          "emotion": "克制，试探",
+          "id": "6YugFD"
+        },
+        {
+          "speaker": "沈晚",
+          "text": "嗯。",
+          "emotion": "平静",
+          "id": "VHeUcy"
+        },
+        {
+          "speaker": "林深",
+          "text": "我不是故意翻到的，只是想随手看看——背面有字，我看了一眼，就一眼。",
+          "emotion": "轻微尴尬，主动交代",
+          "id": "oaut20"
+        },
+        {
+          "speaker": "沈晚",
+          "text": "我知道你看见了。",
+          "emotion": "平静，失控边缘",
+          "id": "HLXOTc"
+        },
+        {
+          "speaker": "林深",
+          "text": "「有些人离开，是因为留下来会毁掉你。」",
+          "emotion": "轻声，不确定",
+          "id": "kVg54t"
+        },
+        {
+          "speaker": "沈晚",
+          "text": "这句话没什么好讨论的。",
+          "emotion": "关闭，否认",
+          "id": "xIrL5W"
+        },
+        {
+          "speaker": "林深",
+          "text": "我没说要讨论。",
+          "emotion": "安静，站稳",
+          "id": "NQUUwa"
+        }
+      ],
+      "choices": [],
+      "durationSeconds": 120,
+      "notes": "可选隐藏内容：玩家可在沈晚家中发现一本旧相册，最后一页夹着一张照片——年轻的沈晚与一个男人站在旧楼门口，男人的脸被刻意撕去。照片背面写着：「有些人离开，是因为留下来会毁掉你。」这暗示沈晚的过去中有一段她主动终结的关系，玩家获得变量：past_love_sacrifice=true，为第二章的核心冲突埋下伏笔：她是否会在林深面前重蹈覆辙——再次选择离开来保护对方？"
+    },
+    {
+      "id": "4aniSSZ4",
+      "actId": "1H9mEsjr",
+      "title": "旧伤重现",
+      "type": "normal",
+      "order": 0,
+      "position": {
+        "x": 0,
+        "y": 0
+      },
+      "emotionFunction": {
+        "emotionIn": "强装镇定，眼神却已出卖",
+        "emotionOut": "质问爆发后的空洞与颤抖",
+        "tension": 7,
+        "internal_lie": "只要不追问，这段感情就还是完整的",
+        "fear": "爱人的过去里藏着一个自己永远无法替代的人"
+      },
+      "systemFunction": {
+        "variablesRead": [],
+        "variablesWrite": [],
+        "requirements": ""
+      },
+      "sceneDesc": "手机屏幕朝上摆在茶几正中央——林晴没有翻过去。她站在窗边，一根手指抵着玻璃，没有看沈晚。沈晚坐在沙发扶手上，外套还穿着，钥匙搭在膝盖上，悬在那里没有落地。",
+      "dialogue": [
+        {
+          "speaker": "林晴",
+          "text": "那个女的叫什么名字。",
+          "emotion": "平静（克制）",
+          "id": "vZFZ9_"
+        },
+        {
+          "speaker": "沈晚",
+          "text": "你翻我手机了？",
+          "emotion": "警觉",
+          "id": "GWN1uu"
+        },
+        {
+          "speaker": "林晴",
+          "text": "相册自己弹出来的。你没回答我。",
+          "emotion": "锐利",
+          "id": "Cu2AQ3"
+        },
+        {
+          "speaker": "沈晚",
+          "text": "那是很久以前的事了，我以为早就删了，有些东西你不去找它，它就好像不存在，我真的没想到还留着——",
+          "emotion": "慌乱（自我辩解）",
+          "id": "-SyqCW"
+        },
+        {
+          "speaker": "林晴",
+          "text": "你爱过她。",
+          "emotion": "确定",
+          "id": "TylgMU"
+        },
+        {
+          "speaker": "沈晚",
+          "text": "……那跟现在有什么关系。",
+          "emotion": "防御",
+          "id": "z_5asJ"
+        },
+        {
+          "speaker": "林晴",
+          "text": "没关系。我只是在想，你留着那些照片的时候，有没有预想过，我哪天会不小心看见。",
+          "emotion": "冷静（崩溃边缘）",
+          "id": "9oJ6z-"
+        },
+        {
+          "speaker": "沈晚",
+          "text": "你想让我说什么。",
+          "emotion": "疲惫（施压）",
+          "id": "tKlzjs"
+        },
+        {
+          "speaker": "林晴",
+          "text": "没什么。我只是想知道，你手机里，有多少个'很久以前'。",
+          "emotion": "轻描淡写（实则愤怒）",
+          "id": "YkNmX5"
+        },
+        {
+          "speaker": "沈晚",
+          "text": "这个问题我没办法回答你。",
+          "emotion": "闭合（逃避）",
+          "id": "93WRKL"
+        }
+      ],
+      "choices": [
+        {
+          "id": "qAOnJDj8",
+          "nodeId": "4aniSSZ4",
+          "text": "重新面对旧伤",
+          "order": 0,
+          "targetNodeId": "6qrbGFdn",
+          "conditions": "",
+          "variableEffects": "",
+          "choiceWeight": "light"
+        },
+        {
+          "id": "TAKXB5mz",
+          "nodeId": "4aniSSZ4",
+          "text": "翻看沈晚相册",
+          "order": 1,
+          "targetNodeId": "IrJ8pynI",
+          "conditions": "",
+          "variableEffects": "",
+          "choiceWeight": "light"
+        }
+      ],
+      "durationSeconds": 120,
+      "notes": "核心冲突推进：两人关系在甜蜜中出现第一道裂缝——对方过去的秘密开始浮出水面。主角发现恋人手机里的陌生照片，质问随即引爆压抑已久的不安全感。"
+    },
+    {
+      "id": "6qrbGFdn",
+      "actId": "1H9mEsjr",
+      "title": "如何面对秘密",
+      "type": "branch",
+      "order": 1,
+      "position": {
+        "x": 200,
+        "y": 0
+      },
+      "emotionFunction": {
+        "emotionIn": "强装镇定，内心已千疮百孔",
+        "emotionOut": "无论选择何种方式，都带着无法言说的重量离开",
+        "tension": 9,
+        "internal_lie": "只要我能控制接下来的每一步，这段关系就还在我手里",
+        "fear": "如果真正坦诚相见，对方会发现自己其实没有资格要求任何东西"
+      },
+      "systemFunction": {
+        "variablesRead": [],
+        "variablesWrite": [],
+        "requirements": ""
+      },
+      "sceneDesc": "照片正面朝下扣在窗台上，林以深的手还压着它的一角。顾晚站在房间中央没有走近，窗帘投下一条竖直的阴影把地板切成两半，街灯从缝隙透进来，只照到林以深的手背。",
+      "dialogue": [
+        {
+          "speaker": "顾晚",
+          "text": "我没问你那个人叫什么名字。",
+          "emotion": "平静",
+          "id": "0i3xhd"
+        },
+        {
+          "speaker": "林以深",
+          "text": "我知道你没问。其实这件事我想跟你说很久了，只是每次开口都觉得时机不对，一直觉得不对——",
+          "emotion": "解释",
+          "id": "phA5JX"
+        },
+        {
+          "speaker": "顾晚",
+          "text": "觉得什么时候对。",
+          "emotion": "等待",
+          "id": "6XNUqi"
+        },
+        {
+          "speaker": "林以深",
+          "text": "觉得说出来就变成一个问题。但它本来不是。",
+          "emotion": "防御",
+          "id": "r64SCM"
+        },
+        {
+          "speaker": "顾晚",
+          "text": "照片还在，它就是。",
+          "emotion": "收紧",
+          "id": "QVfC48"
+        },
+        {
+          "speaker": "林以深",
+          "text": "我没办法假装那段时间没发生过。你要我怎么做——把它烧掉，烧掉它就消失了？",
+          "emotion": "失控边缘",
+          "id": "2vzTPv"
+        },
+        {
+          "speaker": "顾晚",
+          "text": "我没让你做任何事。",
+          "emotion": "退后一步",
+          "id": "SnQNCj"
+        },
+        {
+          "speaker": "林以深",
+          "text": "那你想要什么。",
+          "emotion": "暴露",
+          "id": "R_GK1D"
+        },
+        {
+          "speaker": "顾晚",
+          "text": "我也不知道了。",
+          "emotion": "疲倦",
+          "id": "HWjk8r"
+        },
+        {
+          "speaker": "林以深",
+          "text": "顾晚——",
+          "emotion": "恐慌",
+          "id": "VfXOD7"
+        }
+      ],
+      "choices": [
+        {
+          "id": "LXRSYGIT",
+          "nodeId": "6qrbGFdn",
+          "text": "强迫对方坦白",
+          "order": 0,
+          "targetNodeId": "NZtE9Ygt",
+          "conditions": "",
+          "variableEffects": "control+2,trust-1",
+          "choiceWeight": "heavy"
+        },
+        {
+          "id": "3_LZck5Y",
+          "nodeId": "6qrbGFdn",
+          "text": "一个人消化痛苦",
+          "order": 1,
+          "targetNodeId": "Qxw6tNN1",
+          "conditions": "",
+          "variableEffects": "openness-2,affection-1",
+          "choiceWeight": "heavy"
+        },
+        {
+          "id": "QIc9a1xL",
+          "nodeId": "6qrbGFdn",
+          "text": "以脆弱换脆弱",
+          "order": 2,
+          "targetNodeId": "Gh_n0Pm-",
+          "conditions": "",
+          "variableEffects": "openness+2,trust+2",
+          "choiceWeight": "heavy"
+        },
+        {
+          "id": "UFZjiAZy",
+          "nodeId": "6qrbGFdn",
+          "text": "等到黎明再开口",
+          "order": 3,
+          "targetNodeId": "mM6PcwWG",
+          "conditions": "",
+          "variableEffects": "trust+1,affection+1",
+          "choiceWeight": "heavy"
+        },
+        {
+          "id": "0W_l6fSF",
+          "nodeId": "6qrbGFdn",
+          "text": "被旧世界突然打断",
+          "order": 4,
+          "targetNodeId": "g_JNciL9",
+          "conditions": "",
+          "variableEffects": "control-1,honesty-1",
+          "choiceWeight": "heavy"
+        }
+      ],
+      "durationSeconds": 120,
+      "notes": "关键选择：恋人承认照片背后藏着一段无法割舍的旧情，玩家必须决定如何应对。A：逼问到底，要求立刻切断联系；B：假装相信，独自消化；C：坦白自己同样有未了结的过去。variableEffects：A→control+2, trust-1；B→resentment+2, trust+0；C→vulnerability+2, trust+2"
+    },
+    {
+      "id": "NZtE9Ygt",
+      "actId": "1H9mEsjr",
+      "title": "占有的代价",
+      "type": "normal",
+      "order": 2,
+      "position": {
+        "x": 400,
+        "y": 0
+      },
+      "emotionFunction": {
+        "emotionIn": "愤怒中带着控制欲，表面强势实则颤抖",
+        "emotionOut": "被自我厌恶击穿，陷入木然的沉默",
+        "tension": 8,
+        "internal_lie": "我这样做是因为太爱他/她了，爱本身证明了我的正当",
+        "fear": "发现自己正在成为曾经伤害过自己的那种人，而那个人无可救药"
+      },
+      "systemFunction": {
+        "variablesRead": [],
+        "variablesWrite": [],
+        "requirements": ""
+      },
+      "sceneDesc": "木门门缝透出一线暖光，陈默的额头抵着门板，右手垂在身侧。他的手机屏幕朝上躺在走廊地板上，碎裂的玻璃反着走廊灯，屏幕还亮着，停在最后翻开的那条消息上。",
+      "dialogue": [
+        {
+          "speaker": "林晚",
+          "text": "你找到了吗。",
+          "emotion": "冷静，刀刃般",
+          "id": "V3hGB-"
+        },
+        {
+          "speaker": "陈默",
+          "text": "开门。",
+          "emotion": "命令，但声音哑了",
+          "id": "asgq6A"
+        },
+        {
+          "speaker": "林晚",
+          "text": "我认识一个人，他也说只是想确认一下，翻完就删，以后不会了。后来他把我手机的密码改成了他自己的生日，说这样心里踏实一点。",
+          "emotion": "平静，每个字都是旧伤",
+          "id": "dIwqOS"
+        },
+        {
+          "speaker": "陈默",
+          "text": "我不是他。",
+          "emotion": "防御，急切",
+          "id": "B9T9je"
+        },
+        {
+          "speaker": "林晚",
+          "text": "不是吗。",
+          "emotion": "沉默之后，轻到几乎没有声音",
+          "id": "pjBPbC"
+        },
+        {
+          "speaker": "陈默",
+          "text": "每次你不接电话，我脑子里就开始转，那些画面……我知道不对，我知道，可我停不下来，我不是要——",
+          "emotion": "崩溃，句子在自己口中断掉",
+          "id": "7llVyb"
+        },
+        {
+          "speaker": "林晚",
+          "text": "你现在看见自己了吗。",
+          "emotion": "不是愤怒，是比愤怒更深的某种东西",
+          "id": "6VPdel"
+        },
+        {
+          "speaker": "陈默",
+          "text": "……",
+          "emotion": "手掌缓缓从门板上滑落",
+          "id": "o8awYx"
+        },
+        {
+          "speaker": "林晚",
+          "text": "我问你。",
+          "emotion": "等待，不退让",
+          "id": "tH2v6c"
+        },
+        {
+          "speaker": "陈默",
+          "text": "看见了。",
+          "emotion": "两个字，像供词",
+          "id": "JbBF8k"
+        }
+      ],
+      "choices": [
+        {
+          "id": "TYhqJMuu",
+          "nodeId": "NZtE9Ygt",
+          "text": "承受代价",
+          "order": 0,
+          "targetNodeId": "8XbgZvXu",
+          "conditions": "",
+          "variableEffects": "",
+          "choiceWeight": "light"
+        }
+      ],
+      "durationSeconds": 120,
+      "notes": "[路径A] 路径A：主角强行翻看恋人全部通讯记录，恋人愤怒反锁房门。两人隔门对峙，主角在沉默中意识到自己正在变成曾经最恐惧的那种人。"
+    },
+    {
+      "id": "Qxw6tNN1",
+      "actId": "1H9mEsjr",
+      "title": "压抑的夜晚",
+      "type": "normal",
+      "order": 3,
+      "position": {
+        "x": 600,
+        "y": 0
+      },
+      "emotionFunction": {
+        "emotionIn": "强撑着微笑，眼神空洞",
+        "emotionOut": "沉入无声的绝望，心如死灰",
+        "tension": 6,
+        "internal_lie": "只要今晚不开口，我们就还完好无损——说出来才是真的失去",
+        "fear": "恋人会证实自己最深的恐惧：在这段关系里，自己从来都是一个人"
+      },
+      "systemFunction": {
+        "variablesRead": [],
+        "variablesWrite": [],
+        "requirements": ""
+      },
+      "sceneDesc": "卧室里，顾城侧躺在床上，床头灯的橙光压在他肩膀上，把他那半边墙照成暖色。林晚坐在靠窗的椅子上，月光从背后来，把她的影子拉向床铺方向，但她本人没有动。她把一本磨损的蓝色日记本放在膝盖上，笔帽还没拔，笔尖对着空白页。",
+      "dialogue": [
+        {
+          "speaker": "顾城",
+          "text": "怎么不过来。",
+          "emotion": "困倦，随口的",
+          "id": "y9IgLz"
+        },
+        {
+          "speaker": "林晚",
+          "text": "我睡不着，你先睡吧，不用等我，真的，没事的。",
+          "emotion": "温柔，解释得比必要的多",
+          "id": "SzY0KN"
+        },
+        {
+          "speaker": "顾城",
+          "text": "想什么呢。",
+          "emotion": "已经不在意答案",
+          "id": "fmHaOl"
+        },
+        {
+          "speaker": "林晚",
+          "text": "没什么，就是有点累，又睡不着，你知道那种感觉吗，脑子里转来转去，但其实也没有在想什么特别的东西。",
+          "emotion": "声音平稳，手指压住日记封面",
+          "id": "Q11UVW"
+        },
+        {
+          "speaker": "顾城",
+          "text": "嗯。别熬太晚。",
+          "emotion": "眼睛已经闭上",
+          "id": "MIwRUe"
+        },
+        {
+          "speaker": "林晚",
+          "text": "好。晚安。",
+          "emotion": "嘴角弯起来，对着窗玻璃",
+          "id": "N5aaC6"
+        },
+        {
+          "speaker": "顾城",
+          "text": "晚安。",
+          "emotion": "声音从枕头里出来",
+          "id": "Mmmsia"
+        },
+        {
+          "speaker": "林晚",
+          "text": "我今天差点问你的。",
+          "emotion": "低到听不见，拔开笔帽",
+          "id": "SK3HBW"
+        },
+        {
+          "speaker": "林晚",
+          "text": "算了。",
+          "emotion": "笔尖落纸，手没有抖",
+          "id": "AUCnYd"
+        },
+        {
+          "speaker": "林晚",
+          "text": "我不敢问，因为我怕答案是真的。",
+          "emotion": "写下去，写完，盖上笔帽",
+          "id": "KMGGju"
+        }
+      ],
+      "choices": [
+        {
+          "id": "rZTJ_ZWq",
+          "nodeId": "Qxw6tNN1",
+          "text": "捱过漫漫黑夜",
+          "order": 0,
+          "targetNodeId": "8XbgZvXu",
+          "conditions": "",
+          "variableEffects": "",
+          "choiceWeight": "light"
+        }
+      ],
+      "durationSeconds": 120,
+      "notes": "[路径B] 路径B：主角独自坐在窗边假笑道晚安，恋人毫无察觉地入睡。主角拿出旧日记，写下「我不敢问，因为我怕答案是真的」，resentment在沉默中悄悄积累。"
+    },
+    {
+      "id": "Gh_n0Pm-",
+      "actId": "1H9mEsjr",
+      "title": "以脆弱换脆弱",
+      "type": "normal",
+      "order": 4,
+      "position": {
+        "x": 800,
+        "y": 0
+      },
+      "emotionFunction": {
+        "emotionIn": "小心翼翼地敞开，声音微微颤抖",
+        "emotionOut": "赤裸却被接住，心跳加速中升起陌生的安全感",
+        "tension": 8,
+        "internal_lie": "只要我先开口，就能控制这段关系走向哪里",
+        "fear": "真正被看见之后，对方选择离开"
+      },
+      "systemFunction": {
+        "variablesRead": [],
+        "variablesWrite": [],
+        "requirements": ""
+      },
+      "sceneDesc": "那张照片正面朝上搁在茶几中央，林织的拇指压着它左下角，指甲尖已经掐进了白色边框里。沈屿坐在她斜对面，视线落在窗帘底部透进来的一条灯光缝上，右手大拇指在左手背上来回摩挲，没有停。",
+      "dialogue": [
+        {
+          "speaker": "沈屿",
+          "text": "我妈走的那年我十七岁。我跟所有人说她去上海找工作了——后来说了很多年。",
+          "emotion": "克制、平静",
+          "id": "wQ15WH"
+        },
+        {
+          "speaker": "林织",
+          "text": "你为什么要告诉我这个？",
+          "emotion": "戒备、微微后退",
+          "id": "94d0tC"
+        },
+        {
+          "speaker": "沈屿",
+          "text": "她是自己选择走的。不是去上海。我是说……她选择不在了。我从来没跟任何人说过这句话。",
+          "emotion": "声音变轻、某种暴露后的僵硬",
+          "id": "wqd4ZD"
+        },
+        {
+          "speaker": "林织",
+          "text": "……",
+          "emotion": "手指从照片边缘慢慢收回",
+          "id": "XPWG9n"
+        },
+        {
+          "speaker": "沈屿",
+          "text": "没什么。算了，就是——",
+          "emotion": "开始自我撤退",
+          "id": "8OiYLT"
+        },
+        {
+          "speaker": "林织",
+          "text": "照片里这个人，我叫她林听。我以前的，不是现在的。",
+          "emotion": "刻意平静、像在念一份清单",
+          "id": "GiZyWG"
+        },
+        {
+          "speaker": "沈屿",
+          "text": "你们——",
+          "emotion": "抬起眼睛，第一次直视她",
+          "id": "-eM26g"
+        },
+        {
+          "speaker": "林织",
+          "text": "她等了我四年。我最后一次见她，是在她婚礼前三天。我去把钥匙还给她。亲手放进她手里的。",
+          "emotion": "语速很快、像在报告别人的事",
+          "id": "ev5-YJ"
+        },
+        {
+          "speaker": "沈屿",
+          "text": "你亲手放的。",
+          "emotion": "不是问句",
+          "id": "ghO1Ip"
+        },
+        {
+          "speaker": "林织",
+          "text": "我们刚才在说你妈妈。",
+          "emotion": "眼睛看向窗帘、声音变硬了一点",
+          "id": "vNvfnJ"
+        }
+      ],
+      "choices": [
+        {
+          "id": "os1Q9FvI",
+          "nodeId": "Gh_n0Pm-",
+          "text": "彼此靠近一步",
+          "order": 0,
+          "targetNodeId": "8XbgZvXu",
+          "conditions": "",
+          "variableEffects": "",
+          "choiceWeight": "light"
+        }
+      ],
+      "durationSeconds": 120,
+      "notes": "[路径C] 路径C：主角说出自己从未对任何人提起的往事，恋人愣住，随后也开口讲出照片背后的完整故事。两人第一次真正地彼此凝视，vulnerability的双向流动令关系骤然深化。"
+    },
+    {
+      "id": "mM6PcwWG",
+      "actId": "1H9mEsjr",
+      "title": "黎明前的静默",
+      "type": "normal",
+      "order": 5,
+      "position": {
+        "x": 1000,
+        "y": 0
+      },
+      "emotionFunction": {
+        "emotionIn": "疲惫中强撑着某种伪装的平静",
+        "emotionOut": "沉默里藏着无声的妥协与隐忍",
+        "tension": 4,
+        "internal_lie": "只要天亮了，一切就会回到正轨，昨夜什么都没有改变",
+        "fear": "害怕承认两人之间已经悄悄错位——那个裂缝或许从一开始就无法弥合"
+      },
+      "systemFunction": {
+        "variablesRead": [],
+        "variablesWrite": [],
+        "requirements": ""
+      },
+      "sceneDesc": "窗帘底端透进一线灰白，桌上的台灯还亮着，光圈已不再必要。林晚舟坐在沙发扶手上，外套拉链拉到顶，两手交叠压着手机屏幕朝下扣在膝盖上。陈以深端着一杯水站在厨房入口，水面平静，他没有喝。",
+      "dialogue": [
+        {
+          "speaker": "林晚舟",
+          "text": "天还没亮。",
+          "emotion": "伪装镇定",
+          "id": "q20gMN"
+        },
+        {
+          "speaker": "陈以深",
+          "text": "嗯。",
+          "emotion": "等待",
+          "id": "ASzF_k"
+        },
+        {
+          "speaker": "林晚舟",
+          "text": "昨晚那些话，你不用记着——我那时候有点乱，很多都是随口说的，你明白的，对吧。",
+          "emotion": "强作轻描淡写",
+          "id": "DtgA6U"
+        },
+        {
+          "speaker": "陈以深",
+          "text": "哪句是随口说的。",
+          "emotion": "平静",
+          "id": "5qETqw"
+        },
+        {
+          "speaker": "林晚舟",
+          "text": "你知道我说的是哪句。",
+          "emotion": "被逼退",
+          "id": "uShoR2"
+        },
+        {
+          "speaker": "陈以深",
+          "text": "对。所以我在问你。",
+          "emotion": "笃定",
+          "id": "h5QPNO"
+        },
+        {
+          "speaker": "林晚舟",
+          "text": "有些话，说清楚了反而麻烦——就算是真的，当了真就不一样了，你懂的，对不对，两个人之间，总有些东西，最好别拿出来在灯下看。",
+          "emotion": "颤抖的理智",
+          "id": "JeJdpx"
+        },
+        {
+          "speaker": "陈以深",
+          "text": "在灯下看。",
+          "emotion": "平静",
+          "id": "aPEz0c"
+        },
+        {
+          "speaker": "林晚舟",
+          "text": "……天快亮了。",
+          "emotion": "破碎",
+          "id": "Gevscb"
+        }
+      ],
+      "choices": [
+        {
+          "id": "XspDo7NZ",
+          "nodeId": "mM6PcwWG",
+          "text": "等待天色变亮",
+          "order": 0,
+          "targetNodeId": "8XbgZvXu",
+          "conditions": "",
+          "variableEffects": "",
+          "choiceWeight": "light"
+        }
+      ],
+      "durationSeconds": 120,
+      "notes": "各路径汇回主线：无论经历了什么，天亮后两人仍然同处一室。表面的裂缝被暂时粉饰，但三条路径积累的变量已悄然改变彼此之间的引力方向，故事向第二幕推进。"
+    },
+    {
+      "id": "g_JNciL9",
+      "actId": "0KnAKUbc",
+      "title": "旧世界叩门",
+      "type": "normal",
+      "order": 0,
+      "position": {
+        "x": 0,
+        "y": 120
+      },
+      "emotionFunction": {
+        "emotionIn": "强装镇定，眼神微微飘忽",
+        "emotionOut": "裂缝已现，控制感开始瓦解",
+        "tension": 7,
+        "internal_lie": "他告诉自己这段过去已经死透了，来人只是一个陌生人的躯壳",
+        "fear": "恋人会在这个人身上看见一个从未对自己完全打开过的灵魂"
+      },
+      "systemFunction": {
+        "variablesRead": [],
+        "variablesWrite": [],
+        "requirements": ""
+      },
+      "sceneDesc": "裴晗站在门口，手里的牛皮纸袋右下角压着一枚红色印章，袋口没有封。沈澈右手死握门把，左手平贴门框，用身体堵住门缝，只开了一道能侧身站人的宽度。顾晚站在室内三步外，没有走近，身后窗台上一只水杯映着走廊透进来的光。",
+      "dialogue": [
+        {
+          "speaker": "裴晗",
+          "text": "你电话一直没人接。",
+          "emotion": "平静",
+          "id": "Lznxkx"
+        },
+        {
+          "speaker": "沈澈",
+          "text": "我最近换了号，其实你发消息也可以的，我们不是说好了怎么处理那件事——",
+          "emotion": "紧绷",
+          "id": "zVecCa"
+        },
+        {
+          "speaker": "裴晗",
+          "text": "你换地方住了。",
+          "emotion": "审视",
+          "id": "TaQ0ZZ"
+        },
+        {
+          "speaker": "顾晚",
+          "text": "有什么事，你说。",
+          "emotion": "克制",
+          "id": "01o7ir"
+        },
+        {
+          "speaker": "裴晗",
+          "text": "沈澈欠我的东西，你能替他还？",
+          "emotion": "锐利",
+          "id": "zJZjlD"
+        },
+        {
+          "speaker": "沈澈",
+          "text": "裴晗，那件事你知道我一直在想办法——我们当时讲好的根本不是你现在说的那个意思，只是后来情况有变，我没办法一下子——",
+          "emotion": "慌乱",
+          "id": "JEPTiR"
+        },
+        {
+          "speaker": "顾晚",
+          "text": "他欠你什么。",
+          "emotion": "沉着",
+          "id": "ZNTfhW"
+        },
+        {
+          "speaker": "裴晗",
+          "text": "你问他。",
+          "emotion": "冷然",
+          "id": "lbJKnm"
+        },
+        {
+          "speaker": "沈澈",
+          "text": "顾晚，我跟他认识很久了，有些事是我欠他的——不是你该介入的那种，我是说，你不应该——没什么，算了。",
+          "emotion": "撕裂",
+          "id": "WXJWkk"
+        },
+        {
+          "speaker": "裴晗",
+          "text": "我等你想好。",
+          "emotion": "静止",
+          "id": "3YiAeO"
+        }
+      ],
+      "choices": [
+        {
+          "id": "Ve9JQ9jY",
+          "nodeId": "g_JNciL9",
+          "text": "应对旧世界来袭",
+          "order": 0,
+          "targetNodeId": "8XbgZvXu",
+          "conditions": "",
+          "variableEffects": "",
+          "choiceWeight": "light"
+        }
+      ],
+      "durationSeconds": 120,
+      "notes": "核心冲突推进：恋人过去牵连的人突然出现——一个带着债务与旧誓言而来的前任。主角第一次直面「那段过去」的实体，内心的占有欲与理智展开激烈拉锯。"
+    },
+    {
+      "id": "8XbgZvXu",
+      "actId": "0KnAKUbc",
+      "title": "三岔路口",
+      "type": "branch",
+      "order": 1,
+      "position": {
+        "x": 200,
+        "y": 120
+      },
+      "emotionFunction": {
+        "emotionIn": "表面镇定，手心已在冒汗",
+        "emotionOut": "某种东西在心里永远碎掉了",
+        "tension": 9,
+        "internal_lie": "只要我牢牢掌控这个局面，我们之间就不会出什么问题",
+        "fear": "放手一秒钟，就会失去这个人——而对方本来就从未真正属于过自己"
+      },
+      "systemFunction": {
+        "variablesRead": [],
+        "variablesWrite": [],
+        "requirements": ""
+      },
+      "sceneDesc": "方烬将一个旧信封竖着靠在茶几边缘，没有坐下。沈迟站在两人之间，背对着陆逢，右手拇指反复摩擦左手袖口的缝线。陆逢倚在厨房门框上，手里那杯水从始至终没有送到嘴边。",
+      "dialogue": [
+        {
+          "speaker": "方烬",
+          "text": "就我们两个。旧事，说清楚就完了。",
+          "emotion": "克制",
+          "id": "YlB1hN"
+        },
+        {
+          "speaker": "陆逢",
+          "text": "他能替你做这个决定？",
+          "emotion": "平静（表层）",
+          "id": "eoMvuM"
+        },
+        {
+          "speaker": "沈迟",
+          "text": "方烬不是那个意思，他只是有些话一直没机会说，我知道你不放心，只是如果这些话一直压着，对你对我对他都不公平——我只是想把那些话说完。",
+          "emotion": "讨好式焦虑",
+          "id": "3kG0tK"
+        },
+        {
+          "speaker": "方烬",
+          "text": "别替我说了。",
+          "emotion": "冷",
+          "id": "aDclPo"
+        },
+        {
+          "speaker": "陆逢",
+          "text": "我信你。那个信封，你是带进去，还是留在这儿。",
+          "emotion": "笑（不到眼睛）",
+          "id": "oF_7xh"
+        },
+        {
+          "speaker": "沈迟",
+          "text": "陆逢，那只是一些旧照片，你这样——没有别的意思的。",
+          "emotion": "受伤且防御",
+          "id": "GWHnH_"
+        },
+        {
+          "speaker": "方烬",
+          "text": "你怕什么。",
+          "emotion": "看穿一切",
+          "id": "2S2UrO"
+        },
+        {
+          "speaker": "陆逢",
+          "text": "你来这里，是为了了结，还是为了证明什么还没结束？",
+          "emotion": "平静（出现裂缝）",
+          "id": "_AXniT"
+        },
+        {
+          "speaker": "沈迟",
+          "text": "够了，我……没什么，你们都别说了。",
+          "emotion": "崩溃边缘",
+          "id": "ClFQjn"
+        },
+        {
+          "speaker": "方烬",
+          "text": "你出来。",
+          "emotion": "确定",
+          "id": "ki9q7o"
+        }
+      ],
+      "choices": [
+        {
+          "id": "Q8O-ykoz",
+          "nodeId": "8XbgZvXu",
+          "text": "将门从内锁上",
+          "order": 0,
+          "targetNodeId": "JJuDABlj",
+          "conditions": "",
+          "variableEffects": "control+2,trust-1",
+          "choiceWeight": "heavy"
+        },
+        {
+          "id": "BGvzIlC5",
+          "nodeId": "8XbgZvXu",
+          "text": "隔玻璃旁观背叛",
+          "order": 1,
+          "targetNodeId": "FNuxO6xp",
+          "conditions": "",
+          "variableEffects": "openness-1,trust-1",
+          "choiceWeight": "heavy"
+        },
+        {
+          "id": "S3f_eTdq",
+          "nodeId": "8XbgZvXu",
+          "text": "说出桌上真相",
+          "order": 2,
+          "targetNodeId": "BPACXknN",
+          "conditions": "",
+          "variableEffects": "honesty+2,affection+1",
+          "choiceWeight": "heavy"
+        },
+        {
+          "id": "cMSzkl-O",
+          "nodeId": "8XbgZvXu",
+          "text": "亲自送走前任",
+          "order": 3,
+          "targetNodeId": "QRYNcbjz",
+          "conditions": "",
+          "variableEffects": "trust+1,affection+1",
+          "choiceWeight": "heavy"
+        },
+        {
+          "id": "xJmgQEwY",
+          "nodeId": "8XbgZvXu",
+          "text": "共度最后一夜",
+          "order": 4,
+          "targetNodeId": "IO4l7UiH",
+          "conditions": "",
+          "variableEffects": "affection+2,openness+1",
+          "choiceWeight": "heavy"
+        },
+        {
+          "id": "9lj7ecFp",
+          "nodeId": "8XbgZvXu",
+          "text": "引爆所有矛盾",
+          "order": 5,
+          "targetNodeId": "G_qoW2Kg",
+          "conditions": "",
+          "variableEffects": "honesty+1,control+1",
+          "choiceWeight": "heavy"
+        }
+      ],
+      "durationSeconds": 120,
+      "notes": "关键选择：前任要求与恋人单独谈话「了结旧事」，主角如何决断。A：拒绝，以爱之名阻止这场会面；B：同意，但暗中跟踪；C：主动提出三人坐下来当面说清楚。variableEffects：A→control+2, affection-1；B→resentment+1, betrayed=true；C→trust+2, vulnerability+1"
+    },
+    {
+      "id": "JJuDABlj",
+      "actId": "0KnAKUbc",
+      "title": "锁住的门",
+      "type": "normal",
+      "order": 2,
+      "position": {
+        "x": 400,
+        "y": 120
+      },
+      "emotionFunction": {
+        "emotionIn": "",
+        "emotionOut": "",
+        "playerEmotion": "",
+        "tension": 5
+      },
+      "systemFunction": {
+        "variablesRead": [],
+        "variablesWrite": [],
+        "requirements": ""
+      },
+      "sceneDesc": "",
+      "dialogue": [],
+      "choices": [
+        {
+          "id": "fRTE6kgQ",
+          "nodeId": "JJuDABlj",
+          "text": "走出困境",
+          "order": 0,
+          "targetNodeId": "f93_7g7H",
+          "conditions": "",
+          "variableEffects": "",
+          "choiceWeight": "light"
+        }
+      ],
+      "durationSeconds": 120,
+      "notes": "[路径A] 路径A：主角站在门口不让前任进入，恋人在两人之间沉默了整整三秒。那三秒让主角看见恋人眼里一闪而过的疲惫——不是对前任，而是对这段关系本身。"
+    },
+    {
+      "id": "FNuxO6xp",
+      "actId": "0KnAKUbc",
+      "title": "隔着玻璃的背叛",
+      "type": "normal",
+      "order": 3,
+      "position": {
+        "x": 600,
+        "y": 120
+      },
+      "emotionFunction": {
+        "emotionIn": "强装镇定，双手微微发抖",
+        "emotionOut": "如坠冰窟，沉默如石",
+        "tension": 8,
+        "internal_lie": "那个拥抱一定有别的解释，我不能用看到的东西下结论",
+        "fear": "如果追问，真相会比想象中更残忍——而他宁愿带着谎言独自离开"
+      },
+      "systemFunction": {
+        "variablesRead": [],
+        "variablesWrite": [],
+        "requirements": ""
+      },
+      "sceneDesc": "咖啡馆靠窗的角落，陈默选的座位让林晚背对着玻璃——这个习惯他从没改过。林晚的外套叠在椅背上，手边的杯子没有动过，水汽已经散完。街对面的巷口，宋以把打火机在指节间转了一圈又停住，玻璃橱窗把两种温度隔开，他看得见两个人的轮廓，看不见她的眼睛是向下的。",
+      "dialogue": [
+        {
+          "speaker": "陈默",
+          "text": "你剪头发了。",
+          "emotion": "平静，试探",
+          "id": "eDSk3s"
+        },
+        {
+          "speaker": "林晚",
+          "text": "陈默，我知道你约我来是想说什么，但是有些事情我真的不想再解释了，我只是——我只是想把它好好放下，就这样，没有别的意思。",
+          "emotion": "疲惫，防御",
+          "id": "SpnHuu"
+        },
+        {
+          "speaker": "陈默",
+          "text": "放下。",
+          "emotion": "轻声，带刺",
+          "id": "oy7Bwt"
+        },
+        {
+          "speaker": "林晚",
+          "text": "是。",
+          "emotion": "坚定，轻微颤抖",
+          "id": "61Ap-5"
+        },
+        {
+          "speaker": "陈默",
+          "text": "你现在笑的方式不一样了。",
+          "emotion": "陈述，施压",
+          "id": "5qGFPR"
+        },
+        {
+          "speaker": "林晚",
+          "text": "我知道。",
+          "emotion": "眼眶发热，低头",
+          "id": "8BeF_b"
+        },
+        {
+          "speaker": "陈默",
+          "text": "是他教的？",
+          "emotion": "冷，精准",
+          "id": "pAQX7p"
+        },
+        {
+          "speaker": "林晚",
+          "text": "不是。是我自己——终于学会的。",
+          "emotion": "哽咽，某种释然",
+          "id": "iY0I2E"
+        },
+        {
+          "speaker": "陈默",
+          "text": "那走吧。",
+          "emotion": "突然，声音变平",
+          "id": "AlAaBl"
+        },
+        {
+          "speaker": "林晚",
+          "text": "谢谢你肯见我最后一面。",
+          "emotion": "站起身，走向他，声音已经破了",
+          "id": "sYRrAS"
+        }
+      ],
+      "choices": [
+        {
+          "id": "61qD9Vs5",
+          "nodeId": "FNuxO6xp",
+          "text": "直面这段背叛",
+          "order": 0,
+          "targetNodeId": "f93_7g7H",
+          "conditions": "",
+          "variableEffects": "",
+          "choiceWeight": "light"
+        }
+      ],
+      "durationSeconds": 120,
+      "notes": "[路径B] 路径B：主角躲在咖啡馆对面的巷子里，目睹恋人与前任相拥而泣——那是告别的眼泪，但主角看见的只是拥抱。betrayed变量触发，主角带着未经核实的「证据」独自离开。"
+    },
+    {
+      "id": "BPACXknN",
+      "actId": "0KnAKUbc",
+      "title": "桌上的真相",
+      "type": "normal",
+      "order": 4,
+      "position": {
+        "x": 800,
+        "y": 120
+      },
+      "emotionFunction": {
+        "emotionIn": "",
+        "emotionOut": "",
+        "playerEmotion": "",
+        "tension": 5
+      },
+      "systemFunction": {
+        "variablesRead": [],
+        "variablesWrite": [],
+        "requirements": ""
+      },
+      "sceneDesc": "",
+      "dialogue": [],
+      "choices": [
+        {
+          "id": "r-qojzxm",
+          "nodeId": "BPACXknN",
+          "text": "接受摊开的一切",
+          "order": 0,
+          "targetNodeId": "f93_7g7H",
+          "conditions": "",
+          "variableEffects": "",
+          "choiceWeight": "light"
+        }
+      ],
+      "durationSeconds": 120,
+      "notes": "[路径C] 路径C：三人坐定，前任说出那段旧情的真相：恋人当年为了照顾生病的前任放弃了出国机会，两人最终因耗尽而散。主角第一次理解「爱不是罪，耗尽才是」，trust与vulnerability双双上升。"
+    },
+    {
+      "id": "QRYNcbjz",
+      "actId": "0KnAKUbc",
+      "title": "前任离去后",
+      "type": "normal",
+      "order": 5,
+      "position": {
+        "x": 1000,
+        "y": 120
+      },
+      "emotionFunction": {
+        "emotionIn": "",
+        "emotionOut": "",
+        "playerEmotion": "",
+        "tension": 5
+      },
+      "systemFunction": {
+        "variablesRead": [],
+        "variablesWrite": [],
+        "requirements": ""
+      },
+      "sceneDesc": "",
+      "dialogue": [],
+      "choices": [
+        {
+          "id": "RRg-csNs",
+          "nodeId": "QRYNcbjz",
+          "text": "重新站在原地",
+          "order": 0,
+          "targetNodeId": "f93_7g7H",
+          "conditions": "",
+          "variableEffects": "",
+          "choiceWeight": "light"
+        }
+      ],
+      "durationSeconds": 120,
+      "notes": "各路径汇回主线：前任离开，恋人关上门转身看向主角。两人都知道某种东西已经改变。积累的变量此时已为第三幕的最终分歧埋下各自不同的引线，故事进入终幕。"
+    },
+    {
+      "id": "IO4l7UiH",
+      "actId": "_WkRPdk2",
+      "title": "最后一夜",
+      "type": "normal",
+      "order": 0,
+      "position": {
+        "x": 0,
+        "y": 240
+      },
+      "emotionFunction": {
+        "emotionIn": "",
+        "emotionOut": "",
+        "playerEmotion": "",
+        "tension": 5
+      },
+      "systemFunction": {
+        "variablesRead": [],
+        "variablesWrite": [],
+        "requirements": ""
+      },
+      "sceneDesc": "",
+      "dialogue": [],
+      "choices": [
+        {
+          "id": "e0aipXsB",
+          "nodeId": "IO4l7UiH",
+          "text": "迎接破晓",
+          "order": 0,
+          "targetNodeId": "f93_7g7H",
+          "conditions": "",
+          "variableEffects": "",
+          "choiceWeight": "light"
+        }
+      ],
+      "durationSeconds": 120,
+      "notes": "核心冲突推进：恋人告知主角自己必须回到过去那座城市——旧的牵绊需要亲手终结，而这一去少则数月。两人面对「暂时离别」还是「就此了断」的抉择前夕，往日所有甜蜜与裂缝同时涌现。"
+    },
+    {
+      "id": "G_qoW2Kg",
+      "actId": "_WkRPdk2",
+      "title": "所有矛盾引爆",
+      "type": "normal",
+      "order": 1,
+      "position": {
+        "x": 200,
+        "y": 240
+      },
+      "emotionFunction": {
+        "emotionIn": "",
+        "emotionOut": "",
+        "playerEmotion": "",
+        "tension": 5
+      },
+      "systemFunction": {
+        "variablesRead": [],
+        "variablesWrite": [],
+        "requirements": ""
+      },
+      "sceneDesc": "",
+      "dialogue": [],
+      "choices": [
+        {
+          "id": "-R781Cvr",
+          "nodeId": "G_qoW2Kg",
+          "text": "从废墟中站起",
+          "order": 0,
+          "targetNodeId": "f93_7g7H",
+          "conditions": "",
+          "variableEffects": "",
+          "choiceWeight": "light"
+        }
+      ],
+      "durationSeconds": 120,
+      "notes": "最黑暗时刻：恋人收拾行李时，主角说出那句一直压着的话。全程积累的control、resentment、trust、betrayed、vulnerability变量在此刻共同决定这场争吵的烈度与走向——有人崩溃，有人沉默，有人第一次说出「我爱你但我留不住你」。"
+    },
+    {
+      "id": "f93_7g7H",
+      "actId": "_WkRPdk2",
+      "title": "内心的最终判断",
+      "type": "branch",
+      "order": 2,
+      "position": {
+        "x": 400,
+        "y": 240
+      },
+      "emotionFunction": {
+        "emotionIn": "",
+        "emotionOut": "",
+        "playerEmotion": "",
+        "tension": 5
+      },
+      "systemFunction": {
+        "variablesRead": [],
+        "variablesWrite": [],
+        "requirements": ""
+      },
+      "sceneDesc": "",
+      "dialogue": [],
+      "choices": [
+        {
+          "id": "Iij4UHeG",
+          "nodeId": "f93_7g7H",
+          "text": "选择放手",
+          "order": 0,
+          "targetNodeId": "OlpynAH8",
+          "conditions": "",
+          "variableEffects": "",
+          "choiceWeight": "critical"
+        },
+        {
+          "id": "Dk9jw-qq",
+          "nodeId": "f93_7g7H",
+          "text": "选择掌控",
+          "order": 1,
+          "targetNodeId": "q3QU0BIp",
+          "conditions": "",
+          "variableEffects": "",
+          "choiceWeight": "critical"
+        },
+        {
+          "id": "n-XX2LCL",
+          "nodeId": "f93_7g7H",
+          "text": "带着误解离开",
+          "order": 2,
+          "targetNodeId": "WS9fy8Vi",
+          "conditions": "",
+          "variableEffects": "",
+          "choiceWeight": "critical"
+        },
+        {
+          "id": "JmFRRmqQ",
+          "nodeId": "f93_7g7H",
+          "text": "沉默收场",
+          "order": 3,
+          "targetNodeId": "ZCRvI3cE",
+          "conditions": "",
+          "variableEffects": "",
+          "choiceWeight": "critical"
+        }
+      ],
+      "durationSeconds": 120,
+      "notes": "根据全程积累的变量开放对应路线。conditions：路线1→trust>=4 且 vulnerability>=3（彼此真正敞开过）；路线2→control>=4（主角选择过多次掌控）；路线3→betrayed=true（主角带着未经证实的背叛离开过）；路线4→resentment>=4 且 trust<=1（沉默积累至无法挽回）。每条路线对应主角在这一刻做出的内心判断：爱是否意味着必须放手。"
+    },
+    {
+      "id": "OlpynAH8",
+      "actId": "_WkRPdk2",
+      "title": "放手的勇气",
+      "type": "normal",
+      "order": 3,
+      "position": {
+        "x": 600,
+        "y": 240
+      },
+      "emotionFunction": {
+        "emotionIn": "",
+        "emotionOut": "",
+        "playerEmotion": "",
+        "tension": 5
+      },
+      "systemFunction": {
+        "variablesRead": [],
+        "variablesWrite": [],
+        "requirements": ""
+      },
+      "sceneDesc": "",
+      "dialogue": [],
+      "choices": [
+        {
+          "id": "MlEYsOqG",
+          "nodeId": "OlpynAH8",
+          "text": "走向各自的远方",
+          "order": 0,
+          "targetNodeId": "-j1XrVku",
+          "conditions": "",
+          "variableEffects": "",
+          "choiceWeight": "light"
+        }
+      ],
+      "durationSeconds": 120,
+      "notes": "【路线1专属内容】主角把恋人的行李拉到门口，亲手帮对方系好围巾，说：「去吧，我会在原地，但不会等你——我会继续生长，如果你回来，我们就在新的地方重新开始。」恋人在门槛上停留了三秒，然后点头。"
+    },
+    {
+      "id": "-j1XrVku",
+      "actId": "_WkRPdk2",
+      "title": "结局1：异地的约定",
+      "type": "ending",
+      "order": 4,
+      "position": {
+        "x": 800,
+        "y": 240
+      },
+      "emotionFunction": {
+        "emotionIn": "",
+        "emotionOut": "",
+        "playerEmotion": "",
+        "tension": 5
+      },
+      "systemFunction": {
+        "variablesRead": [],
+        "variablesWrite": [],
+        "requirements": ""
+      },
+      "sceneDesc": "",
+      "dialogue": [],
+      "choices": [],
+      "durationSeconds": 120,
+      "notes": "结局1【圆满·放手之爱】：两人在分离中各自完成了过去的清算。半年后恋人回来，两人站在最初相遇的街角，彼此都变了，却以更轻盈的方式重新靠近。爱没有消耗彼此，而是留出了生长的空间。"
+    },
+    {
+      "id": "q3QU0BIp",
+      "actId": "_WkRPdk2",
+      "title": "控制的终点",
+      "type": "normal",
+      "order": 5,
+      "position": {
+        "x": 1000,
+        "y": 240
+      },
+      "emotionFunction": {
+        "emotionIn": "",
+        "emotionOut": "",
+        "playerEmotion": "",
+        "tension": 5
+      },
+      "systemFunction": {
+        "variablesRead": [],
+        "variablesWrite": [],
+        "requirements": ""
+      },
+      "sceneDesc": "",
+      "dialogue": [],
+      "choices": [
+        {
+          "id": "vDp53f65",
+          "nodeId": "q3QU0BIp",
+          "text": "接受这个终点",
+          "order": 0,
+          "targetNodeId": "HwinnZwO",
+          "conditions": "",
+          "variableEffects": "",
+          "choiceWeight": "light"
+        }
+      ],
+      "durationSeconds": 120,
+      "notes": "【路线2专属内容】主角在恋人即将出门时抓住对方的手腕，说出了「你走了就别回来」。话音落下的瞬间，主角看见恋人眼里的爱意与疲惫同时熄灭。主角松手，独自坐在空荡荡的房间里，第一次真正看清自己。"
+    },
+    {
+      "id": "HwinnZwO",
+      "actId": "_WkRPdk2",
+      "title": "结局2：学会松开的手",
+      "type": "ending",
+      "order": 6,
+      "position": {
+        "x": 1200,
+        "y": 240
+      },
+      "emotionFunction": {
+        "emotionIn": "",
+        "emotionOut": "",
+        "playerEmotion": "",
+        "tension": 5
+      },
+      "systemFunction": {
+        "variablesRead": [],
+        "variablesWrite": [],
+        "requirements": ""
+      },
+      "sceneDesc": "",
+      "dialogue": [],
+      "choices": [],
+      "durationSeconds": 120,
+      "notes": "结局2【成长·苦涩之爱】：恋人离开，这段关系以主角主动终结告终。但主角在此后的孤独中完成了真正的自我审视，明白爱若变成牢笼，首先囚禁的是自己。结局以主角独自站在窗边、第一次不再等待为收尾。"
+    },
+    {
+      "id": "WS9fy8Vi",
+      "actId": "_WkRPdk2",
+      "title": "误解的代价",
+      "type": "normal",
+      "order": 7,
+      "position": {
+        "x": 1400,
+        "y": 240
+      },
+      "emotionFunction": {
+        "emotionIn": "",
+        "emotionOut": "",
+        "playerEmotion": "",
+        "tension": 5
+      },
+      "systemFunction": {
+        "variablesRead": [],
+        "variablesWrite": [],
+        "requirements": ""
+      },
+      "sceneDesc": "",
+      "dialogue": [],
+      "choices": [
+        {
+          "id": "Wq07ejDG",
+          "nodeId": "WS9fy8Vi",
+          "text": "还有挽回机会",
+          "order": 0,
+          "targetNodeId": "qTrCxD7K",
+          "conditions": "",
+          "variableEffects": "",
+          "choiceWeight": "light"
+        }
+      ],
+      "durationSeconds": 120,
+      "notes": "【路线3专属内容】主角说出那次「我看见你们拥抱」。恋人愣住，随即解释——但主角选择相信还是继续怀疑，此刻已无关证据，只关乎这段关系里剩余的信任底色。恋人最终把手机里那晚的语音转发给主角：「谢谢你当年照顾我，再见。」"
+    },
+    {
+      "id": "qTrCxD7K",
+      "actId": "_WkRPdk2",
+      "title": "结局3：误解之后",
+      "type": "ending",
+      "order": 8,
+      "position": {
+        "x": 1600,
+        "y": 240
+      },
+      "emotionFunction": {
+        "emotionIn": "",
+        "emotionOut": "",
+        "playerEmotion": "",
+        "tension": 5
+      },
+      "systemFunction": {
+        "variablesRead": [],
+        "variablesWrite": [],
+        "requirements": ""
+      },
+      "sceneDesc": "",
+      "dialogue": [],
+      "choices": [],
+      "durationSeconds": 120,
+      "notes": "结局3【遗憾·错失之爱】：主角在恋人离开后的第三天收到那条语音，听完坐在原地哭了很久。真相来得太晚，或者说，是不信任让真相失去了抵达的时机。这段爱不是死于背叛，而是死于主角不敢核实的恐惧。"
+    },
+    {
+      "id": "ZCRvI3cE",
+      "actId": "_WkRPdk2",
+      "title": "沉默的残局",
+      "type": "normal",
+      "order": 9,
+      "position": {
+        "x": 1800,
+        "y": 240
+      },
+      "emotionFunction": {
+        "emotionIn": "",
+        "emotionOut": "",
+        "playerEmotion": "",
+        "tension": 5
+      },
+      "systemFunction": {
+        "variablesRead": [],
+        "variablesWrite": [],
+        "requirements": ""
+      },
+      "sceneDesc": "",
+      "dialogue": [],
+      "choices": [
+        {
+          "id": "w-GU_WL9",
+          "nodeId": "ZCRvI3cE",
+          "text": "无声告别",
+          "order": 0,
+          "targetNodeId": "rNaiVYWn",
+          "conditions": "",
+          "variableEffects": "",
+          "choiceWeight": "light"
+        }
+      ],
+      "durationSeconds": 120,
+      "notes": "【路线4专属内容】两人在最后一夜没有争吵，也没有道别。恋人提着行李出门，主角坐在椅子上没有起身。门关上的声音极轻，轻得像这段感情从未真正发出过声音。主角打开手机，删掉了两人全部的聊天记录。"
+    },
+    {
+      "id": "rNaiVYWn",
+      "actId": "_WkRPdk2",
+      "title": "结局4：无声的告别",
+      "type": "ending",
+      "order": 10,
+      "position": {
+        "x": 2000,
+        "y": 240
+      },
+      "emotionFunction": {
+        "emotionIn": "",
+        "emotionOut": "",
+        "playerEmotion": "",
+        "tension": 5
+      },
+      "systemFunction": {
+        "variablesRead": [],
+        "variablesWrite": [],
+        "requirements": ""
+      },
+      "sceneDesc": "",
+      "dialogue": [],
+      "choices": [],
+      "durationSeconds": 120,
+      "notes": "结局4【虚无·耗尽之爱】：两人用沉默完成了分离。没有眼泪，没有挽留，只有长期压抑后的麻木。结局以主角走过最初相遇的街道、对那个地点毫无感觉为结尾——爱不是被摧毁的，是被慢慢磨损至消失的。"
+    }
+  ],
+  "variables": [],
+  "endings": [
+    {
+      "id": "5pKa4Kkt",
+      "nodeId": "-j1XrVku",
+      "title": "新结局",
+      "type": "neutral",
+      "conditions": "",
+      "description": "",
+      "variableConditions": [],
+      "requiredChoiceIds": [],
+      "reachPath": ""
+    }
+  ],
+  "lastValidation": {
+    "generatedAt": "2026-05-06T08:58:44.587Z",
+    "totalNodes": 41,
+    "totalBranches": 58,
+    "issues": [
+      {
+        "id": "OLUN",
+        "level": "error",
+        "code": "DEAD_END",
+        "message": "节点「探索：旧楼的秘密」是死路：没有任何有效出口",
+        "relatedIds": [
+          "fmmimd88"
+        ]
+      },
+      {
+        "id": "4d1O",
+        "level": "error",
+        "code": "DEAD_END",
+        "message": "节点「探索：林深的抽屉」是死路：没有任何有效出口",
+        "relatedIds": [
+          "LyS38qJR"
+        ]
+      },
+      {
+        "id": "dT_l",
+        "level": "error",
+        "code": "DEAD_END",
+        "message": "节点「探索：沈晚的相册」是死路：没有任何有效出口",
+        "relatedIds": [
+          "IrJ8pynI"
+        ]
+      },
+      {
+        "id": "MrRp",
+        "level": "warning",
+        "code": "ENDING_NO_DEF",
+        "message": "结局节点「结局2：学会松开的手」没有对应的结局定义（缺少标题/类型/描述），玩家看到的结局画面将不完整",
+        "relatedIds": [
+          "HwinnZwO"
+        ]
+      },
+      {
+        "id": "ju-I",
+        "level": "warning",
+        "code": "ENDING_NO_DEF",
+        "message": "结局节点「结局3：误解之后」没有对应的结局定义（缺少标题/类型/描述），玩家看到的结局画面将不完整",
+        "relatedIds": [
+          "qTrCxD7K"
+        ]
+      },
+      {
+        "id": "B-v_",
+        "level": "warning",
+        "code": "ENDING_NO_DEF",
+        "message": "结局节点「结局4：无声的告别」没有对应的结局定义（缺少标题/类型/描述），玩家看到的结局画面将不完整",
+        "relatedIds": [
+          "rNaiVYWn"
+        ]
+      },
+      {
+        "id": "JkVe",
+        "level": "info",
+        "code": "LOW_BRANCH_DENSITY",
+        "message": "分支密度偏低（6/41 = 15%），互动影游建议分支节点占比≥25%，否则玩家会感到缺乏选择感",
+        "relatedIds": []
+      }
+    ],
+    "passRate": 14
+  },
+  "directorReview": null,
+  "downstreamStale": false,
+  "schemaVersion": 1
+}

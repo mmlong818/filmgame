@@ -73,6 +73,19 @@ export interface ChainRunOptions {
   timeoutMs?: number
 }
 
+// 模块级缓存，避免每次请求重新创建 LangChain 实例导致内存泄漏
+let cachedModel: BaseChatModel | null = null
+let cachedProvider = ''
+
+async function getModel(timeoutMs: number): Promise<{ model: BaseChatModel; provider: string }> {
+  const config = await loadServerAIConfig()
+  if (!cachedModel || cachedProvider !== config.provider) {
+    cachedModel = createModel(config, { timeoutMs })
+    cachedProvider = config.provider
+  }
+  return { model: cachedModel, provider: config.provider }
+}
+
 export async function runChain(opts: ChainRunOptions): Promise<unknown> {
   const { phase, action, context, timeoutMs = 120000 } = opts
   const key = `${phase}:${action}`
@@ -83,10 +96,9 @@ export async function runChain(opts: ChainRunOptions): Promise<unknown> {
   }
 
   const prompt = buildPrompt(phase as Phase, action, context)
-  const config = await loadServerAIConfig()
-  const model = createModel(config, { timeoutMs })
+  const { model, provider } = await getModel(timeoutMs)
 
-  if (config.provider === 'claude_cli') {
+  if (provider === 'claude_cli') {
     return runWithCliRetry(model, prompt, schema)
   }
   return runWithStructuredOutput(model, prompt, schema)

@@ -1,0 +1,44 @@
+[23:10:45] === 0. FRESH START ===
+[23:10:46]   shot: 00-archive-empty
+[23:10:46] === 1. 新建空白项目: 《最后一通电话》 ===
+[23:10:47]   shot: 01-new-project-modal
+[23:10:49]   project id: x-TZT55r
+[23:10:49]   shot: 02-world-blank
+[23:10:49] === 2. 写入导演意图（via localStorage）===
+[23:10:51]   shot: 03-world-filled
+[23:10:51] === 3. AI 专家审查 ===
+[23:11:25]   review done in 34.6s
+[23:11:27]   shot: 04-world-review
+[23:11:27] === 4. AI 生成角色 ===
+[23:12:06]   characters done in 39.4s
+[23:12:07]   shot: 05-world-characters
+[23:12:07] === 5. 规模规划 ===
+[23:12:18]   shot: 06-scale-loading
+[23:12:48]   scale plans in 29.9s
+[23:12:49]   shot: 07-scale-plans
+[23:12:49] === 6. 选择标准版 ===
+[23:12:49]   selected plan: {'ok': True, 'id': 'plan_b', 'title': None, 'chapters': 3, 'nodes': None}
+[23:12:51]   shot: 08-scale-selected
+[23:12:51] === 7. 结构生成（预览→确认→分支，约 5-10 分钟）===
+[23:13:02]   shot: 09-structure-loading
+[23:15:06]   structure draft in 123.9s
+[23:15:07]   shot: 10a-structure-draft
+[23:15:07]   committed structure, generating branches…
+[23:30:07]   branches err: Page.wait_for_function: Timeout 900000ms exceeded.
+[23:30:08]   shot: 10b-branches-timeout
+[23:30:08] === 8. 场景工坊：AI 设计开场 ===
+[23:30:10]   shot: 11-workshop-initial
+[23:30:10]   selected node: ▶23:47的红灯1/4
+[23:30:11]   shot: 12-workshop-node-selected
+[23:30:52]   node designed in 41.4s
+[23:30:53]   shot: 13-workshop-ai-designed
+[23:30:54]   shot: 14-workshop-committed
+[23:30:54]   committed ✓
+[23:30:54] === 9. 全局校验：五专家终审 ===
+[23:31:06]   shot: 15-validate-initial
+[23:32:13]   director review in 66.4s
+[23:32:15]   shot: 16-validate-director
+[23:32:15] === 10. 预览（影院模式）===
+[23:32:17]   shot: 17-preview-start
+[23:32:17]   step 0: no choice — ending or dead-end
+[23:32:17]   shot: 18-preview-final

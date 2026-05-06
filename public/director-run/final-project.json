@@ -1,0 +1,3406 @@
+{
+  "id": "x-TZT55r",
+  "title": "最后一通电话",
+  "createdAt": "2026-04-17T15:10:47.704Z",
+  "updatedAt": "2026-04-17T15:32:13.098Z",
+  "currentPhase": "validate",
+  "phaseProgress": {
+    "world": "in_progress",
+    "scale": "done",
+    "structure": "done",
+    "workshop": "done",
+    "validate": "in_progress"
+  },
+  "worldAnchor": {
+    "storyCore": "一个 911 调度员在午夜接到一通神秘来电——来电者声称自己正在被追杀，但所有追查都显示这通电话不存在。",
+    "theme": "现实与妄想的边界——一个人如何在无人相信的情况下做正确的事。",
+    "genre": "心理惊悚",
+    "worldRules": "1. 电话的真实性永远无法被第三方确认\n2. 每一次救助决定都在消耗主角的睡眠与理智\n3. 错误的救助会带来可见的代价，正确的救助可能永远不会被证实",
+    "durationMinutes": 75,
+    "endingCount": 4
+  },
+  "characters": [
+    {
+      "id": "r5h1q6r8",
+      "name": "艾拉·沃斯",
+      "role": "protagonist",
+      "motivation": "无论来电是否真实，都要拯救电话那头的声音",
+      "relationship": "接听神秘来电的911调度员，故事的唯一见证者",
+      "wound": "三年前因判断一通报警为恶作剧而导致一名少女死亡",
+      "lie": "只要严格遵守协议和证据，就不会再有人因我而死",
+      "want": "证明这通来电真实存在，让系统承认她没有疯",
+      "need": "接受有些正确的选择永远无法被证实，学会在孤独中信任自己"
+    },
+    {
+      "id": "q2rsnx0d",
+      "name": "无名来电者（'M'）",
+      "role": "support",
+      "motivation": "在被抹除之前让某个人听见自己",
+      "relationship": "推动主线的神秘声音，真实性始终悬而未决",
+      "wound": "曾经被所有人忽视，包括她自己最信任的人",
+      "lie": "只要有人相信我，我就还存在",
+      "want": "被救出当前的追杀",
+      "need": "被一个人真正听见，哪怕只有一次"
+    },
+    {
+      "id": "r0ik3yjn",
+      "name": "丹尼尔·里德",
+      "role": "antagonist",
+      "motivation": "保护部门声誉，让艾拉停止'幻听式'接警行为",
+      "relationship": "艾拉的轮班主管，三年前事故的复核人",
+      "wound": "当年为了保护艾拉篡改了一份报告，此后一直活在愧疚里",
+      "lie": "理性和程序是唯一能让人活下去的东西",
+      "want": "让艾拉休假、停职、消失，结束这场风波",
+      "need": "承认自己当年的包庇才是她今日偏执的根源"
+    },
+    {
+      "id": "oj4md3uw",
+      "name": "凯·陈",
+      "role": "support",
+      "motivation": "在艾拉彻底崩溃前把她拉回现实",
+      "relationship": "艾拉的搭档兼前恋人，唯一愿意半信半疑的人",
+      "wound": "目睹父亲在精神病中自杀，从此害怕'相信疯狂的人'",
+      "lie": "爱一个人就要把他们拽回正常世界",
+      "want": "让艾拉承认自己需要帮助并接受治疗",
+      "need": "明白陪伴不等于纠正，有时相信就是最深的救援"
+    }
+  ],
+  "selectedScalePlanId": "plan_b",
+  "scalePlanOptions": [
+    {
+      "id": "plan_a",
+      "label": "精简版",
+      "chapterCount": 2,
+      "actCountPerChapter": 2,
+      "totalNodes": 12,
+      "totalBranches": 6,
+      "estimatedHours": 50,
+      "aiRationale": "75分钟短时长+4结局的精简实现，聚焦单夜调度台内心博弈，快速验证核心玩法",
+      "chapters": [
+        {
+          "title": "第一章：午夜来电",
+          "brief": "调度员接到无记录的求救电话，首次面临相信与否的抉择"
+        },
+        {
+          "title": "第二章：真相之界",
+          "brief": "理智耗尽之际做出最终救助判断，通向四种结局之一"
+        }
+      ]
+    },
+    {
+      "id": "plan_b",
+      "label": "标准版",
+      "chapterCount": 3,
+      "actCountPerChapter": 3,
+      "totalNodes": 24,
+      "totalBranches": 12,
+      "estimatedHours": 100,
+      "aiRationale": "推荐方案，三幕式铺陈现实与妄想的拉扯，节点密度匹配75分钟心理惊悚节奏",
+      "chapters": [
+        {
+          "title": "第一章：不存在的呼救",
+          "brief": "神秘来电打破平静，系统查无记录，主角陷入自我怀疑"
+        },
+        {
+          "title": "第二章：代价浮现",
+          "brief": "错误救助引发可见后果，睡眠与理智持续透支，同事开始质疑"
+        },
+        {
+          "title": "第三章：边界之外",
+          "brief": "多条线索收束，主角在无人相信中做出最终抉择，四结局分化"
+        }
+      ]
+    },
+    {
+      "id": "plan_c",
+      "label": "史诗版",
+      "chapterCount": 5,
+      "actCountPerChapter": 4,
+      "totalNodes": 45,
+      "totalBranches": 28,
+      "estimatedHours": 220,
+      "aiRationale": "高密度分支深挖妄想与现实的多重反转，适合打磨心理惊悚精品的成熟团队",
+      "chapters": [
+        {
+          "title": "第一章：静默频率",
+          "brief": "日常调度中的异常信号，神秘来电首次介入"
+        },
+        {
+          "title": "第二章：无证之罪",
+          "brief": "追查全部失败，主角开始私下调查，理智开始松动"
+        },
+        {
+          "title": "第三章：镜中回声",
+          "brief": "来电者身份出现多重矛盾线索，核心反转揭示妄想可能"
+        },
+        {
+          "title": "第四章：清醒代价",
+          "brief": "主角在崩溃边缘对抗系统与自我，救助决定全面爆发后果"
+        },
+        {
+          "title": "第五章：无人见证",
+          "brief": "四种结局分别揭示真相、妄想、牺牲与救赎的不同边界"
+        }
+      ]
+    }
+  ],
+  "chapters": [
+    {
+      "id": "Pio_lUz6",
+      "title": "第一章：不存在的呼救",
+      "order": 0
+    },
+    {
+      "id": "z9Ya7VyI",
+      "title": "第二章：代价浮现",
+      "order": 1
+    },
+    {
+      "id": "vxxv-wmj",
+      "title": "第三章：边界之外",
+      "order": 2
+    }
+  ],
+  "acts": [
+    {
+      "id": "mOIJKJ-h",
+      "chapterId": "Pio_lUz6",
+      "title": "第1幕：午夜的杂音",
+      "order": 0,
+      "nodeIds": [
+        "AXv098ep",
+        "mGvJKfIm",
+        "uI4-B4Iu",
+        "YElAJFJO",
+        "onRB4BeV",
+        "PcenU4Cg",
+        "cqzPnl5q"
+      ]
+    },
+    {
+      "id": "Ev7Swzwd",
+      "chapterId": "Pio_lUz6",
+      "title": "第2幕：无人相信的录音",
+      "order": 1,
+      "nodeIds": [
+        "2FI1fCi5",
+        "uND-8Xv6",
+        "LPicclux",
+        "-7AU0yLr",
+        "dYPGFqVn",
+        "AnEyDhdx",
+        "H-8hi6iB"
+      ]
+    },
+    {
+      "id": "5ImLx3KU",
+      "chapterId": "Pio_lUz6",
+      "title": "第3幕：第一次越界",
+      "order": 2,
+      "nodeIds": [
+        "PMOV9ock",
+        "7qqWPOf-",
+        "PgM5ckbq",
+        "l1AvligW",
+        "hu6ocP2-",
+        "4YzSPA7s",
+        "E8EzhCea"
+      ]
+    },
+    {
+      "id": "IaqRnbID",
+      "chapterId": "z9Ya7VyI",
+      "title": "第1幕：独自追查",
+      "order": 0,
+      "nodeIds": [
+        "Wd8vEs9t",
+        "IOQBs3gm",
+        "7W8omtoB",
+        "vlL4U8Ag",
+        "8KW3BgCh",
+        "K4n0qRCU",
+        "70PPKsZR"
+      ]
+    },
+    {
+      "id": "Gjfrooyv",
+      "chapterId": "z9Ya7VyI",
+      "title": "第2幕：信号塔下",
+      "order": 1,
+      "nodeIds": [
+        "f3RCqlJH",
+        "qrKK5dVr",
+        "NEoDQGMK",
+        "jjTIiLzG",
+        "xUZKxBhS",
+        "midiTz8f",
+        "_EYJ_Rn3"
+      ]
+    },
+    {
+      "id": "w1NQQDhm",
+      "chapterId": "z9Ya7VyI",
+      "title": "第3幕：停职边缘",
+      "order": 2,
+      "nodeIds": [
+        "ilNzvjJn",
+        "6lQk8ysU",
+        "A0ZbYe7h",
+        "uaY76Yro",
+        "VGOf0D7y",
+        "DbfniZXP",
+        "yn0X9PDJ"
+      ]
+    },
+    {
+      "id": "Yy_xDjWC",
+      "chapterId": "vxxv-wmj",
+      "title": "第1幕：崩塌的围墙",
+      "order": 0,
+      "nodeIds": [
+        "0woGHBKC",
+        "3KogDRuM",
+        "w2MQ7bql",
+        "e_a2tHuE",
+        "C17Q3zMJ",
+        "Pv8etSVC"
+      ]
+    },
+    {
+      "id": "lLXPpYkA",
+      "chapterId": "vxxv-wmj",
+      "title": "第2幕：真相的重量",
+      "order": 1,
+      "nodeIds": [
+        "VyPRFlTA",
+        "C2rOqp6q",
+        "7DqDBv4f",
+        "iGD0ix9q",
+        "qg90hAbR",
+        "thY3Dcm4"
+      ]
+    },
+    {
+      "id": "nfyxy2Sr",
+      "chapterId": "vxxv-wmj",
+      "title": "第3幕：边界之外",
+      "order": 2,
+      "nodeIds": [
+        "TNVzTi9p",
+        "JO75NpZA",
+        "tM_e6Rru",
+        "xDLBhagL",
+        "sbtxR_VV",
+        "tP2mqE_5",
+        "ajE7IkXH",
+        "udG41si9",
+        "JqQy2qqn",
+        "ZV5hlNgV",
+        "R91sxVuv"
+      ]
+    }
+  ],
+  "nodes": [
+    {
+      "id": "AXv098ep",
+      "actId": "mOIJKJ-h",
+      "title": "23:47的红灯",
+      "type": "start",
+      "order": 0,
+      "position": {
+        "x": 0,
+        "y": 0
+      },
+      "emotionFunction": {
+        "emotionIn": "职业性的专注，带着夜班的疲惫",
+        "emotionOut": "后颈发凉的警觉，旧伤被撕开的战栗",
+        "playerEmotion": "被一通不该存在的电话攥住呼吸，既想相信又想逃开",
+        "tension": 6,
+        "internal_lie": "这次我严格按流程走，就不会重蹈三年前的覆辙",
+        "fear": "那个女孩的死其实从未过去，而她即将以另一种方式回来索命"
+      },
+      "systemFunction": {
+        "variablesRead": [],
+        "variablesWrite": [],
+        "requirements": ""
+      },
+      "sceneDesc": "调度中心走廊的顶灯只剩一排亮着，艾拉的工位前摆着第七个空咖啡杯，她的手指悬在接听键上方，屏幕上『未知号·23:47』的红字闪了三下。耳机里的呼吸声比她自己的还急促，她按下录音键，红灯没亮。",
+      "dialogue": [
+        {
+          "speaker": "无名来电者（M）",
+          "text": "别挂——别挂别挂别挂，你是今晚第一个没把我转出去的人。",
+          "emotion": "恳求 压抑",
+          "id": "k-D13y"
+        },
+        {
+          "speaker": "艾拉·沃斯",
+          "text": "这里是911，请报上您的位置和情况。",
+          "emotion": "职业 克制",
+          "id": "ZfCF0D"
+        },
+        {
+          "speaker": "无名来电者（M）",
+          "text": "我不知道这是哪，仓库吧，铁皮的，外面有人数到三就会进来，你听，你听得见脚步吗。",
+          "emotion": "急促 破碎",
+          "id": "fRkpfj"
+        },
+        {
+          "speaker": "艾拉·沃斯",
+          "text": "我需要一个路牌、一个门牌号，任何数字都行。",
+          "emotion": "紧绷 专注",
+          "id": "OZ6re7"
+        },
+        {
+          "speaker": "丹尼尔·里德",
+          "text": "艾拉。你那条线的指示灯没亮。",
+          "emotion": "平静 审视",
+          "id": "C36V5y"
+        },
+        {
+          "speaker": "艾拉·沃斯",
+          "text": "它亮了，丹尼尔，它刚才亮了，我——我在听。",
+          "emotion": "防御 动摇",
+          "id": "f9nJuk"
+        },
+        {
+          "speaker": "丹尼尔·里德",
+          "text": "把耳机摘下来，我们聊一分钟，就一分钟。",
+          "emotion": "温和 施压",
+          "id": "yxFwLw"
+        },
+        {
+          "speaker": "无名来电者（M）",
+          "text": "他是不是就站在你旁边，告诉我他不在，求你。",
+          "emotion": "惊恐 颤抖",
+          "id": "kbEQMB"
+        },
+        {
+          "speaker": "艾拉·沃斯",
+          "text": "他不在。",
+          "emotion": "低声 撒谎",
+          "id": "-Cnod3"
+        },
+        {
+          "speaker": "无名来电者（M）",
+          "text": "数到三了。",
+          "emotion": "气音 熄灭",
+          "id": "tW2Qo_"
+        }
+      ],
+      "choices": [],
+      "durationSeconds": 120,
+      "notes": "艾拉·沃斯在调度中心的夜班，耳机里一通标记为『未知号』的来电突然接入——M的呼吸急促，说有人在追他。艾拉职业性地询问位置，系统却显示这通电话并不存在。触发事件：幽灵来电降临"
+    },
+    {
+      "id": "mGvJKfIm",
+      "actId": "mOIJKJ-h",
+      "title": "如何回应M的第一声呼救",
+      "type": "branch",
+      "order": 1,
+      "position": {
+        "x": 200,
+        "y": 0
+      },
+      "emotionFunction": {
+        "emotionIn": "",
+        "emotionOut": "",
+        "playerEmotion": "",
+        "tension": 5
+      },
+      "systemFunction": {
+        "variablesRead": [],
+        "variablesWrite": [],
+        "requirements": ""
+      },
+      "sceneDesc": "",
+      "dialogue": [],
+      "choices": [],
+      "durationSeconds": 120,
+      "notes": "关键选择：艾拉必须在30秒内决定如何对待这通『不存在』的电话。variableEffects：A选项→trust_M+2, protocol-1；B选项→protocol+2, trust_M+0；C选项→curiosity+2, trust_M+1, reported=false"
+    },
+    {
+      "id": "uI4-B4Iu",
+      "actId": "mOIJKJ-h",
+      "title": "压低声音的承诺",
+      "type": "normal",
+      "order": 2,
+      "position": {
+        "x": 400,
+        "y": 0
+      },
+      "emotionFunction": {
+        "emotionIn": "",
+        "emotionOut": "",
+        "playerEmotion": "",
+        "tension": 5
+      },
+      "systemFunction": {
+        "variablesRead": [],
+        "variablesWrite": [],
+        "requirements": ""
+      },
+      "sceneDesc": "",
+      "dialogue": [],
+      "choices": [],
+      "durationSeconds": 120,
+      "notes": "[路径A] 艾拉背着同事压低声音对M说『我听见你了，别挂』，用个人手机录下通话。M在背景中低语一个模糊的地址『橡树巷37…』，随后信号骤断。艾拉独自承受这份秘密"
+    },
+    {
+      "id": "YElAJFJO",
+      "actId": "mOIJKJ-h",
+      "title": "按章程上报",
+      "type": "normal",
+      "order": 3,
+      "position": {
+        "x": 600,
+        "y": 0
+      },
+      "emotionFunction": {
+        "emotionIn": "",
+        "emotionOut": "",
+        "playerEmotion": "",
+        "tension": 5
+      },
+      "systemFunction": {
+        "variablesRead": [],
+        "variablesWrite": [],
+        "requirements": ""
+      },
+      "sceneDesc": "",
+      "dialogue": [],
+      "choices": [],
+      "durationSeconds": 120,
+      "notes": "[路径B] 艾拉严格遵循SOP，立即向督导丹尼尔·里德举手示意并转接。丹尼尔调出系统日志，确认无任何来电记录，温和地建议艾拉『今晚太累了，去休息十分钟』。M的声音在她耳机里消失前说了最后一句：『你也不信我』"
+    },
+    {
+      "id": "onRB4BeV",
+      "actId": "mOIJKJ-h",
+      "title": "不报也不挂",
+      "type": "normal",
+      "order": 4,
+      "position": {
+        "x": 800,
+        "y": 0
+      },
+      "emotionFunction": {
+        "emotionIn": "",
+        "emotionOut": "",
+        "playerEmotion": "",
+        "tension": 5
+      },
+      "systemFunction": {
+        "variablesRead": [],
+        "variablesWrite": [],
+        "requirements": ""
+      },
+      "sceneDesc": "",
+      "dialogue": [],
+      "choices": [],
+      "durationSeconds": 120,
+      "notes": "[路径C] 艾拉保持沉默，既不上报也不打断，只是倾听。M在喘息间透露更多细节：他看见一辆黑色厢式车、听见狗叫、有一扇铁门在他身后合上。艾拉悄悄截屏了空白的来电面板，作为自己看见过它的证据"
+    },
+    {
+      "id": "PcenU4Cg",
+      "actId": "mOIJKJ-h",
+      "title": "耳机摘下之后",
+      "type": "normal",
+      "order": 5,
+      "position": {
+        "x": 1000,
+        "y": 0
+      },
+      "emotionFunction": {
+        "emotionIn": "",
+        "emotionOut": "",
+        "playerEmotion": "",
+        "tension": 5
+      },
+      "systemFunction": {
+        "variablesRead": [],
+        "variablesWrite": [],
+        "requirements": ""
+      },
+      "sceneDesc": "",
+      "dialogue": [],
+      "choices": [],
+      "durationSeconds": 120,
+      "notes": "无论哪条路径，凌晨一点通话都以忙音告终。艾拉摘下耳机，盯着那个不存在的记录，调度中心的日常嗡鸣重新包裹她——但她知道，有什么东西已经不一样了"
+    },
+    {
+      "id": "cqzPnl5q",
+      "actId": "mOIJKJ-h",
+      "title": "探索：旧档案柜的第七格",
+      "type": "explore",
+      "order": 6,
+      "position": {
+        "x": 1200,
+        "y": 0
+      },
+      "emotionFunction": {
+        "emotionIn": "",
+        "emotionOut": "",
+        "playerEmotion": "",
+        "tension": 2
+      },
+      "systemFunction": {
+        "variablesRead": [],
+        "variablesWrite": [],
+        "requirements": ""
+      },
+      "sceneDesc": "",
+      "dialogue": [],
+      "choices": [],
+      "durationSeconds": 120,
+      "notes": "可选旁支：艾拉去茶水间路上瞥见丹尼尔办公室半开的档案柜，第七格标签写着『无效来电-复核』，厚厚一叠——暗示幽灵来电并非第一次发生。世界背景线索"
+    },
+    {
+      "id": "2FI1fCi5",
+      "actId": "Ev7Swzwd",
+      "title": "天亮前的茶水间",
+      "type": "normal",
+      "order": 0,
+      "position": {
+        "x": 0,
+        "y": 120
+      },
+      "emotionFunction": {
+        "emotionIn": "",
+        "emotionOut": "",
+        "playerEmotion": "",
+        "tension": 5
+      },
+      "systemFunction": {
+        "variablesRead": [],
+        "variablesWrite": [],
+        "requirements": ""
+      },
+      "sceneDesc": "",
+      "dialogue": [],
+      "choices": [],
+      "durationSeconds": 120,
+      "notes": "凯·陈端着咖啡靠过来打趣艾拉的脸色，艾拉犹豫要不要说。窗外天色发灰，她第一次意识到M可能此刻正在某个地方流血或已经死去，而系统里没有他存在的任何痕迹"
+    },
+    {
+      "id": "uND-8Xv6",
+      "actId": "Ev7Swzwd",
+      "title": "录音要不要拿出来",
+      "type": "branch",
+      "order": 1,
+      "position": {
+        "x": 200,
+        "y": 120
+      },
+      "emotionFunction": {
+        "emotionIn": "",
+        "emotionOut": "",
+        "playerEmotion": "",
+        "tension": 5
+      },
+      "systemFunction": {
+        "variablesRead": [],
+        "variablesWrite": [],
+        "requirements": ""
+      },
+      "sceneDesc": "",
+      "dialogue": [],
+      "choices": [],
+      "durationSeconds": 120,
+      "notes": "关键选择：艾拉手里有一份体制不认可的证据。variableEffects：A选项→ally_Kai+2, exposure+1；B选项→trust_Daniel+2, autonomy-1, officially_logged=true；C选项→autonomy+2, isolation+1, secret_kept=true"
+    },
+    {
+      "id": "LPicclux",
+      "actId": "Ev7Swzwd",
+      "title": "把手机递给凯",
+      "type": "normal",
+      "order": 2,
+      "position": {
+        "x": 400,
+        "y": 120
+      },
+      "emotionFunction": {
+        "emotionIn": "",
+        "emotionOut": "",
+        "playerEmotion": "",
+        "tension": 5
+      },
+      "systemFunction": {
+        "variablesRead": [],
+        "variablesWrite": [],
+        "requirements": ""
+      },
+      "sceneDesc": "",
+      "dialogue": [],
+      "choices": [],
+      "durationSeconds": 120,
+      "notes": "[路径A] 艾拉在洗手间里把录音放给凯听。凯听完沉默很久，说『这声音不对劲，但你私录通话是违规的——我帮你，但你得准备好挨处分』。两人开始在非工作时间悄悄比对失踪人口数据库"
+    },
+    {
+      "id": "-7AU0yLr",
+      "actId": "Ev7Swzwd",
+      "title": "敲响督导的门",
+      "type": "normal",
+      "order": 3,
+      "position": {
+        "x": 600,
+        "y": 120
+      },
+      "emotionFunction": {
+        "emotionIn": "",
+        "emotionOut": "",
+        "playerEmotion": "",
+        "tension": 5
+      },
+      "systemFunction": {
+        "variablesRead": [],
+        "variablesWrite": [],
+        "requirements": ""
+      },
+      "sceneDesc": "",
+      "dialogue": [],
+      "choices": [],
+      "durationSeconds": 120,
+      "notes": "[路径B] 艾拉带着手机走进丹尼尔的办公室，坦白一切。丹尼尔的表情从关切转为凝重，他没有斥责，而是亲自把录音归档为『待核查异常事件』，同时建议艾拉强制休假三天。艾拉得到了体制的接纳——以及它的包裹"
+    },
+    {
+      "id": "dYPGFqVn",
+      "actId": "Ev7Swzwd",
+      "title": "独自走出大楼",
+      "type": "normal",
+      "order": 4,
+      "position": {
+        "x": 800,
+        "y": 120
+      },
+      "emotionFunction": {
+        "emotionIn": "",
+        "emotionOut": "",
+        "playerEmotion": "",
+        "tension": 5
+      },
+      "systemFunction": {
+        "variablesRead": [],
+        "variablesWrite": [],
+        "requirements": ""
+      },
+      "sceneDesc": "",
+      "dialogue": [],
+      "choices": [],
+      "durationSeconds": 120,
+      "notes": "[路径C] 艾拉谁也没告诉。她走出调度中心，在停车场坐进车里反复听那段录音，背景里除了M的声音，她第一次听出第十七秒有一声极轻的、像是金属挂钩的碰撞——只有她一个人知道这条线索"
+    },
+    {
+      "id": "AnEyDhdx",
+      "actId": "Ev7Swzwd",
+      "title": "白天的城市醒来",
+      "type": "normal",
+      "order": 5,
+      "position": {
+        "x": 1000,
+        "y": 120
+      },
+      "emotionFunction": {
+        "emotionIn": "",
+        "emotionOut": "",
+        "playerEmotion": "",
+        "tension": 5
+      },
+      "systemFunction": {
+        "variablesRead": [],
+        "variablesWrite": [],
+        "requirements": ""
+      },
+      "sceneDesc": "",
+      "dialogue": [],
+      "choices": [],
+      "durationSeconds": 120,
+      "notes": "无论哪条路径，艾拉都在清晨六点踏上回家的路。车流、早餐摊、遛狗的老人，一切都在提醒她：这座城市并不知道昨夜有人求救过。她的手机里那段不存在的录音，成了她与世界之间最薄的一层膜"
+    },
+    {
+      "id": "H-8hi6iB",
+      "actId": "Ev7Swzwd",
+      "title": "探索：橡树巷的卫星图",
+      "type": "explore",
+      "order": 6,
+      "position": {
+        "x": 1200,
+        "y": 120
+      },
+      "emotionFunction": {
+        "emotionIn": "",
+        "emotionOut": "",
+        "playerEmotion": "",
+        "tension": 2
+      },
+      "systemFunction": {
+        "variablesRead": [],
+        "variablesWrite": [],
+        "requirements": ""
+      },
+      "sceneDesc": "",
+      "dialogue": [],
+      "choices": [],
+      "durationSeconds": 120,
+      "notes": "可选旁支：艾拉在地图软件里搜索『橡树巷』，城市里竟有三条。其中一条在十年前的新闻里出现过——一起未破的失踪案。线索物品"
+    },
+    {
+      "id": "PMOV9ock",
+      "actId": "5ImLx3KU",
+      "title": "傍晚的第二通电话",
+      "type": "normal",
+      "order": 0,
+      "position": {
+        "x": 0,
+        "y": 240
+      },
+      "emotionFunction": {
+        "emotionIn": "",
+        "emotionOut": "",
+        "playerEmotion": "",
+        "tension": 5
+      },
+      "systemFunction": {
+        "variablesRead": [],
+        "variablesWrite": [],
+        "requirements": ""
+      },
+      "sceneDesc": "",
+      "dialogue": [],
+      "choices": [],
+      "durationSeconds": 120,
+      "notes": "艾拉在家睡醒时已是黄昏。她的私人手机响起，屏幕上仍然是『未知号』。M的声音更虚弱了：『你是唯一接我电话的人……我在仓库的二楼……』信号断掉。这一次，不是在调度中心，也不会有任何记录"
+    },
+    {
+      "id": "7qqWPOf-",
+      "actId": "5ImLx3KU",
+      "title": "午夜要不要下班独自前往",
+      "type": "branch",
+      "order": 1,
+      "position": {
+        "x": 200,
+        "y": 240
+      },
+      "emotionFunction": {
+        "emotionIn": "",
+        "emotionOut": "",
+        "playerEmotion": "",
+        "tension": 5
+      },
+      "systemFunction": {
+        "variablesRead": [],
+        "variablesWrite": [],
+        "requirements": ""
+      },
+      "sceneDesc": "",
+      "dialogue": [],
+      "choices": [],
+      "durationSeconds": 120,
+      "notes": "本章核心道德选择：在没有授权、没有证据、没有同伴的情况下，是否越过职业边界。variableEffects：A选项→resolve+3, off_duty_investigation=true, rule_broken=true；B选项→caution+2, waited=true, M_status=unknown；C选项→network+2, shared_with_Kai=true, resolve+1"
+    },
+    {
+      "id": "PgM5ckbq",
+      "actId": "5ImLx3KU",
+      "title": "独自开车驶向橡树巷",
+      "type": "normal",
+      "order": 2,
+      "position": {
+        "x": 400,
+        "y": 240
+      },
+      "emotionFunction": {
+        "emotionIn": "",
+        "emotionOut": "",
+        "playerEmotion": "",
+        "tension": 5
+      },
+      "systemFunction": {
+        "variablesRead": [],
+        "variablesWrite": [],
+        "requirements": ""
+      },
+      "sceneDesc": "",
+      "dialogue": [],
+      "choices": [],
+      "durationSeconds": 120,
+      "notes": "[路径A] 艾拉抓起车钥匙、那部录了音的手机和一支手电，在午夜十二点独自驶出小区。后视镜里，她看见自己第一次不像调度员而像当事人的脸。她在橡树巷尽头的废弃仓库前熄火，二楼有一扇窗透出极弱的光"
+    },
+    {
+      "id": "l1AvligW",
+      "actId": "5ImLx3KU",
+      "title": "打给值班的丹尼尔请求立案",
+      "type": "normal",
+      "order": 3,
+      "position": {
+        "x": 600,
+        "y": 240
+      },
+      "emotionFunction": {
+        "emotionIn": "",
+        "emotionOut": "",
+        "playerEmotion": "",
+        "tension": 5
+      },
+      "systemFunction": {
+        "variablesRead": [],
+        "variablesWrite": [],
+        "requirements": ""
+      },
+      "sceneDesc": "",
+      "dialogue": [],
+      "choices": [],
+      "durationSeconds": 120,
+      "notes": "[路径B] 艾拉拨通丹尼尔的私人号码，请求以『异常来电复核』名义正式立案。丹尼尔沉默良久，说『艾拉，我需要你今晚留在家里，明天一早我们一起看』。她放下电话，坐在窗前直到天亮，什么也没发生——她不知道这是克制还是失职"
+    },
+    {
+      "id": "hu6ocP2-",
+      "actId": "5ImLx3KU",
+      "title": "把地址发给凯一起去",
+      "type": "normal",
+      "order": 4,
+      "position": {
+        "x": 800,
+        "y": 240
+      },
+      "emotionFunction": {
+        "emotionIn": "",
+        "emotionOut": "",
+        "playerEmotion": "",
+        "tension": 5
+      },
+      "systemFunction": {
+        "variablesRead": [],
+        "variablesWrite": [],
+        "requirements": ""
+      },
+      "sceneDesc": "",
+      "dialogue": [],
+      "choices": [],
+      "durationSeconds": 120,
+      "notes": "[路径C] 艾拉在深夜发信息给凯：『橡树巷37，M在二楼，我一个人不敢』。凯二十分钟后开车到她楼下，只问了一句『录音带上了吗』。两人一同驶入夜色，艾拉握着方向盘，第一次感到孤立之外还有别的选项"
+    },
+    {
+      "id": "4YzSPA7s",
+      "actId": "5ImLx3KU",
+      "title": "章末：录音仍在",
+      "type": "normal",
+      "order": 5,
+      "position": {
+        "x": 1000,
+        "y": 240
+      },
+      "emotionFunction": {
+        "emotionIn": "",
+        "emotionOut": "",
+        "playerEmotion": "",
+        "tension": 5
+      },
+      "systemFunction": {
+        "variablesRead": [],
+        "variablesWrite": [],
+        "requirements": ""
+      },
+      "sceneDesc": "",
+      "dialogue": [],
+      "choices": [],
+      "durationSeconds": 120,
+      "notes": "无论艾拉是越界、克制还是结伴，这一夜的尽头她都攥着那段系统里不存在的录音。晨光爬上调度中心的玻璃幕墙时，艾拉知道自己已经走在一条回不了头的路上——夜班结束，她不会回家睡觉，而是要独自追查M的下落。为第二章铺垫"
+    },
+    {
+      "id": "E8EzhCea",
+      "actId": "5ImLx3KU",
+      "title": "探索：丹尼尔的旧警号",
+      "type": "explore",
+      "order": 6,
+      "position": {
+        "x": 1200,
+        "y": 240
+      },
+      "emotionFunction": {
+        "emotionIn": "",
+        "emotionOut": "",
+        "playerEmotion": "",
+        "tension": 2
+      },
+      "systemFunction": {
+        "variablesRead": [],
+        "variablesWrite": [],
+        "requirements": ""
+      },
+      "sceneDesc": "",
+      "dialogue": [],
+      "choices": [],
+      "durationSeconds": 120,
+      "notes": "可选旁支：艾拉在丹尼尔桌上的相框里看见他年轻时的警号合影——他曾是现场警官，十年前调离一线。他对『幽灵来电』的温和反应，也许并非出于怀疑，而是出于他自己尚未说出的过去。角色秘密"
+    },
+    {
+      "id": "Wd8vEs9t",
+      "actId": "IaqRnbID",
+      "title": "清晨的录音室",
+      "type": "normal",
+      "order": 0,
+      "position": {
+        "x": 0,
+        "y": 0
+      },
+      "emotionFunction": {
+        "emotionIn": "",
+        "emotionOut": "",
+        "playerEmotion": "",
+        "tension": 5
+      },
+      "systemFunction": {
+        "variablesRead": [],
+        "variablesWrite": [],
+        "requirements": ""
+      },
+      "sceneDesc": "",
+      "dialogue": [],
+      "choices": [],
+      "durationSeconds": 120,
+      "notes": "夜班结束，艾拉回家反复聆听M的来电录音，频谱上出现无法解释的低频杂讯，她意识到这不是幻听"
+    },
+    {
+      "id": "IOQBs3gm",
+      "actId": "IaqRnbID",
+      "title": "调档的岔口",
+      "type": "branch",
+      "order": 1,
+      "position": {
+        "x": 200,
+        "y": 0
+      },
+      "emotionFunction": {
+        "emotionIn": "",
+        "emotionOut": "",
+        "playerEmotion": "",
+        "tension": 5
+      },
+      "systemFunction": {
+        "variablesRead": [],
+        "variablesWrite": [],
+        "requirements": ""
+      },
+      "sceneDesc": "",
+      "dialogue": [],
+      "choices": [],
+      "durationSeconds": 120,
+      "notes": "关键选择：如何获取系统无记录的通话元数据？三条路径将影响艾拉的处境与盟友关系；variableEffects必须记录此选择对变量的影响"
+    },
+    {
+      "id": "7W8omtoB",
+      "actId": "IaqRnbID",
+      "title": "潜入技术室",
+      "type": "normal",
+      "order": 2,
+      "position": {
+        "x": 400,
+        "y": 0
+      },
+      "emotionFunction": {
+        "emotionIn": "",
+        "emotionOut": "",
+        "playerEmotion": "",
+        "tension": 5
+      },
+      "systemFunction": {
+        "variablesRead": [],
+        "variablesWrite": [],
+        "requirements": ""
+      },
+      "sceneDesc": "",
+      "dialogue": [],
+      "choices": [],
+      "durationSeconds": 120,
+      "notes": "[路径A] 深夜用同事凯·陈的工牌溜进技术机房，亲手调取原始交换机日志，发现时间戳被人为抹除；variableEffects: risk+2, evidence+1, kai_trust-1"
+    },
+    {
+      "id": "vlL4U8Ag",
+      "actId": "IaqRnbID",
+      "title": "恳求凯·陈",
+      "type": "normal",
+      "order": 3,
+      "position": {
+        "x": 600,
+        "y": 0
+      },
+      "emotionFunction": {
+        "emotionIn": "",
+        "emotionOut": "",
+        "playerEmotion": "",
+        "tension": 5
+      },
+      "systemFunction": {
+        "variablesRead": [],
+        "variablesWrite": [],
+        "requirements": ""
+      },
+      "sceneDesc": "",
+      "dialogue": [],
+      "choices": [],
+      "durationSeconds": 120,
+      "notes": "[路径B] 在停车场拦下准备下班的凯，坦白一切请求帮忙，凯犹豫后答应但要求划清界限；variableEffects: kai_trust+1, exposure+1"
+    },
+    {
+      "id": "8KW3BgCh",
+      "actId": "IaqRnbID",
+      "title": "走正规渠道",
+      "type": "normal",
+      "order": 4,
+      "position": {
+        "x": 800,
+        "y": 0
+      },
+      "emotionFunction": {
+        "emotionIn": "",
+        "emotionOut": "",
+        "playerEmotion": "",
+        "tension": 5
+      },
+      "systemFunction": {
+        "variablesRead": [],
+        "variablesWrite": [],
+        "requirements": ""
+      },
+      "sceneDesc": "",
+      "dialogue": [],
+      "choices": [],
+      "durationSeconds": 120,
+      "notes": "[路径C] 向主管丹尼尔·里德正式申请调档，被当场驳回并质疑精神状态，丹尼尔开始暗中记录她的异常行为；variableEffects: daniel_suspicion+2, official_record=true"
+    },
+    {
+      "id": "K4n0qRCU",
+      "actId": "IaqRnbID",
+      "title": "第一块拼图",
+      "type": "normal",
+      "order": 5,
+      "position": {
+        "x": 1000,
+        "y": 0
+      },
+      "emotionFunction": {
+        "emotionIn": "",
+        "emotionOut": "",
+        "playerEmotion": "",
+        "tension": 5
+      },
+      "systemFunction": {
+        "variablesRead": [],
+        "variablesWrite": [],
+        "requirements": ""
+      },
+      "sceneDesc": "",
+      "dialogue": [],
+      "choices": [],
+      "durationSeconds": 120,
+      "notes": "无论选择如何，艾拉拼凑出M来电区域指向城郊废弃信号塔，决意亲自前往"
+    },
+    {
+      "id": "70PPKsZR",
+      "actId": "IaqRnbID",
+      "title": "探索：旧调度日志",
+      "type": "explore",
+      "order": 6,
+      "position": {
+        "x": 1200,
+        "y": 0
+      },
+      "emotionFunction": {
+        "emotionIn": "",
+        "emotionOut": "",
+        "playerEmotion": "",
+        "tension": 2
+      },
+      "systemFunction": {
+        "variablesRead": [],
+        "variablesWrite": [],
+        "requirements": ""
+      },
+      "sceneDesc": "",
+      "dialogue": [],
+      "choices": [],
+      "durationSeconds": 120,
+      "notes": "可选：翻看十年前前任调度员留下的手写日志，暗示同类幽灵来电曾发生过"
+    },
+    {
+      "id": "f3RCqlJH",
+      "actId": "Gjfrooyv",
+      "title": "废塔勘察",
+      "type": "normal",
+      "order": 0,
+      "position": {
+        "x": 0,
+        "y": 120
+      },
+      "emotionFunction": {
+        "emotionIn": "",
+        "emotionOut": "",
+        "playerEmotion": "",
+        "tension": 5
+      },
+      "systemFunction": {
+        "variablesRead": [],
+        "variablesWrite": [],
+        "requirements": ""
+      },
+      "sceneDesc": "",
+      "dialogue": [],
+      "choices": [],
+      "durationSeconds": 120,
+      "notes": "艾拉独自驱车到废弃信号塔，在生锈铁架下发现一部仍有余温的预付费手机与带血的围巾"
+    },
+    {
+      "id": "qrKK5dVr",
+      "actId": "Gjfrooyv",
+      "title": "报警与否",
+      "type": "branch",
+      "order": 1,
+      "position": {
+        "x": 200,
+        "y": 120
+      },
+      "emotionFunction": {
+        "emotionIn": "",
+        "emotionOut": "",
+        "playerEmotion": "",
+        "tension": 5
+      },
+      "systemFunction": {
+        "variablesRead": [],
+        "variablesWrite": [],
+        "requirements": ""
+      },
+      "sceneDesc": "",
+      "dialogue": [],
+      "choices": [],
+      "durationSeconds": 120,
+      "notes": "关键选择：M的再次来电在塔下响起，她恳求艾拉别报警，说警察里有内鬼；variableEffects必须记录此选择对变量的影响"
+    },
+    {
+      "id": "NEoDQGMK",
+      "actId": "Gjfrooyv",
+      "title": "相信M",
+      "type": "normal",
+      "order": 2,
+      "position": {
+        "x": 400,
+        "y": 120
+      },
+      "emotionFunction": {
+        "emotionIn": "",
+        "emotionOut": "",
+        "playerEmotion": "",
+        "tension": 5
+      },
+      "systemFunction": {
+        "variablesRead": [],
+        "variablesWrite": [],
+        "requirements": ""
+      },
+      "sceneDesc": "",
+      "dialogue": [],
+      "choices": [],
+      "durationSeconds": 120,
+      "notes": "[路径A] 艾拉按M指引独自藏起证物，两人在电话中首次长谈，M透露自己目击过一桩被掩盖的命案；variableEffects: m_trust+2, evidence_hidden=true, isolation+1"
+    },
+    {
+      "id": "jjTIiLzG",
+      "actId": "Gjfrooyv",
+      "title": "匿名报案",
+      "type": "normal",
+      "order": 3,
+      "position": {
+        "x": 600,
+        "y": 120
+      },
+      "emotionFunction": {
+        "emotionIn": "",
+        "emotionOut": "",
+        "playerEmotion": "",
+        "tension": 5
+      },
+      "systemFunction": {
+        "variablesRead": [],
+        "variablesWrite": [],
+        "requirements": ""
+      },
+      "sceneDesc": "",
+      "dialogue": [],
+      "choices": [],
+      "durationSeconds": 120,
+      "notes": "[路径B] 艾拉折中选择用公共电话匿名报案，警车到场时她躲在暗处目睹一名便衣警察悄悄拿走手机；variableEffects: m_trust-1, corruption_witnessed=true"
+    },
+    {
+      "id": "xUZKxBhS",
+      "actId": "Gjfrooyv",
+      "title": "呼叫丹尼尔",
+      "type": "normal",
+      "order": 4,
+      "position": {
+        "x": 800,
+        "y": 120
+      },
+      "emotionFunction": {
+        "emotionIn": "",
+        "emotionOut": "",
+        "playerEmotion": "",
+        "tension": 5
+      },
+      "systemFunction": {
+        "variablesRead": [],
+        "variablesWrite": [],
+        "requirements": ""
+      },
+      "sceneDesc": "",
+      "dialogue": [],
+      "choices": [],
+      "durationSeconds": 120,
+      "notes": "[路径C] 艾拉选择信任体制打给丹尼尔，丹尼尔带人赶到却只字不提手机，反而严厉质问她为何擅自涉入现场；variableEffects: daniel_suspicion+3, m_trust-2"
+    },
+    {
+      "id": "midiTz8f",
+      "actId": "Gjfrooyv",
+      "title": "回城的长夜",
+      "type": "normal",
+      "order": 5,
+      "position": {
+        "x": 1000,
+        "y": 120
+      },
+      "emotionFunction": {
+        "emotionIn": "",
+        "emotionOut": "",
+        "playerEmotion": "",
+        "tension": 5
+      },
+      "systemFunction": {
+        "variablesRead": [],
+        "variablesWrite": [],
+        "requirements": ""
+      },
+      "sceneDesc": "",
+      "dialogue": [],
+      "choices": [],
+      "durationSeconds": 120,
+      "notes": "艾拉在车上颤抖，意识到自己已经踩进一张看不见的网，手机震动——是一封没有署名的威胁短信"
+    },
+    {
+      "id": "_EYJ_Rn3",
+      "actId": "Gjfrooyv",
+      "title": "探索：围巾的线头",
+      "type": "explore",
+      "order": 6,
+      "position": {
+        "x": 1200,
+        "y": 120
+      },
+      "emotionFunction": {
+        "emotionIn": "",
+        "emotionOut": "",
+        "playerEmotion": "",
+        "tension": 2
+      },
+      "systemFunction": {
+        "variablesRead": [],
+        "variablesWrite": [],
+        "requirements": ""
+      },
+      "sceneDesc": "",
+      "dialogue": [],
+      "choices": [],
+      "durationSeconds": 120,
+      "notes": "可选：凑近观察围巾，发现绣着半个名字缩写，暗示M的真实身份与某位失踪女性档案相关"
+    },
+    {
+      "id": "ilNzvjJn",
+      "actId": "w1NQQDhm",
+      "title": "办公室传唤",
+      "type": "normal",
+      "order": 0,
+      "position": {
+        "x": 0,
+        "y": 240
+      },
+      "emotionFunction": {
+        "emotionIn": "",
+        "emotionOut": "",
+        "playerEmotion": "",
+        "tension": 5
+      },
+      "systemFunction": {
+        "variablesRead": [],
+        "variablesWrite": [],
+        "requirements": ""
+      },
+      "sceneDesc": "",
+      "dialogue": [],
+      "choices": [],
+      "durationSeconds": 120,
+      "notes": "次日艾拉被叫进局长办公室，丹尼尔出示她违规调档、擅闯现场的证据，宣布启动内部调查"
+    },
+    {
+      "id": "6lQk8ysU",
+      "actId": "w1NQQDhm",
+      "title": "最后的抉择",
+      "type": "branch",
+      "order": 1,
+      "position": {
+        "x": 200,
+        "y": 240
+      },
+      "emotionFunction": {
+        "emotionIn": "",
+        "emotionOut": "",
+        "playerEmotion": "",
+        "tension": 5
+      },
+      "systemFunction": {
+        "variablesRead": [],
+        "variablesWrite": [],
+        "requirements": ""
+      },
+      "sceneDesc": "",
+      "dialogue": [],
+      "choices": [],
+      "durationSeconds": 120,
+      "notes": "关键选择：面对停职决定，艾拉如何回应？这决定她进入第三章的姿态；variableEffects必须记录此选择对变量的影响"
+    },
+    {
+      "id": "A0ZbYe7h",
+      "actId": "w1NQQDhm",
+      "title": "当场反击",
+      "type": "normal",
+      "order": 2,
+      "position": {
+        "x": 400,
+        "y": 240
+      },
+      "emotionFunction": {
+        "emotionIn": "",
+        "emotionOut": "",
+        "playerEmotion": "",
+        "tension": 5
+      },
+      "systemFunction": {
+        "variablesRead": [],
+        "variablesWrite": [],
+        "requirements": ""
+      },
+      "sceneDesc": "",
+      "dialogue": [],
+      "choices": [],
+      "durationSeconds": 120,
+      "notes": "[路径A] 艾拉拍桌播放录音与现场照片，丹尼尔脸色骤变，却以扰乱调查为由加重处分，她被当场没收工牌；variableEffects: defiance+2, badge_lost=true, daniel_fear=true"
+    },
+    {
+      "id": "uaY76Yro",
+      "actId": "w1NQQDhm",
+      "title": "沉默接受",
+      "type": "normal",
+      "order": 3,
+      "position": {
+        "x": 600,
+        "y": 240
+      },
+      "emotionFunction": {
+        "emotionIn": "",
+        "emotionOut": "",
+        "playerEmotion": "",
+        "tension": 5
+      },
+      "systemFunction": {
+        "variablesRead": [],
+        "variablesWrite": [],
+        "requirements": ""
+      },
+      "sceneDesc": "",
+      "dialogue": [],
+      "choices": [],
+      "durationSeconds": 120,
+      "notes": "[路径B] 艾拉低头签字接受停职，暗中保留所有证据副本，凯在走廊塞给她一张写着地址的纸条；variableEffects: kai_trust+2, evidence_backup=true, public_image=safe"
+    },
+    {
+      "id": "VGOf0D7y",
+      "actId": "w1NQQDhm",
+      "title": "假意认错",
+      "type": "normal",
+      "order": 4,
+      "position": {
+        "x": 800,
+        "y": 240
+      },
+      "emotionFunction": {
+        "emotionIn": "",
+        "emotionOut": "",
+        "playerEmotion": "",
+        "tension": 5
+      },
+      "systemFunction": {
+        "variablesRead": [],
+        "variablesWrite": [],
+        "requirements": ""
+      },
+      "sceneDesc": "",
+      "dialogue": [],
+      "choices": [],
+      "durationSeconds": 120,
+      "notes": "[路径C] 艾拉伪装崩溃痛哭称自己幻听，骗取丹尼尔的轻信，换来仅仅几天的缓冲期却让M在电话里失望沉默；variableEffects: deception+2, m_trust-2, time_bought=true"
+    },
+    {
+      "id": "DbfniZXP",
+      "actId": "w1NQQDhm",
+      "title": "关键线索",
+      "type": "normal",
+      "order": 5,
+      "position": {
+        "x": 1000,
+        "y": 240
+      },
+      "emotionFunction": {
+        "emotionIn": "",
+        "emotionOut": "",
+        "playerEmotion": "",
+        "tension": 5
+      },
+      "systemFunction": {
+        "variablesRead": [],
+        "variablesWrite": [],
+        "requirements": ""
+      },
+      "sceneDesc": "",
+      "dialogue": [],
+      "choices": [],
+      "durationSeconds": 120,
+      "notes": "当夜艾拉在家比对所有碎片，终于在威胁短信的元数据中锁定发信基站——正是本市警局内部号段，她站在窗前望向城市，知道再无退路"
+    },
+    {
+      "id": "yn0X9PDJ",
+      "actId": "w1NQQDhm",
+      "title": "探索：母亲的旧照",
+      "type": "explore",
+      "order": 6,
+      "position": {
+        "x": 1200,
+        "y": 240
+      },
+      "emotionFunction": {
+        "emotionIn": "",
+        "emotionOut": "",
+        "playerEmotion": "",
+        "tension": 2
+      },
+      "systemFunction": {
+        "variablesRead": [],
+        "variablesWrite": [],
+        "requirements": ""
+      },
+      "sceneDesc": "",
+      "dialogue": [],
+      "choices": [],
+      "durationSeconds": 120,
+      "notes": "可选：整理抽屉时翻出童年与母亲合影，背面写着一句话，暗示艾拉为何如此执着于不被听见的声音"
+    },
+    {
+      "id": "0woGHBKC",
+      "actId": "Yy_xDjWC",
+      "title": "停职后的凌晨",
+      "type": "normal",
+      "order": 0,
+      "position": {
+        "x": 0,
+        "y": 0
+      },
+      "emotionFunction": {
+        "emotionIn": "",
+        "emotionOut": "",
+        "playerEmotion": "",
+        "tension": 5
+      },
+      "systemFunction": {
+        "variablesRead": [],
+        "variablesWrite": [],
+        "requirements": ""
+      },
+      "sceneDesc": "",
+      "dialogue": [],
+      "choices": [],
+      "durationSeconds": 120,
+      "notes": "艾拉被停职调查，独自在公寓回听私录的调度音频，拼凑幽灵来电的时间线，窗外警车灯光掠过墙面"
+    },
+    {
+      "id": "3KogDRuM",
+      "actId": "Yy_xDjWC",
+      "title": "谁来接住她",
+      "type": "branch",
+      "order": 1,
+      "position": {
+        "x": 200,
+        "y": 0
+      },
+      "emotionFunction": {
+        "emotionIn": "",
+        "emotionOut": "",
+        "playerEmotion": "",
+        "tension": 5
+      },
+      "systemFunction": {
+        "variablesRead": [],
+        "variablesWrite": [],
+        "requirements": ""
+      },
+      "sceneDesc": "",
+      "dialogue": [],
+      "choices": [],
+      "durationSeconds": 120,
+      "notes": "关键选择：艾拉在绝境中决定向谁求援；variableEffects：选凯→trust_Kai+2,ally=Kai；选M→bond_M+2,ally=M；选独自→resolve+2,ally=self"
+    },
+    {
+      "id": "w2MQ7bql",
+      "actId": "Yy_xDjWC",
+      "title": "天台的同事",
+      "type": "normal",
+      "order": 2,
+      "position": {
+        "x": 400,
+        "y": 0
+      },
+      "emotionFunction": {
+        "emotionIn": "",
+        "emotionOut": "",
+        "playerEmotion": "",
+        "tension": 5
+      },
+      "systemFunction": {
+        "variablesRead": [],
+        "variablesWrite": [],
+        "requirements": ""
+      },
+      "sceneDesc": "",
+      "dialogue": [],
+      "choices": [],
+      "durationSeconds": 120,
+      "notes": "[路径A] 凯·陈在调度中心天台与艾拉秘密会面，递出一份被抽走的通话日志副本，两人争执他是否愿赌上工牌"
+    },
+    {
+      "id": "e_a2tHuE",
+      "actId": "Yy_xDjWC",
+      "title": "加密频道的低语",
+      "type": "normal",
+      "order": 3,
+      "position": {
+        "x": 600,
+        "y": 0
+      },
+      "emotionFunction": {
+        "emotionIn": "",
+        "emotionOut": "",
+        "playerEmotion": "",
+        "tension": 5
+      },
+      "systemFunction": {
+        "variablesRead": [],
+        "variablesWrite": [],
+        "requirements": ""
+      },
+      "sceneDesc": "",
+      "dialogue": [],
+      "choices": [],
+      "durationSeconds": 120,
+      "notes": "[路径B] M通过一次性加密线路回拨，首次说出自己的本名与藏身地，艾拉听见他身后的海浪与断续呼吸"
+    },
+    {
+      "id": "C17Q3zMJ",
+      "actId": "Yy_xDjWC",
+      "title": "独行的地图",
+      "type": "normal",
+      "order": 4,
+      "position": {
+        "x": 800,
+        "y": 0
+      },
+      "emotionFunction": {
+        "emotionIn": "",
+        "emotionOut": "",
+        "playerEmotion": "",
+        "tension": 5
+      },
+      "systemFunction": {
+        "variablesRead": [],
+        "variablesWrite": [],
+        "requirements": ""
+      },
+      "sceneDesc": "",
+      "dialogue": [],
+      "choices": [],
+      "durationSeconds": 120,
+      "notes": "[路径C] 艾拉关掉手机，在墙上贴满便签与红线，独自把幽灵来电的源头锁定到城郊一处废弃中继站"
+    },
+    {
+      "id": "Pv8etSVC",
+      "actId": "Yy_xDjWC",
+      "title": "第一道裂缝",
+      "type": "normal",
+      "order": 5,
+      "position": {
+        "x": 1000,
+        "y": 0
+      },
+      "emotionFunction": {
+        "emotionIn": "",
+        "emotionOut": "",
+        "playerEmotion": "",
+        "tension": 5
+      },
+      "systemFunction": {
+        "variablesRead": [],
+        "variablesWrite": [],
+        "requirements": ""
+      },
+      "sceneDesc": "",
+      "dialogue": [],
+      "choices": [],
+      "durationSeconds": 120,
+      "notes": "无论选择何种援手，丹尼尔·里德的手下出现在艾拉楼下——她必须在天亮前离开，追查进入不可回头的阶段"
+    },
+    {
+      "id": "VyPRFlTA",
+      "actId": "lLXPpYkA",
+      "title": "中继站的回声",
+      "type": "normal",
+      "order": 0,
+      "position": {
+        "x": 0,
+        "y": 120
+      },
+      "emotionFunction": {
+        "emotionIn": "",
+        "emotionOut": "",
+        "playerEmotion": "",
+        "tension": 5
+      },
+      "systemFunction": {
+        "variablesRead": [],
+        "variablesWrite": [],
+        "requirements": ""
+      },
+      "sceneDesc": "",
+      "dialogue": [],
+      "choices": [],
+      "durationSeconds": 120,
+      "notes": "艾拉潜入废弃中继站，发现一整套被篡改的通话路由设备，证据直指丹尼尔长期抹除特定报案记录"
+    },
+    {
+      "id": "C2rOqp6q",
+      "actId": "lLXPpYkA",
+      "title": "当丹尼尔现身",
+      "type": "branch",
+      "order": 1,
+      "position": {
+        "x": 200,
+        "y": 120
+      },
+      "emotionFunction": {
+        "emotionIn": "",
+        "emotionOut": "",
+        "playerEmotion": "",
+        "tension": 5
+      },
+      "systemFunction": {
+        "variablesRead": [],
+        "variablesWrite": [],
+        "requirements": ""
+      },
+      "sceneDesc": "",
+      "dialogue": [],
+      "choices": [],
+      "durationSeconds": 120,
+      "notes": "关键选择：丹尼尔在现场堵住艾拉并开出条件；variableEffects：选对抗→defiance+2,deal=false；选佯装妥协→cunning+2,deal=pretend；选曝光→exposure+2,public=true"
+    },
+    {
+      "id": "7DqDBv4f",
+      "actId": "lLXPpYkA",
+      "title": "正面对峙",
+      "type": "normal",
+      "order": 2,
+      "position": {
+        "x": 400,
+        "y": 120
+      },
+      "emotionFunction": {
+        "emotionIn": "",
+        "emotionOut": "",
+        "playerEmotion": "",
+        "tension": 5
+      },
+      "systemFunction": {
+        "variablesRead": [],
+        "variablesWrite": [],
+        "requirements": ""
+      },
+      "sceneDesc": "",
+      "dialogue": [],
+      "choices": [],
+      "durationSeconds": 120,
+      "notes": "[路径A] 艾拉在机房里当面质问丹尼尔为何让求救者消失，录音笔悄悄记下他失控的自白与威胁"
+    },
+    {
+      "id": "iGD0ix9q",
+      "actId": "lLXPpYkA",
+      "title": "交易的假面",
+      "type": "normal",
+      "order": 3,
+      "position": {
+        "x": 600,
+        "y": 120
+      },
+      "emotionFunction": {
+        "emotionIn": "",
+        "emotionOut": "",
+        "playerEmotion": "",
+        "tension": 5
+      },
+      "systemFunction": {
+        "variablesRead": [],
+        "variablesWrite": [],
+        "requirements": ""
+      },
+      "sceneDesc": "",
+      "dialogue": [],
+      "choices": [],
+      "durationSeconds": 120,
+      "notes": "[路径B] 艾拉假意接受丹尼尔的封口提议，换取进入他私人服务器的权限，敲下复制键的手在颤抖"
+    },
+    {
+      "id": "qg90hAbR",
+      "actId": "lLXPpYkA",
+      "title": "直播的夜",
+      "type": "normal",
+      "order": 4,
+      "position": {
+        "x": 800,
+        "y": 120
+      },
+      "emotionFunction": {
+        "emotionIn": "",
+        "emotionOut": "",
+        "playerEmotion": "",
+        "tension": 5
+      },
+      "systemFunction": {
+        "variablesRead": [],
+        "variablesWrite": [],
+        "requirements": ""
+      },
+      "sceneDesc": "",
+      "dialogue": [],
+      "choices": [],
+      "durationSeconds": 120,
+      "notes": "[路径C] 艾拉用中继站的广播频段把丹尼尔的罪证推向本地警用与媒体频道，城市在凌晨四点被惊醒"
+    },
+    {
+      "id": "thY3Dcm4",
+      "actId": "lLXPpYkA",
+      "title": "风暴前的静默",
+      "type": "normal",
+      "order": 5,
+      "position": {
+        "x": 1000,
+        "y": 120
+      },
+      "emotionFunction": {
+        "emotionIn": "",
+        "emotionOut": "",
+        "playerEmotion": "",
+        "tension": 5
+      },
+      "systemFunction": {
+        "variablesRead": [],
+        "variablesWrite": [],
+        "requirements": ""
+      },
+      "sceneDesc": "",
+      "dialogue": [],
+      "choices": [],
+      "durationSeconds": 120,
+      "notes": "无论走哪条路径，M传来最后一条讯息：他被发现了，坐标正在逼近——艾拉必须决定救谁、信谁、舍谁"
+    },
+    {
+      "id": "TNVzTi9p",
+      "actId": "nfyxy2Sr",
+      "title": "最后的调度台",
+      "type": "normal",
+      "order": 0,
+      "position": {
+        "x": 0,
+        "y": 240
+      },
+      "emotionFunction": {
+        "emotionIn": "",
+        "emotionOut": "",
+        "playerEmotion": "",
+        "tension": 5
+      },
+      "systemFunction": {
+        "variablesRead": [],
+        "variablesWrite": [],
+        "requirements": ""
+      },
+      "sceneDesc": "",
+      "dialogue": [],
+      "choices": [],
+      "durationSeconds": 120,
+      "notes": "艾拉强行返回调度中心，戴上耳机接起那条熟悉的加密线，屏幕上M的定位正在被第三方锁定"
+    },
+    {
+      "id": "JO75NpZA",
+      "actId": "nfyxy2Sr",
+      "title": "最终时刻",
+      "type": "normal",
+      "order": 1,
+      "position": {
+        "x": 200,
+        "y": 240
+      },
+      "emotionFunction": {
+        "emotionIn": "",
+        "emotionOut": "",
+        "playerEmotion": "",
+        "tension": 5
+      },
+      "systemFunction": {
+        "variablesRead": [],
+        "variablesWrite": [],
+        "requirements": ""
+      },
+      "sceneDesc": "",
+      "dialogue": [],
+      "choices": [],
+      "durationSeconds": 120,
+      "notes": "最黑暗时刻：丹尼尔的人围住大楼，凯在门外犹豫是否刷卡放行，M在电话里倒数自己剩下的时间，所有变量在此刻结算"
+    },
+    {
+      "id": "tM_e6Rru",
+      "actId": "nfyxy2Sr",
+      "title": "路线门控",
+      "type": "branch",
+      "order": 2,
+      "position": {
+        "x": 400,
+        "y": 240
+      },
+      "emotionFunction": {
+        "emotionIn": "",
+        "emotionOut": "",
+        "playerEmotion": "",
+        "tension": 5
+      },
+      "systemFunction": {
+        "variablesRead": [],
+        "variablesWrite": [],
+        "requirements": ""
+      },
+      "sceneDesc": "",
+      "dialogue": [],
+      "choices": [],
+      "durationSeconds": 120,
+      "notes": "根据全程积累的变量开放路线；conditions：路线1需bond_M>=2且ally=M；路线2需trust_Kai>=2且ally=Kai；路线3需exposure>=2或public=true；路线4需resolve>=2且ally=self"
+    },
+    {
+      "id": "xDLBhagL",
+      "actId": "nfyxy2Sr",
+      "title": "路线1·海岸线的接头",
+      "type": "normal",
+      "order": 3,
+      "position": {
+        "x": 600,
+        "y": 240
+      },
+      "emotionFunction": {
+        "emotionIn": "",
+        "emotionOut": "",
+        "playerEmotion": "",
+        "tension": 5
+      },
+      "systemFunction": {
+        "variablesRead": [],
+        "variablesWrite": [],
+        "requirements": ""
+      },
+      "sceneDesc": "",
+      "dialogue": [],
+      "choices": [],
+      "durationSeconds": 120,
+      "notes": "【路线1专属内容】艾拉远程指挥M穿过旧港口，用调度员的全部直觉把追兵引向错误方向，二人第一次真正听见彼此的名字"
+    },
+    {
+      "id": "sbtxR_VV",
+      "actId": "nfyxy2Sr",
+      "title": "结局1·两个幸存者",
+      "type": "ending",
+      "order": 4,
+      "position": {
+        "x": 800,
+        "y": 240
+      },
+      "emotionFunction": {
+        "emotionIn": "",
+        "emotionOut": "",
+        "playerEmotion": "",
+        "tension": 5
+      },
+      "systemFunction": {
+        "variablesRead": [],
+        "variablesWrite": [],
+        "requirements": ""
+      },
+      "sceneDesc": "",
+      "dialogue": [],
+      "choices": [],
+      "durationSeconds": 120,
+      "notes": "结局1：M成功脱身并出庭作证，艾拉失去工牌却收到一张寄自无名小镇的明信片，信任跨越了看不见的线"
+    },
+    {
+      "id": "tP2mqE_5",
+      "actId": "nfyxy2Sr",
+      "title": "路线2·同事的抉择",
+      "type": "normal",
+      "order": 5,
+      "position": {
+        "x": 1000,
+        "y": 240
+      },
+      "emotionFunction": {
+        "emotionIn": "",
+        "emotionOut": "",
+        "playerEmotion": "",
+        "tension": 5
+      },
+      "systemFunction": {
+        "variablesRead": [],
+        "variablesWrite": [],
+        "requirements": ""
+      },
+      "sceneDesc": "",
+      "dialogue": [],
+      "choices": [],
+      "durationSeconds": 120,
+      "notes": "【路线2专属内容】凯刷卡放艾拉进入主控室，两人用调度系统的权限反向追踪丹尼尔团伙，走廊里传来逼近的脚步"
+    },
+    {
+      "id": "ajE7IkXH",
+      "actId": "nfyxy2Sr",
+      "title": "结局2·制度内的光",
+      "type": "ending",
+      "order": 6,
+      "position": {
+        "x": 1200,
+        "y": 240
+      },
+      "emotionFunction": {
+        "emotionIn": "",
+        "emotionOut": "",
+        "playerEmotion": "",
+        "tension": 5
+      },
+      "systemFunction": {
+        "variablesRead": [],
+        "variablesWrite": [],
+        "requirements": ""
+      },
+      "sceneDesc": "",
+      "dialogue": [],
+      "choices": [],
+      "durationSeconds": 120,
+      "notes": "结局2：凯作证、艾拉复职，调度中心启动内部改革，但M的下落成为她每个值夜班时仍在拨打的空号"
+    },
+    {
+      "id": "udG41si9",
+      "actId": "nfyxy2Sr",
+      "title": "路线3·公开的审判",
+      "type": "normal",
+      "order": 7,
+      "position": {
+        "x": 1400,
+        "y": 240
+      },
+      "emotionFunction": {
+        "emotionIn": "",
+        "emotionOut": "",
+        "playerEmotion": "",
+        "tension": 5
+      },
+      "systemFunction": {
+        "variablesRead": [],
+        "variablesWrite": [],
+        "requirements": ""
+      },
+      "sceneDesc": "",
+      "dialogue": [],
+      "choices": [],
+      "durationSeconds": 120,
+      "notes": "【路线3专属内容】清晨的新闻头条全是丹尼尔的名字，艾拉被记者围堵在台阶上，她只说了一句：有人打过那通电话"
+    },
+    {
+      "id": "JqQy2qqn",
+      "actId": "nfyxy2Sr",
+      "title": "结局3·代价与回响",
+      "type": "ending",
+      "order": 8,
+      "position": {
+        "x": 1600,
+        "y": 240
+      },
+      "emotionFunction": {
+        "emotionIn": "",
+        "emotionOut": "",
+        "playerEmotion": "",
+        "tension": 5
+      },
+      "systemFunction": {
+        "variablesRead": [],
+        "variablesWrite": [],
+        "requirements": ""
+      },
+      "sceneDesc": "",
+      "dialogue": [],
+      "choices": [],
+      "durationSeconds": 120,
+      "notes": "结局3：丹尼尔落网，艾拉因违规播发被起诉，她在法庭上平静陈述——现实与妄想的边界，由愿意作证的人划定"
+    },
+    {
+      "id": "ZV5hlNgV",
+      "actId": "nfyxy2Sr",
+      "title": "路线4·独行到尽头",
+      "type": "normal",
+      "order": 9,
+      "position": {
+        "x": 1800,
+        "y": 240
+      },
+      "emotionFunction": {
+        "emotionIn": "",
+        "emotionOut": "",
+        "playerEmotion": "",
+        "tension": 5
+      },
+      "systemFunction": {
+        "variablesRead": [],
+        "variablesWrite": [],
+        "requirements": ""
+      },
+      "sceneDesc": "",
+      "dialogue": [],
+      "choices": [],
+      "durationSeconds": 120,
+      "notes": "【路线4专属内容】艾拉独自闯入丹尼尔的服务器机房，在断电前把全部证据写入一张匿名硬盘，投进某个信箱"
+    },
+    {
+      "id": "R91sxVuv",
+      "actId": "nfyxy2Sr",
+      "title": "结局4·无名的正确",
+      "type": "ending",
+      "order": 10,
+      "position": {
+        "x": 2000,
+        "y": 240
+      },
+      "emotionFunction": {
+        "emotionIn": "",
+        "emotionOut": "",
+        "playerEmotion": "",
+        "tension": 5
+      },
+      "systemFunction": {
+        "variablesRead": [],
+        "variablesWrite": [],
+        "requirements": ""
+      },
+      "sceneDesc": "",
+      "dialogue": [],
+      "choices": [],
+      "durationSeconds": 120,
+      "notes": "结局4：次日城市恢复如常，只有一名调查记者收到硬盘，艾拉消失在人海里，没人知道她做对了一件事"
+    }
+  ],
+  "variables": [],
+  "endings": [],
+  "lastValidation": {
+    "generatedAt": "2026-04-17T15:30:54.806Z",
+    "totalNodes": 65,
+    "totalBranches": 0,
+    "issues": [
+      {
+        "id": "ZxfE",
+        "level": "error",
+        "code": "DEAD_END",
+        "message": "节点「23:47的红灯」是死路：没有任何有效出口",
+        "relatedIds": [
+          "AXv098ep"
+        ]
+      },
+      {
+        "id": "zOks",
+        "level": "error",
+        "code": "DEAD_END",
+        "message": "节点「如何回应M的第一声呼救」是死路：没有任何有效出口",
+        "relatedIds": [
+          "mGvJKfIm"
+        ]
+      },
+      {
+        "id": "iqIW",
+        "level": "error",
+        "code": "DEAD_END",
+        "message": "节点「压低声音的承诺」是死路：没有任何有效出口",
+        "relatedIds": [
+          "uI4-B4Iu"
+        ]
+      },
+      {
+        "id": "8ilw",
+        "level": "error",
+        "code": "DEAD_END",
+        "message": "节点「按章程上报」是死路：没有任何有效出口",
+        "relatedIds": [
+          "YElAJFJO"
+        ]
+      },
+      {
+        "id": "TELX",
+        "level": "error",
+        "code": "DEAD_END",
+        "message": "节点「不报也不挂」是死路：没有任何有效出口",
+        "relatedIds": [
+          "onRB4BeV"
+        ]
+      },
+      {
+        "id": "v7Wa",
+        "level": "error",
+        "code": "DEAD_END",
+        "message": "节点「耳机摘下之后」是死路：没有任何有效出口",
+        "relatedIds": [
+          "PcenU4Cg"
+        ]
+      },
+      {
+        "id": "RSX4",
+        "level": "error",
+        "code": "DEAD_END",
+        "message": "节点「探索：旧档案柜的第七格」是死路：没有任何有效出口",
+        "relatedIds": [
+          "cqzPnl5q"
+        ]
+      },
+      {
+        "id": "WJcw",
+        "level": "error",
+        "code": "DEAD_END",
+        "message": "节点「天亮前的茶水间」是死路：没有任何有效出口",
+        "relatedIds": [
+          "2FI1fCi5"
+        ]
+      },
+      {
+        "id": "UlRC",
+        "level": "error",
+        "code": "DEAD_END",
+        "message": "节点「录音要不要拿出来」是死路：没有任何有效出口",
+        "relatedIds": [
+          "uND-8Xv6"
+        ]
+      },
+      {
+        "id": "iE3L",
+        "level": "error",
+        "code": "DEAD_END",
+        "message": "节点「把手机递给凯」是死路：没有任何有效出口",
+        "relatedIds": [
+          "LPicclux"
+        ]
+      },
+      {
+        "id": "DGC6",
+        "level": "error",
+        "code": "DEAD_END",
+        "message": "节点「敲响督导的门」是死路：没有任何有效出口",
+        "relatedIds": [
+          "-7AU0yLr"
+        ]
+      },
+      {
+        "id": "KhWW",
+        "level": "error",
+        "code": "DEAD_END",
+        "message": "节点「独自走出大楼」是死路：没有任何有效出口",
+        "relatedIds": [
+          "dYPGFqVn"
+        ]
+      },
+      {
+        "id": "9sxX",
+        "level": "error",
+        "code": "DEAD_END",
+        "message": "节点「白天的城市醒来」是死路：没有任何有效出口",
+        "relatedIds": [
+          "AnEyDhdx"
+        ]
+      },
+      {
+        "id": "Uk4Y",
+        "level": "error",
+        "code": "DEAD_END",
+        "message": "节点「探索：橡树巷的卫星图」是死路：没有任何有效出口",
+        "relatedIds": [
+          "H-8hi6iB"
+        ]
+      },
+      {
+        "id": "ccGQ",
+        "level": "error",
+        "code": "DEAD_END",
+        "message": "节点「傍晚的第二通电话」是死路：没有任何有效出口",
+        "relatedIds": [
+          "PMOV9ock"
+        ]
+      },
+      {
+        "id": "hrim",
+        "level": "error",
+        "code": "DEAD_END",
+        "message": "节点「午夜要不要下班独自前往」是死路：没有任何有效出口",
+        "relatedIds": [
+          "7qqWPOf-"
+        ]
+      },
+      {
+        "id": "edp9",
+        "level": "error",
+        "code": "DEAD_END",
+        "message": "节点「独自开车驶向橡树巷」是死路：没有任何有效出口",
+        "relatedIds": [
+          "PgM5ckbq"
+        ]
+      },
+      {
+        "id": "4nUe",
+        "level": "error",
+        "code": "DEAD_END",
+        "message": "节点「打给值班的丹尼尔请求立案」是死路：没有任何有效出口",
+        "relatedIds": [
+          "l1AvligW"
+        ]
+      },
+      {
+        "id": "frEa",
+        "level": "error",
+        "code": "DEAD_END",
+        "message": "节点「把地址发给凯一起去」是死路：没有任何有效出口",
+        "relatedIds": [
+          "hu6ocP2-"
+        ]
+      },
+      {
+        "id": "3mb_",
+        "level": "error",
+        "code": "DEAD_END",
+        "message": "节点「章末：录音仍在」是死路：没有任何有效出口",
+        "relatedIds": [
+          "4YzSPA7s"
+        ]
+      },
+      {
+        "id": "sdUA",
+        "level": "error",
+        "code": "DEAD_END",
+        "message": "节点「探索：丹尼尔的旧警号」是死路：没有任何有效出口",
+        "relatedIds": [
+          "E8EzhCea"
+        ]
+      },
+      {
+        "id": "3rjH",
+        "level": "error",
+        "code": "DEAD_END",
+        "message": "节点「清晨的录音室」是死路：没有任何有效出口",
+        "relatedIds": [
+          "Wd8vEs9t"
+        ]
+      },
+      {
+        "id": "NlYk",
+        "level": "error",
+        "code": "DEAD_END",
+        "message": "节点「调档的岔口」是死路：没有任何有效出口",
+        "relatedIds": [
+          "IOQBs3gm"
+        ]
+      },
+      {
+        "id": "3eYR",
+        "level": "error",
+        "code": "DEAD_END",
+        "message": "节点「潜入技术室」是死路：没有任何有效出口",
+        "relatedIds": [
+          "7W8omtoB"
+        ]
+      },
+      {
+        "id": "3wF8",
+        "level": "error",
+        "code": "DEAD_END",
+        "message": "节点「恳求凯·陈」是死路：没有任何有效出口",
+        "relatedIds": [
+          "vlL4U8Ag"
+        ]
+      },
+      {
+        "id": "dAEh",
+        "level": "error",
+        "code": "DEAD_END",
+        "message": "节点「走正规渠道」是死路：没有任何有效出口",
+        "relatedIds": [
+          "8KW3BgCh"
+        ]
+      },
+      {
+        "id": "ain1",
+        "level": "error",
+        "code": "DEAD_END",
+        "message": "节点「第一块拼图」是死路：没有任何有效出口",
+        "relatedIds": [
+          "K4n0qRCU"
+        ]
+      },
+      {
+        "id": "3stw",
+        "level": "error",
+        "code": "DEAD_END",
+        "message": "节点「探索：旧调度日志」是死路：没有任何有效出口",
+        "relatedIds": [
+          "70PPKsZR"
+        ]
+      },
+      {
+        "id": "zUCa",
+        "level": "error",
+        "code": "DEAD_END",
+        "message": "节点「废塔勘察」是死路：没有任何有效出口",
+        "relatedIds": [
+          "f3RCqlJH"
+        ]
+      },
+      {
+        "id": "uCzJ",
+        "level": "error",
+        "code": "DEAD_END",
+        "message": "节点「报警与否」是死路：没有任何有效出口",
+        "relatedIds": [
+          "qrKK5dVr"
+        ]
+      },
+      {
+        "id": "aL5G",
+        "level": "error",
+        "code": "DEAD_END",
+        "message": "节点「相信M」是死路：没有任何有效出口",
+        "relatedIds": [
+          "NEoDQGMK"
+        ]
+      },
+      {
+        "id": "Odqy",
+        "level": "error",
+        "code": "DEAD_END",
+        "message": "节点「匿名报案」是死路：没有任何有效出口",
+        "relatedIds": [
+          "jjTIiLzG"
+        ]
+      },
+      {
+        "id": "4S80",
+        "level": "error",
+        "code": "DEAD_END",
+        "message": "节点「呼叫丹尼尔」是死路：没有任何有效出口",
+        "relatedIds": [
+          "xUZKxBhS"
+        ]
+      },
+      {
+        "id": "PDOZ",
+        "level": "error",
+        "code": "DEAD_END",
+        "message": "节点「回城的长夜」是死路：没有任何有效出口",
+        "relatedIds": [
+          "midiTz8f"
+        ]
+      },
+      {
+        "id": "pSnw",
+        "level": "error",
+        "code": "DEAD_END",
+        "message": "节点「探索：围巾的线头」是死路：没有任何有效出口",
+        "relatedIds": [
+          "_EYJ_Rn3"
+        ]
+      },
+      {
+        "id": "QuhC",
+        "level": "error",
+        "code": "DEAD_END",
+        "message": "节点「办公室传唤」是死路：没有任何有效出口",
+        "relatedIds": [
+          "ilNzvjJn"
+        ]
+      },
+      {
+        "id": "8F_i",
+        "level": "error",
+        "code": "DEAD_END",
+        "message": "节点「最后的抉择」是死路：没有任何有效出口",
+        "relatedIds": [
+          "6lQk8ysU"
+        ]
+      },
+      {
+        "id": "9quQ",
+        "level": "error",
+        "code": "DEAD_END",
+        "message": "节点「当场反击」是死路：没有任何有效出口",
+        "relatedIds": [
+          "A0ZbYe7h"
+        ]
+      },
+      {
+        "id": "aIwr",
+        "level": "error",
+        "code": "DEAD_END",
+        "message": "节点「沉默接受」是死路：没有任何有效出口",
+        "relatedIds": [
+          "uaY76Yro"
+        ]
+      },
+      {
+        "id": "R3jT",
+        "level": "error",
+        "code": "DEAD_END",
+        "message": "节点「假意认错」是死路：没有任何有效出口",
+        "relatedIds": [
+          "VGOf0D7y"
+        ]
+      },
+      {
+        "id": "8NTf",
+        "level": "error",
+        "code": "DEAD_END",
+        "message": "节点「关键线索」是死路：没有任何有效出口",
+        "relatedIds": [
+          "DbfniZXP"
+        ]
+      },
+      {
+        "id": "_4ed",
+        "level": "error",
+        "code": "DEAD_END",
+        "message": "节点「探索：母亲的旧照」是死路：没有任何有效出口",
+        "relatedIds": [
+          "yn0X9PDJ"
+        ]
+      },
+      {
+        "id": "kRMg",
+        "level": "error",
+        "code": "DEAD_END",
+        "message": "节点「停职后的凌晨」是死路：没有任何有效出口",
+        "relatedIds": [
+          "0woGHBKC"
+        ]
+      },
+      {
+        "id": "1s4t",
+        "level": "error",
+        "code": "DEAD_END",
+        "message": "节点「谁来接住她」是死路：没有任何有效出口",
+        "relatedIds": [
+          "3KogDRuM"
+        ]
+      },
+      {
+        "id": "13Yp",
+        "level": "error",
+        "code": "DEAD_END",
+        "message": "节点「天台的同事」是死路：没有任何有效出口",
+        "relatedIds": [
+          "w2MQ7bql"
+        ]
+      },
+      {
+        "id": "Fm5q",
+        "level": "error",
+        "code": "DEAD_END",
+        "message": "节点「加密频道的低语」是死路：没有任何有效出口",
+        "relatedIds": [
+          "e_a2tHuE"
+        ]
+      },
+      {
+        "id": "cYXT",
+        "level": "error",
+        "code": "DEAD_END",
+        "message": "节点「独行的地图」是死路：没有任何有效出口",
+        "relatedIds": [
+          "C17Q3zMJ"
+        ]
+      },
+      {
+        "id": "d0k1",
+        "level": "error",
+        "code": "DEAD_END",
+        "message": "节点「第一道裂缝」是死路：没有任何有效出口",
+        "relatedIds": [
+          "Pv8etSVC"
+        ]
+      },
+      {
+        "id": "gLGK",
+        "level": "error",
+        "code": "DEAD_END",
+        "message": "节点「中继站的回声」是死路：没有任何有效出口",
+        "relatedIds": [
+          "VyPRFlTA"
+        ]
+      },
+      {
+        "id": "2BwZ",
+        "level": "error",
+        "code": "DEAD_END",
+        "message": "节点「当丹尼尔现身」是死路：没有任何有效出口",
+        "relatedIds": [
+          "C2rOqp6q"
+        ]
+      },
+      {
+        "id": "vl-2",
+        "level": "error",
+        "code": "DEAD_END",
+        "message": "节点「正面对峙」是死路：没有任何有效出口",
+        "relatedIds": [
+          "7DqDBv4f"
+        ]
+      },
+      {
+        "id": "n_-0",
+        "level": "error",
+        "code": "DEAD_END",
+        "message": "节点「交易的假面」是死路：没有任何有效出口",
+        "relatedIds": [
+          "iGD0ix9q"
+        ]
+      },
+      {
+        "id": "U6uB",
+        "level": "error",
+        "code": "DEAD_END",
+        "message": "节点「直播的夜」是死路：没有任何有效出口",
+        "relatedIds": [
+          "qg90hAbR"
+        ]
+      },
+      {
+        "id": "f6a3",
+        "level": "error",
+        "code": "DEAD_END",
+        "message": "节点「风暴前的静默」是死路：没有任何有效出口",
+        "relatedIds": [
+          "thY3Dcm4"
+        ]
+      },
+      {
+        "id": "lh6f",
+        "level": "error",
+        "code": "DEAD_END",
+        "message": "节点「最后的调度台」是死路：没有任何有效出口",
+        "relatedIds": [
+          "TNVzTi9p"
+        ]
+      },
+      {
+        "id": "m3hz",
+        "level": "error",
+        "code": "DEAD_END",
+        "message": "节点「最终时刻」是死路：没有任何有效出口",
+        "relatedIds": [
+          "JO75NpZA"
+        ]
+      },
+      {
+        "id": "Uta2",
+        "level": "error",
+        "code": "DEAD_END",
+        "message": "节点「路线门控」是死路：没有任何有效出口",
+        "relatedIds": [
+          "tM_e6Rru"
+        ]
+      },
+      {
+        "id": "gBzP",
+        "level": "error",
+        "code": "DEAD_END",
+        "message": "节点「路线1·海岸线的接头」是死路：没有任何有效出口",
+        "relatedIds": [
+          "xDLBhagL"
+        ]
+      },
+      {
+        "id": "EVg3",
+        "level": "error",
+        "code": "DEAD_END",
+        "message": "节点「路线2·同事的抉择」是死路：没有任何有效出口",
+        "relatedIds": [
+          "tP2mqE_5"
+        ]
+      },
+      {
+        "id": "Aj_0",
+        "level": "error",
+        "code": "DEAD_END",
+        "message": "节点「路线3·公开的审判」是死路：没有任何有效出口",
+        "relatedIds": [
+          "udG41si9"
+        ]
+      },
+      {
+        "id": "VC6U",
+        "level": "error",
+        "code": "DEAD_END",
+        "message": "节点「路线4·独行到尽头」是死路：没有任何有效出口",
+        "relatedIds": [
+          "ZV5hlNgV"
+        ]
+      },
+      {
+        "id": "FuP7",
+        "level": "warning",
+        "code": "UNREACHABLE",
+        "message": "节点「如何回应M的第一声呼救」无法到达（从开场节点出发没有任何路径到达它）",
+        "relatedIds": [
+          "mGvJKfIm"
+        ]
+      },
+      {
+        "id": "Q5rM",
+        "level": "warning",
+        "code": "UNREACHABLE",
+        "message": "节点「压低声音的承诺」无法到达（从开场节点出发没有任何路径到达它）",
+        "relatedIds": [
+          "uI4-B4Iu"
+        ]
+      },
+      {
+        "id": "JCAF",
+        "level": "warning",
+        "code": "UNREACHABLE",
+        "message": "节点「按章程上报」无法到达（从开场节点出发没有任何路径到达它）",
+        "relatedIds": [
+          "YElAJFJO"
+        ]
+      },
+      {
+        "id": "4Y20",
+        "level": "warning",
+        "code": "UNREACHABLE",
+        "message": "节点「不报也不挂」无法到达（从开场节点出发没有任何路径到达它）",
+        "relatedIds": [
+          "onRB4BeV"
+        ]
+      },
+      {
+        "id": "6zCM",
+        "level": "warning",
+        "code": "UNREACHABLE",
+        "message": "节点「耳机摘下之后」无法到达（从开场节点出发没有任何路径到达它）",
+        "relatedIds": [
+          "PcenU4Cg"
+        ]
+      },
+      {
+        "id": "t6B7",
+        "level": "warning",
+        "code": "UNREACHABLE",
+        "message": "节点「探索：旧档案柜的第七格」无法到达（从开场节点出发没有任何路径到达它）",
+        "relatedIds": [
+          "cqzPnl5q"
+        ]
+      },
+      {
+        "id": "mENi",
+        "level": "warning",
+        "code": "UNREACHABLE",
+        "message": "节点「天亮前的茶水间」无法到达（从开场节点出发没有任何路径到达它）",
+        "relatedIds": [
+          "2FI1fCi5"
+        ]
+      },
+      {
+        "id": "JYv3",
+        "level": "warning",
+        "code": "UNREACHABLE",
+        "message": "节点「录音要不要拿出来」无法到达（从开场节点出发没有任何路径到达它）",
+        "relatedIds": [
+          "uND-8Xv6"
+        ]
+      },
+      {
+        "id": "pWKc",
+        "level": "warning",
+        "code": "UNREACHABLE",
+        "message": "节点「把手机递给凯」无法到达（从开场节点出发没有任何路径到达它）",
+        "relatedIds": [
+          "LPicclux"
+        ]
+      },
+      {
+        "id": "BGzi",
+        "level": "warning",
+        "code": "UNREACHABLE",
+        "message": "节点「敲响督导的门」无法到达（从开场节点出发没有任何路径到达它）",
+        "relatedIds": [
+          "-7AU0yLr"
+        ]
+      },
+      {
+        "id": "0tum",
+        "level": "warning",
+        "code": "UNREACHABLE",
+        "message": "节点「独自走出大楼」无法到达（从开场节点出发没有任何路径到达它）",
+        "relatedIds": [
+          "dYPGFqVn"
+        ]
+      },
+      {
+        "id": "n0b1",
+        "level": "warning",
+        "code": "UNREACHABLE",
+        "message": "节点「白天的城市醒来」无法到达（从开场节点出发没有任何路径到达它）",
+        "relatedIds": [
+          "AnEyDhdx"
+        ]
+      },
+      {
+        "id": "C3aB",
+        "level": "warning",
+        "code": "UNREACHABLE",
+        "message": "节点「探索：橡树巷的卫星图」无法到达（从开场节点出发没有任何路径到达它）",
+        "relatedIds": [
+          "H-8hi6iB"
+        ]
+      },
+      {
+        "id": "tn4h",
+        "level": "warning",
+        "code": "UNREACHABLE",
+        "message": "节点「傍晚的第二通电话」无法到达（从开场节点出发没有任何路径到达它）",
+        "relatedIds": [
+          "PMOV9ock"
+        ]
+      },
+      {
+        "id": "mtep",
+        "level": "warning",
+        "code": "UNREACHABLE",
+        "message": "节点「午夜要不要下班独自前往」无法到达（从开场节点出发没有任何路径到达它）",
+        "relatedIds": [
+          "7qqWPOf-"
+        ]
+      },
+      {
+        "id": "S-Ek",
+        "level": "warning",
+        "code": "UNREACHABLE",
+        "message": "节点「独自开车驶向橡树巷」无法到达（从开场节点出发没有任何路径到达它）",
+        "relatedIds": [
+          "PgM5ckbq"
+        ]
+      },
+      {
+        "id": "mg52",
+        "level": "warning",
+        "code": "UNREACHABLE",
+        "message": "节点「打给值班的丹尼尔请求立案」无法到达（从开场节点出发没有任何路径到达它）",
+        "relatedIds": [
+          "l1AvligW"
+        ]
+      },
+      {
+        "id": "en0S",
+        "level": "warning",
+        "code": "UNREACHABLE",
+        "message": "节点「把地址发给凯一起去」无法到达（从开场节点出发没有任何路径到达它）",
+        "relatedIds": [
+          "hu6ocP2-"
+        ]
+      },
+      {
+        "id": "be7G",
+        "level": "warning",
+        "code": "UNREACHABLE",
+        "message": "节点「章末：录音仍在」无法到达（从开场节点出发没有任何路径到达它）",
+        "relatedIds": [
+          "4YzSPA7s"
+        ]
+      },
+      {
+        "id": "UFOP",
+        "level": "warning",
+        "code": "UNREACHABLE",
+        "message": "节点「探索：丹尼尔的旧警号」无法到达（从开场节点出发没有任何路径到达它）",
+        "relatedIds": [
+          "E8EzhCea"
+        ]
+      },
+      {
+        "id": "O77g",
+        "level": "warning",
+        "code": "UNREACHABLE",
+        "message": "节点「清晨的录音室」无法到达（从开场节点出发没有任何路径到达它）",
+        "relatedIds": [
+          "Wd8vEs9t"
+        ]
+      },
+      {
+        "id": "qHlp",
+        "level": "warning",
+        "code": "UNREACHABLE",
+        "message": "节点「调档的岔口」无法到达（从开场节点出发没有任何路径到达它）",
+        "relatedIds": [
+          "IOQBs3gm"
+        ]
+      },
+      {
+        "id": "yg1n",
+        "level": "warning",
+        "code": "UNREACHABLE",
+        "message": "节点「潜入技术室」无法到达（从开场节点出发没有任何路径到达它）",
+        "relatedIds": [
+          "7W8omtoB"
+        ]
+      },
+      {
+        "id": "KDby",
+        "level": "warning",
+        "code": "UNREACHABLE",
+        "message": "节点「恳求凯·陈」无法到达（从开场节点出发没有任何路径到达它）",
+        "relatedIds": [
+          "vlL4U8Ag"
+        ]
+      },
+      {
+        "id": "pV0x",
+        "level": "warning",
+        "code": "UNREACHABLE",
+        "message": "节点「走正规渠道」无法到达（从开场节点出发没有任何路径到达它）",
+        "relatedIds": [
+          "8KW3BgCh"
+        ]
+      },
+      {
+        "id": "Q89X",
+        "level": "warning",
+        "code": "UNREACHABLE",
+        "message": "节点「第一块拼图」无法到达（从开场节点出发没有任何路径到达它）",
+        "relatedIds": [
+          "K4n0qRCU"
+        ]
+      },
+      {
+        "id": "PPEI",
+        "level": "warning",
+        "code": "UNREACHABLE",
+        "message": "节点「探索：旧调度日志」无法到达（从开场节点出发没有任何路径到达它）",
+        "relatedIds": [
+          "70PPKsZR"
+        ]
+      },
+      {
+        "id": "hZxe",
+        "level": "warning",
+        "code": "UNREACHABLE",
+        "message": "节点「废塔勘察」无法到达（从开场节点出发没有任何路径到达它）",
+        "relatedIds": [
+          "f3RCqlJH"
+        ]
+      },
+      {
+        "id": "Pzpw",
+        "level": "warning",
+        "code": "UNREACHABLE",
+        "message": "节点「报警与否」无法到达（从开场节点出发没有任何路径到达它）",
+        "relatedIds": [
+          "qrKK5dVr"
+        ]
+      },
+      {
+        "id": "r8rc",
+        "level": "warning",
+        "code": "UNREACHABLE",
+        "message": "节点「相信M」无法到达（从开场节点出发没有任何路径到达它）",
+        "relatedIds": [
+          "NEoDQGMK"
+        ]
+      },
+      {
+        "id": "Co1i",
+        "level": "warning",
+        "code": "UNREACHABLE",
+        "message": "节点「匿名报案」无法到达（从开场节点出发没有任何路径到达它）",
+        "relatedIds": [
+          "jjTIiLzG"
+        ]
+      },
+      {
+        "id": "8TSP",
+        "level": "warning",
+        "code": "UNREACHABLE",
+        "message": "节点「呼叫丹尼尔」无法到达（从开场节点出发没有任何路径到达它）",
+        "relatedIds": [
+          "xUZKxBhS"
+        ]
+      },
+      {
+        "id": "28zv",
+        "level": "warning",
+        "code": "UNREACHABLE",
+        "message": "节点「回城的长夜」无法到达（从开场节点出发没有任何路径到达它）",
+        "relatedIds": [
+          "midiTz8f"
+        ]
+      },
+      {
+        "id": "C0so",
+        "level": "warning",
+        "code": "UNREACHABLE",
+        "message": "节点「探索：围巾的线头」无法到达（从开场节点出发没有任何路径到达它）",
+        "relatedIds": [
+          "_EYJ_Rn3"
+        ]
+      },
+      {
+        "id": "b4EX",
+        "level": "warning",
+        "code": "UNREACHABLE",
+        "message": "节点「办公室传唤」无法到达（从开场节点出发没有任何路径到达它）",
+        "relatedIds": [
+          "ilNzvjJn"
+        ]
+      },
+      {
+        "id": "4f7R",
+        "level": "warning",
+        "code": "UNREACHABLE",
+        "message": "节点「最后的抉择」无法到达（从开场节点出发没有任何路径到达它）",
+        "relatedIds": [
+          "6lQk8ysU"
+        ]
+      },
+      {
+        "id": "vwaN",
+        "level": "warning",
+        "code": "UNREACHABLE",
+        "message": "节点「当场反击」无法到达（从开场节点出发没有任何路径到达它）",
+        "relatedIds": [
+          "A0ZbYe7h"
+        ]
+      },
+      {
+        "id": "pYcS",
+        "level": "warning",
+        "code": "UNREACHABLE",
+        "message": "节点「沉默接受」无法到达（从开场节点出发没有任何路径到达它）",
+        "relatedIds": [
+          "uaY76Yro"
+        ]
+      },
+      {
+        "id": "Vl5f",
+        "level": "warning",
+        "code": "UNREACHABLE",
+        "message": "节点「假意认错」无法到达（从开场节点出发没有任何路径到达它）",
+        "relatedIds": [
+          "VGOf0D7y"
+        ]
+      },
+      {
+        "id": "8hYd",
+        "level": "warning",
+        "code": "UNREACHABLE",
+        "message": "节点「关键线索」无法到达（从开场节点出发没有任何路径到达它）",
+        "relatedIds": [
+          "DbfniZXP"
+        ]
+      },
+      {
+        "id": "YfNI",
+        "level": "warning",
+        "code": "UNREACHABLE",
+        "message": "节点「探索：母亲的旧照」无法到达（从开场节点出发没有任何路径到达它）",
+        "relatedIds": [
+          "yn0X9PDJ"
+        ]
+      },
+      {
+        "id": "obPY",
+        "level": "warning",
+        "code": "UNREACHABLE",
+        "message": "节点「停职后的凌晨」无法到达（从开场节点出发没有任何路径到达它）",
+        "relatedIds": [
+          "0woGHBKC"
+        ]
+      },
+      {
+        "id": "ojJG",
+        "level": "warning",
+        "code": "UNREACHABLE",
+        "message": "节点「谁来接住她」无法到达（从开场节点出发没有任何路径到达它）",
+        "relatedIds": [
+          "3KogDRuM"
+        ]
+      },
+      {
+        "id": "Nky4",
+        "level": "warning",
+        "code": "UNREACHABLE",
+        "message": "节点「天台的同事」无法到达（从开场节点出发没有任何路径到达它）",
+        "relatedIds": [
+          "w2MQ7bql"
+        ]
+      },
+      {
+        "id": "EXMr",
+        "level": "warning",
+        "code": "UNREACHABLE",
+        "message": "节点「加密频道的低语」无法到达（从开场节点出发没有任何路径到达它）",
+        "relatedIds": [
+          "e_a2tHuE"
+        ]
+      },
+      {
+        "id": "taJa",
+        "level": "warning",
+        "code": "UNREACHABLE",
+        "message": "节点「独行的地图」无法到达（从开场节点出发没有任何路径到达它）",
+        "relatedIds": [
+          "C17Q3zMJ"
+        ]
+      },
+      {
+        "id": "vKXj",
+        "level": "warning",
+        "code": "UNREACHABLE",
+        "message": "节点「第一道裂缝」无法到达（从开场节点出发没有任何路径到达它）",
+        "relatedIds": [
+          "Pv8etSVC"
+        ]
+      },
+      {
+        "id": "u4jc",
+        "level": "warning",
+        "code": "UNREACHABLE",
+        "message": "节点「中继站的回声」无法到达（从开场节点出发没有任何路径到达它）",
+        "relatedIds": [
+          "VyPRFlTA"
+        ]
+      },
+      {
+        "id": "17eD",
+        "level": "warning",
+        "code": "UNREACHABLE",
+        "message": "节点「当丹尼尔现身」无法到达（从开场节点出发没有任何路径到达它）",
+        "relatedIds": [
+          "C2rOqp6q"
+        ]
+      },
+      {
+        "id": "AaU7",
+        "level": "warning",
+        "code": "UNREACHABLE",
+        "message": "节点「正面对峙」无法到达（从开场节点出发没有任何路径到达它）",
+        "relatedIds": [
+          "7DqDBv4f"
+        ]
+      },
+      {
+        "id": "7KnP",
+        "level": "warning",
+        "code": "UNREACHABLE",
+        "message": "节点「交易的假面」无法到达（从开场节点出发没有任何路径到达它）",
+        "relatedIds": [
+          "iGD0ix9q"
+        ]
+      },
+      {
+        "id": "enzP",
+        "level": "warning",
+        "code": "UNREACHABLE",
+        "message": "节点「直播的夜」无法到达（从开场节点出发没有任何路径到达它）",
+        "relatedIds": [
+          "qg90hAbR"
+        ]
+      },
+      {
+        "id": "-bhi",
+        "level": "warning",
+        "code": "UNREACHABLE",
+        "message": "节点「风暴前的静默」无法到达（从开场节点出发没有任何路径到达它）",
+        "relatedIds": [
+          "thY3Dcm4"
+        ]
+      },
+      {
+        "id": "3Izj",
+        "level": "warning",
+        "code": "UNREACHABLE",
+        "message": "节点「最后的调度台」无法到达（从开场节点出发没有任何路径到达它）",
+        "relatedIds": [
+          "TNVzTi9p"
+        ]
+      },
+      {
+        "id": "d0Y_",
+        "level": "warning",
+        "code": "UNREACHABLE",
+        "message": "节点「最终时刻」无法到达（从开场节点出发没有任何路径到达它）",
+        "relatedIds": [
+          "JO75NpZA"
+        ]
+      },
+      {
+        "id": "_EYo",
+        "level": "warning",
+        "code": "UNREACHABLE",
+        "message": "节点「路线门控」无法到达（从开场节点出发没有任何路径到达它）",
+        "relatedIds": [
+          "tM_e6Rru"
+        ]
+      },
+      {
+        "id": "VweD",
+        "level": "warning",
+        "code": "UNREACHABLE",
+        "message": "节点「路线1·海岸线的接头」无法到达（从开场节点出发没有任何路径到达它）",
+        "relatedIds": [
+          "xDLBhagL"
+        ]
+      },
+      {
+        "id": "eBYi",
+        "level": "warning",
+        "code": "UNREACHABLE",
+        "message": "节点「结局1·两个幸存者」无法到达（从开场节点出发没有任何路径到达它）",
+        "relatedIds": [
+          "sbtxR_VV"
+        ]
+      },
+      {
+        "id": "VJD_",
+        "level": "warning",
+        "code": "UNREACHABLE",
+        "message": "节点「路线2·同事的抉择」无法到达（从开场节点出发没有任何路径到达它）",
+        "relatedIds": [
+          "tP2mqE_5"
+        ]
+      },
+      {
+        "id": "rbEa",
+        "level": "warning",
+        "code": "UNREACHABLE",
+        "message": "节点「结局2·制度内的光」无法到达（从开场节点出发没有任何路径到达它）",
+        "relatedIds": [
+          "ajE7IkXH"
+        ]
+      },
+      {
+        "id": "7yY0",
+        "level": "warning",
+        "code": "UNREACHABLE",
+        "message": "节点「路线3·公开的审判」无法到达（从开场节点出发没有任何路径到达它）",
+        "relatedIds": [
+          "udG41si9"
+        ]
+      },
+      {
+        "id": "gIhB",
+        "level": "warning",
+        "code": "UNREACHABLE",
+        "message": "节点「结局3·代价与回响」无法到达（从开场节点出发没有任何路径到达它）",
+        "relatedIds": [
+          "JqQy2qqn"
+        ]
+      },
+      {
+        "id": "qFTa",
+        "level": "warning",
+        "code": "UNREACHABLE",
+        "message": "节点「路线4·独行到尽头」无法到达（从开场节点出发没有任何路径到达它）",
+        "relatedIds": [
+          "ZV5hlNgV"
+        ]
+      },
+      {
+        "id": "1RcO",
+        "level": "warning",
+        "code": "UNREACHABLE",
+        "message": "节点「结局4·无名的正确」无法到达（从开场节点出发没有任何路径到达它）",
+        "relatedIds": [
+          "R91sxVuv"
+        ]
+      },
+      {
+        "id": "j6jp",
+        "level": "error",
+        "code": "NO_PATH_TO_ENDING",
+        "message": "从开场节点「23:47的红灯」出发，存在无法到达任何结局的路径",
+        "relatedIds": [
+          "AXv098ep"
+        ]
+      },
+      {
+        "id": "EQhk",
+        "level": "warning",
+        "code": "ENDING_NO_DEF",
+        "message": "结局节点「结局1·两个幸存者」没有对应的结局定义（缺少标题/类型/描述），玩家看到的结局画面将不完整",
+        "relatedIds": [
+          "sbtxR_VV"
+        ]
+      },
+      {
+        "id": "LHvq",
+        "level": "warning",
+        "code": "ENDING_NO_DEF",
+        "message": "结局节点「结局2·制度内的光」没有对应的结局定义（缺少标题/类型/描述），玩家看到的结局画面将不完整",
+        "relatedIds": [
+          "ajE7IkXH"
+        ]
+      },
+      {
+        "id": "FGzx",
+        "level": "warning",
+        "code": "ENDING_NO_DEF",
+        "message": "结局节点「结局3·代价与回响」没有对应的结局定义（缺少标题/类型/描述），玩家看到的结局画面将不完整",
+        "relatedIds": [
+          "JqQy2qqn"
+        ]
+      },
+      {
+        "id": "6Qqo",
+        "level": "warning",
+        "code": "ENDING_NO_DEF",
+        "message": "结局节点「结局4·无名的正确」没有对应的结局定义（缺少标题/类型/描述），玩家看到的结局画面将不完整",
+        "relatedIds": [
+          "R91sxVuv"
+        ]
+      },
+      {
+        "id": "Vn0o",
+        "level": "info",
+        "code": "LOW_BRANCH_DENSITY",
+        "message": "分支密度偏低（9/65 = 14%），互动影游建议分支节点占比≥25%，否则玩家会感到缺乏选择感",
+        "relatedIds": []
+      },
+      {
+        "id": "yK79",
+        "level": "info",
+        "code": "WEAK_CHOICES",
+        "message": "9/9 个分支节点只有1-2个选项，建议关键分支节点提供3-4个有道德重量的选择，增加难以抉择感",
+        "relatedIds": [
+          "mGvJKfIm",
+          "uND-8Xv6",
+          "7qqWPOf-",
+          "IOQBs3gm",
+          "qrKK5dVr",
+          "6lQk8ysU",
+          "3KogDRuM",
+          "C2rOqp6q",
+          "tM_e6Rru"
+        ]
+      },
+      {
+        "id": "TL6G",
+        "level": "warning",
+        "code": "THIN_DIALOGUE",
+        "message": "60/61 个节点对白少于6行（McKee最低标准），内容深度严重不足。建议在Workshop运行批量精修",
+        "relatedIds": [
+          "mGvJKfIm",
+          "uI4-B4Iu",
+          "YElAJFJO",
+          "onRB4BeV",
+          "PcenU4Cg"
+        ]
+      },
+      {
+        "id": "iGNO",
+        "level": "info",
+        "code": "SHALLOW_EMOTION",
+        "message": "60 个节点缺少角色内心谎言（internal_lie），McKee四维心理模型不完整，角色行为缺乏深层动机驱动",
+        "relatedIds": []
+      },
+      {
+        "id": "rrzM",
+        "level": "info",
+        "code": "THIN_SCENE_DESC",
+        "message": "64 个节点场景描述过短（<60字符），缺乏镜头语言和空间细节，玩家无法形成视觉画面",
+        "relatedIds": []
+      }
+    ],
+    "passRate": 0
+  },
+  "directorReview": {
+    "verdicts": [
+      {
+        "lens": "斯皮尔伯格·情感冲击力",
+        "score": 5,
+        "observation": "核心前提（调度员艾拉与消失来电者M）具备强烈情感潜力，节点'如何回应M的第一声呼救'本应是全剧情感引爆点，但该节点对白为空，玩家无法真正听见M的恐惧与艾拉的颤抖，情感冲击被架空",
+        "note": "在'如何回应M的第一声呼救'补写至少8行双人对白，M的呼吸、背景杂音、艾拉喉咙里的那句'你还在吗'必须被听见，让观众在第一分钟就被钉在椅子上"
+      },
+      {
+        "lens": "麦基·结构完整性",
+        "score": 6,
+        "observation": "9个分支节点骨架合理，'最后的抉择'作为第三幕高潮位置正确，但所有关键分支对白行数为0，戏剧代价停留在设定层面；'当丹尼尔现身'本应是对抗性中点，却没有一句台词承载丹尼尔的'谎言'与艾拉'需要'的正面碰撞",
+        "note": "为'当丹尼尔现身'和'最后的抉择'各增写一段不少于12行的对峙戏，让丹尼尔亲口说出'我当年替你改了报告'，把中点反转从信息层升级为情感层"
+      },
+      {
+        "lens": "乔布斯·产品体验",
+        "score": 4,
+        "observation": "65个节点中64个内容稀薄、平均对白仅0.2行，玩家在'调档的岔口''录音要不要拿出来'等选择点缺乏足够信息重量，选择感知接近盲选，没有'one more thing'时刻能让玩家回看前文重新理解",
+        "note": "在'调档的岔口'植入一个可交互的录音片段UI（波形+时间戳+一句被盖掉的背景人声），让玩家亲耳发现M的声音曾在三年前那起少女案的背景里出现过——用一个发现重写整部剧"
+      },
+      {
+        "lens": "角色心理学家·角色深度",
+        "score": 6,
+        "observation": "四位角色的伤痛/谎言/需要设定扎实，尤其凯·陈'陪伴不等于纠正'的需要极具心理真实性，但在'谁来接住她'这个最该展现凯心理防御的节点上没有任何对白，角色弧度无法被玩家感知",
+        "note": "在'谁来接住她'写出凯的两难台词：一条选项让他复述父亲自杀前那句话，另一条让他选择沉默拥抱——在选项consequence中明确标注哪条是他'谎言'在起作用，哪条是'需要'在生效"
+      },
+      {
+        "lens": "首席观众·可重玩性",
+        "score": 4,
+        "observation": "4个结局数量合格，但所有分支节点紧张度统一为5、对白统一为空，说明路径差异目前只存在于跳转而非体验；二周目玩家会发现'午夜要不要下班独自前往'与'报警与否'走向同一批稀薄节点",
+        "note": "为四个结局各锁定一个专属前置节点（例如'真相结局'必须经由'调档的岔口→深挖'才能解锁隐藏录音），并在explore节点埋入只有特定路径可读的M的身份碎片"
+      },
+      {
+        "lens": "发行总监·可重玩价值",
+        "score": 3,
+        "observation": "65节点中64个内容稀薄是致命商业风险——首通玩家会感到'故事很薄'，二周目玩家会感到'跟第一遍几乎一样'，缺乏可截图传播的高光台词与可讨论的结局分歧，口碑驱动几乎为零",
+        "note": "Workshop批量精修前，先锁定8个分支节点+4个结局节点共12个'传播锚点'，每个锚点必须产出一句不超过30字、可独立成图的台词（例如M那句'在被抹掉之前，让一个人听见我'），并为每个结局配一张专属静帧"
+      }
+    ],
+    "overallScore": 5,
+    "greenlit": false,
+    "executiveSummary": "项目拥有一个极具潜力的心理惊悚内核与四位心理层次清晰的角色，9个分支节点的骨架位置也基本正确。但致命问题是内容密度：65个节点中64个内容稀薄、平均对白仅0.2行、所有关键分支对白为空，导致情感冲击、产品体验、可重玩性、商业传播四项指标全部受损。当前状态不具备绿灯条件，必须先完成全量对白填充与至少一个信息反转时刻的植入后方可复审。",
+    "mustFix": [
+      "全部9个分支节点（'如何回应M的第一声呼救'等）对白为空，必须在Workshop批量精修至每节点不少于10行双人对白",
+      "缺少信息反转类探索节点：需在第二幕新增一个'调档的岔口→深挖'隐藏节点，揭示M的声音曾出现在三年前少女案背景录音中，用一个发现重写前情",
+      "4个结局缺乏专属前置节点与差异化情感基调，必须为每个结局锁定一条独占路径与一句可传播的收束台词，确保二周目有实质新内容"
+    ],
+    "standout_moment": "'当丹尼尔现身'节点具备成为全剧最高光时刻的全部条件——丹尼尔的'谎言'（理性与程序是唯一活路）与艾拉的'需要'（在孤独中信任自己）在此正面相撞，只要补上那句'三年前那份报告，是我替你改的'，这个节点将同时完成反派弧线闭合、主角伤痛翻面与主题终极质询，是目前最值得重点打磨的单一场景",
+    "generatedAt": "2026-04-17T15:32:13.098Z"
+  },
+  "downstreamStale": false,
+  "schemaVersion": 1
+}
