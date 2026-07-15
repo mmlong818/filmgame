@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react'
 import { useRouter, useSelectedLayoutSegment, useParams } from 'next/navigation'
 import Link from 'next/link'
 import { useProjectStore } from '@/lib/store/projectStore'
+import { saveProject } from '@/lib/persistence'
 import { useToast } from '@/app/components/toast'
 import { PHASES } from '@/lib/types/phase'
 import type { Phase } from '@/lib/types/phase'
@@ -12,18 +13,36 @@ export default function ProjectLayout({ children }: { children: React.ReactNode 
   const segment = useSelectedLayoutSegment()
   const params = useParams()
   const id = params.id as string
-  const { project, loadProject, renameProject } = useProjectStore()
+  const { project, loadProject, renameProject, setProject } = useProjectStore()
   const { toast } = useToast()
   const [editingTitle, setEditingTitle] = useState(false)
   const [titleDraft, setTitleDraft] = useState('')
   const [notFound, setNotFound] = useState(false)
 
   useEffect(() => {
-    if (!project || project.id !== id) {
-      const ok = loadProject(id)
-      if (!ok) setNotFound(true)
-    }
-  }, [id, project, loadProject, router])
+    if (project && project.id === id) return
+    setNotFound(false)
+    let cancelled = false
+    const ok = loadProject(id)
+    if (ok) return
+    // 本地未命中，尝试服务端恢复（服务端有防抖同步的备份）
+    ;(async () => {
+      try {
+        const res = await fetch(`/api/projects/${id}`)
+        const data = await res.json()
+        if (cancelled) return
+        if (data.ok && data.project) {
+          saveProject(data.project)
+          setProject(data.project)
+        } else {
+          setNotFound(true)
+        }
+      } catch {
+        if (!cancelled) setNotFound(true)
+      }
+    })()
+    return () => { cancelled = true }
+  }, [id, project, loadProject, setProject, router])
 
   useEffect(() => {
     function handleStorageError(e: Event) {

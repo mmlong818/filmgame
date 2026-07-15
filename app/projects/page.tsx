@@ -51,7 +51,14 @@ function ProjectsPageInner() {
           return
         }
         const newId: string = nanoid(8)
-        const imported = { ...data, id: newId, updatedAt: new Date().toISOString() }
+        const base = createEmptyProject(data.title)
+        const imported = {
+          ...base,
+          ...data,
+          id: newId,
+          updatedAt: new Date().toISOString(),
+          phaseProgress: { ...base.phaseProgress, ...(data.phaseProgress ?? {}) },
+        }
         saveProject(imported)
         useProjectStore.getState().setProject(imported)
         toast(`已导入「${imported.title}」`)
@@ -66,7 +73,18 @@ function ProjectsPageInner() {
   }
 
   const refresh = useCallback(() => {
-    setProjects(listProjects().sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()))
+    const local = listProjects()
+    setProjects(local.sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()))
+    // 冷启动兜底：本地为准，服务端有而本地没有的项目也展示出来
+    fetch('/api/projects').then(res => res.json()).then(data => {
+      if (!data.ok || !Array.isArray(data.projects)) return
+      setProjects(prev => {
+        const localIds = new Set(prev.map(p => p.id))
+        const serverOnly = (data.projects as ProjectSummary[]).filter(p => p.id && !localIds.has(p.id))
+        if (serverOnly.length === 0) return prev
+        return [...prev, ...serverOnly].sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())
+      })
+    }).catch(() => {})
   }, [])
 
   useEffect(() => {

@@ -149,7 +149,7 @@ export default function ScalePage() {
       generatePlans()
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  }, [project?.id])
 
   async function generatePlans() {
     if (!project?.worldAnchor) return

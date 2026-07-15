@@ -49,6 +49,10 @@ function WorkshopPageInner() {
 
   const hasPendingDraft = Object.keys(nodeDrafts).length > 0
 
+  // 记录当前选中节点，异步 AI 结果 resolve 时校验节点未切换，避免串号
+  const selectedIdRef = useRef<string | null>(selectedId)
+  useEffect(() => { selectedIdRef.current = selectedId }, [selectedId])
+
   useEffect(() => {
     if (!hasPendingDraft) return
     const handler = (e: BeforeUnloadEvent) => {
@@ -68,12 +72,12 @@ function WorkshopPageInner() {
 
       if (e.key === 'j' || e.key === 'ArrowDown') {
         const next = nodes[currentIdx + 1]
-        if (next) { setSelectedId(next.id); setChoiceSuggestions(null); setSceneAnalysis(null); setSceneTension(null); setChoiceConsequence(null) }
+        if (next) { setSelectedId(next.id); setChoiceSuggestions(null); setSceneAnalysis(null); setSceneTension(null); setChoiceConsequence(null); setLoading(null) }
       } else if (e.key === 'k' || e.key === 'ArrowUp') {
         const prev = nodes[currentIdx - 1]
-        if (prev) { setSelectedId(prev.id); setChoiceSuggestions(null); setSceneAnalysis(null); setSceneTension(null); setChoiceConsequence(null) }
+        if (prev) { setSelectedId(prev.id); setChoiceSuggestions(null); setSceneAnalysis(null); setSceneTension(null); setChoiceConsequence(null); setLoading(null) }
       } else if (e.key === 'Escape') {
-        setSelectedId(null); setChoiceSuggestions(null); setSceneAnalysis(null); setSceneTension(null); setChoiceConsequence(null)
+        setSelectedId(null); setChoiceSuggestions(null); setSceneAnalysis(null); setSceneTension(null); setChoiceConsequence(null); setLoading(null)
       }
     }
 
@@ -107,6 +111,7 @@ function WorkshopPageInner() {
   }
 
   async function callAiForNode(action: string, node: StoryNode) {
+    const nodeId = node.id
     setLoading(action)
     setAiError(null)
     try {
@@ -116,8 +121,9 @@ function WorkshopPageInner() {
         body: JSON.stringify({ phase: 'workshop', action, context: { node, worldAnchor: project!.worldAnchor, characters: project!.characters, variables: project!.variables } }),
       })
       const data = await res.json()
-      if (!data.ok) { setAiError(data.error ?? 'AI 请求失败'); return }
+      if (!data.ok) { if (selectedIdRef.current === nodeId) setAiError(data.error ?? 'AI 请求失败'); return }
 
+      // nodeDrafts 按 nodeId 索引，切换节点后写入仍安全，不会串号
       const prev = nodeDrafts[node.id] || {}
       if (action === 'fill_emotion' && data.result) {
         setNodeDrafts(d => ({ ...d, [node.id]: { ...prev, emotionFunction: data.result } }))
@@ -127,13 +133,14 @@ function WorkshopPageInner() {
         setNodeDrafts(d => ({ ...d, [node.id]: { ...prev, dialogue, ...(sceneDesc ? { sceneDesc } : {}) } }))
       }
     } catch (err) {
-      setAiError(err instanceof Error ? err.message : 'AI 请求失败')
+      if (selectedIdRef.current === nodeId) setAiError(err instanceof Error ? err.message : 'AI 请求失败')
     } finally {
-      setLoading(null)
+      if (selectedIdRef.current === nodeId) setLoading(null)
     }
   }
 
   async function callAiForSuggestChoices(node: StoryNode) {
+    const nodeId = node.id
     setLoading('suggest_choices')
     setAiError(null)
     try {
@@ -143,18 +150,20 @@ function WorkshopPageInner() {
         body: JSON.stringify({ phase: 'workshop', action: 'suggest_choices', context: { node, worldAnchor: project!.worldAnchor, characters: project!.characters, variables: project!.variables } }),
       })
       const data = await res.json()
+      if (selectedIdRef.current !== nodeId) return
       if (!data.ok) { setAiError(data.error ?? 'AI 请求失败'); return }
       if (data.result?.choices) {
         setChoiceSuggestions(data.result.choices as Array<{text:string;consequence:string;longterm:string}>)
       }
     } catch (err) {
-      setAiError(err instanceof Error ? err.message : 'AI 请求失败')
+      if (selectedIdRef.current === nodeId) setAiError(err instanceof Error ? err.message : 'AI 请求失败')
     } finally {
-      setLoading(null)
+      if (selectedIdRef.current === nodeId) setLoading(null)
     }
   }
 
   async function callAiSceneAnalysis(node: StoryNode) {
+    const nodeId = node.id
     setLoading('scene_analysis')
     setAiError(null)
     setSceneAnalysis(null)
@@ -165,18 +174,20 @@ function WorkshopPageInner() {
         body: JSON.stringify({ phase: 'workshop', action: 'scene_analysis', context: { node, worldAnchor: project!.worldAnchor, characters: project!.characters, variables: project!.variables } }),
       })
       const data = await res.json()
+      if (selectedIdRef.current !== nodeId) return
       if (!data.ok) { setAiError(data.error ?? 'AI 请求失败'); return }
       if (data.result) {
         setSceneAnalysis(data.result as {working:string;issues:Array<{line:string;problem:string;fix:string}>;killer_line:string})
       }
     } catch (err) {
-      setAiError(err instanceof Error ? err.message : 'AI 请求失败')
+      if (selectedIdRef.current === nodeId) setAiError(err instanceof Error ? err.message : 'AI 请求失败')
     } finally {
-      setLoading(null)
+      if (selectedIdRef.current === nodeId) setLoading(null)
     }
   }
 
   async function callAiSceneTension(node: StoryNode) {
+    const nodeId = node.id
     setLoading('scene_tension')
     setAiError(null)
     setSceneTension(null)
@@ -187,19 +198,21 @@ function WorkshopPageInner() {
         body: JSON.stringify({ phase: 'workshop', action: 'scene_tension', context: { node, worldAnchor: project!.worldAnchor, characters: project!.characters } }),
       })
       const data = await res.json()
+      if (selectedIdRef.current !== nodeId) return
       if (!data.ok) { setAiError(data.error ?? 'AI 请求失败'); return }
       if (data.result) {
         setSceneTension(data.result)
         setSceneTensionOpen(true)
       }
     } catch (err) {
-      setAiError(err instanceof Error ? err.message : 'AI 请求失败')
+      if (selectedIdRef.current === nodeId) setAiError(err instanceof Error ? err.message : 'AI 请求失败')
     } finally {
-      setLoading(null)
+      if (selectedIdRef.current === nodeId) setLoading(null)
     }
   }
 
   async function callAiChoiceConsequence(node: StoryNode, choiceIndex = 0) {
+    const nodeId = node.id
     setLoading(`choice_consequence_${choiceIndex}`)
     setAiError(null)
     setChoiceConsequence(null)
@@ -210,18 +223,20 @@ function WorkshopPageInner() {
         body: JSON.stringify({ phase: 'workshop', action: 'choice_consequence', context: { choice: node.choices[choiceIndex] ?? null, currentNode: node, worldAnchor: project!.worldAnchor, characters: project!.characters, nodes: project!.nodes.slice(0, 20) } }),
       })
       const data = await res.json()
+      if (selectedIdRef.current !== nodeId) return
       if (!data.ok) { setAiError(data.error ?? 'AI 请求失败'); return }
       if (data.result) {
         setChoiceConsequence(data.result)
       }
     } catch (err) {
-      setAiError(err instanceof Error ? err.message : 'AI 请求失败')
+      if (selectedIdRef.current === nodeId) setAiError(err instanceof Error ? err.message : 'AI 请求失败')
     } finally {
-      setLoading(null)
+      if (selectedIdRef.current === nodeId) setLoading(null)
     }
   }
 
   async function callAiDesignNode(node: StoryNode) {
+    const nodeId = node.id
     setLoading('design_node')
     setAiError(null)
     try {
@@ -244,14 +259,15 @@ function WorkshopPageInner() {
         draft.dialogue = dData.result.dialogue.map((d: DialogueLine) => ({ ...d, id: nanoid(6) }))
         if (dData.result.sceneDesc) draft.sceneDesc = dData.result.sceneDesc as string
       }
+      // nodeDrafts 按 nodeId 索引，切换节点后写入仍安全
       if (draft.emotionFunction || draft.dialogue) {
         setNodeDrafts(d => ({ ...d, [node.id]: draft }))
         toast('AI 设计草稿已生成，请确认', 'info')
       }
     } catch (err) {
-      setAiError(err instanceof Error ? err.message : 'AI 请求失败')
+      if (selectedIdRef.current === nodeId) setAiError(err instanceof Error ? err.message : 'AI 请求失败')
     } finally {
-      setLoading(null)
+      if (selectedIdRef.current === nodeId) setLoading(null)
     }
   }
 
@@ -378,13 +394,13 @@ function WorkshopPageInner() {
           selectedId={selectedId}
           onSelectNode={(id) => {
             setSelectedId(id)
-            setChoiceSuggestions(null); setSceneAnalysis(null); setSceneTension(null); setChoiceConsequence(null)
+            setChoiceSuggestions(null); setSceneAnalysis(null); setSceneTension(null); setChoiceConsequence(null); setLoading(null)
           }}
           hasDraft={(id) => !!nodeDrafts[id]}
           onAddNode={(actId) => {
             const n = addNode(actId)
             setSelectedId(n.id)
-            setChoiceSuggestions(null); setSceneAnalysis(null); setSceneTension(null); setChoiceConsequence(null)
+            setChoiceSuggestions(null); setSceneAnalysis(null); setSceneTension(null); setChoiceConsequence(null); setLoading(null)
           }}
         />
 

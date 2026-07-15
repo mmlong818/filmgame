@@ -156,7 +156,8 @@ export default function StructurePage() {
     }
   }
 
-  function commitBranches(draft: AiNodeChoices[]) {
+  // 解析 AI 返回的分支选择为 patch（key = nodeId），不含自动补连
+  function resolveChoicePatches(draft: AiNodeChoices[]): Map<string, Partial<StoryNode>> {
     const nodes = project!.nodes
     const nodeByTitle = new Map(nodes.map(n => [n.title, n.id]))
     const nodeById = new Map(nodes.map(n => [n.id, n]))
@@ -195,7 +196,18 @@ export default function StructurePage() {
       if (choices.length > 0) patchMap.set(nodeId, { choices })
     })
 
-    // 为所有无出口的非结局节点补顺序连接（跨幕跨章）
+    return patchMap
+  }
+
+  // 为所有无出口的非结局/非探索节点补顺序连接（跨幕跨章），返回补连边列表 + 合并后的 patchMap
+  function computeAutoConnectEdges(patchMap: Map<string, Partial<StoryNode>>): {
+    edges: { fromId: string; fromTitle: string; toId: string; toTitle: string }[]
+    patchMap: Map<string, Partial<StoryNode>>
+  } {
+    const nodes = project!.nodes
+    const nodeById = new Map(nodes.map(n => [n.id, n]))
+    const mergedPatchMap = new Map(patchMap)
+
     const orderedNodes: StoryNode[] = []
     project!.chapters.sort((a, b) => a.order - b.order).forEach(ch => {
       project!.acts.filter(a => a.chapterId === ch.id).sort((a, b) => a.order - b.order).forEach(act => {
@@ -203,20 +215,30 @@ export default function StructurePage() {
       })
     })
 
+    const edges: { fromId: string; fromTitle: string; toId: string; toTitle: string }[] = []
     nodes.forEach(node => {
-      const pending = patchMap.get(node.id)
+      const pending = mergedPatchMap.get(node.id)
       const pendingChoices = pending?.choices
       const alreadyHasChoices = pendingChoices ? pendingChoices.length > 0 : node.choices.length > 0
       if (node.type === 'ending' || node.type === 'explore' || alreadyHasChoices) return
       const idx = orderedNodes.findIndex(n => n.id === node.id)
       const nextNode = orderedNodes[idx + 1]
       if (nextNode) {
-        patchMap.set(node.id, {
+        edges.push({ fromId: node.id, fromTitle: node.title, toId: nextNode.id, toTitle: nextNode.title })
+        mergedPatchMap.set(node.id, {
           ...pending,
           choices: [{ id: nanoid(8), nodeId: node.id, text: '继续', order: 0, targetNodeId: nextNode.id, conditions: '', variableEffects: '' }]
         })
       }
     })
+
+    return { edges, patchMap: mergedPatchMap }
+  }
+
+  function commitBranches(draft: AiNodeChoices[]) {
+    const nodes = project!.nodes
+    const choicePatchMap = resolveChoicePatches(draft)
+    const { patchMap } = computeAutoConnectEdges(choicePatchMap)
 
     // 一次性批量写入
     const store = useProjectStore.getState()
@@ -310,7 +332,9 @@ export default function StructurePage() {
   )
 
   // ── 分支预览 ──
-  if (stage === 'branch_preview' && branchDraft) return (
+  if (stage === 'branch_preview' && branchDraft) {
+    const autoConnectEdges = computeAutoConnectEdges(resolveChoicePatches(branchDraft)).edges
+    return (
     <div className="max-w-3xl mx-auto px-6 py-8">
       <div className="flex items-center justify-between mb-6">
         <div>
@@ -342,8 +366,27 @@ export default function StructurePage() {
           </div>
         ))}
       </div>
+      {autoConnectEdges.length > 0 && (
+        <div className="mt-4 bg-amber-50 border border-amber-200 rounded-xl p-4">
+          <p className="text-sm font-medium text-amber-700 mb-2">
+            将自动补连 {autoConnectEdges.length} 条顺序推进边
+          </p>
+          <p className="text-xs text-amber-600 mb-3">以下节点未获得 AI 分支且非结局/探索节点，通过后将自动添加"继续"选项以保证故事可推进：</p>
+          <div className="space-y-1 pl-3">
+            {autoConnectEdges.map((e, i) => (
+              <div key={i} className="flex items-center gap-2 text-sm text-amber-800">
+                <span className="text-amber-300">→</span>
+                <span className="font-medium">{e.fromTitle}</span>
+                <span className="text-amber-400">继续</span>
+                <span className="text-xs text-amber-500">跳转到：{e.toTitle}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   )
+  }
 
   // ── 编辑模式 ──
   const isFlowMode = viewMode === 'flow'
