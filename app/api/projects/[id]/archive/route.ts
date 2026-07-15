@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { readFile, unlink, mkdir, writeFile } from 'fs/promises'
+import { readFile, unlink, mkdir } from 'fs/promises'
 import { join } from 'path'
+import { atomicWriteJson } from '@/lib/server/atomic-write'
 
 const DATA_DIR = join(process.cwd(), 'data', 'projects')
 const ARCHIVE_DIR = join(process.cwd(), 'data', 'archive')
@@ -13,7 +14,7 @@ export async function POST(_req: NextRequest, { params }: { params: Promise<{ id
     const raw = await readFile(join(DATA_DIR, `${id}.json`), 'utf8')
     const project = JSON.parse(raw)
     await mkdir(ARCHIVE_DIR, { recursive: true })
-    await writeFile(join(ARCHIVE_DIR, `${id}.json`), JSON.stringify({ ...project, archived: true, archivedAt: new Date().toISOString() }, null, 2), 'utf8')
+    await atomicWriteJson(join(ARCHIVE_DIR, `${id}.json`), { ...project, archived: true, archivedAt: new Date().toISOString() })
     await unlink(join(DATA_DIR, `${id}.json`)).catch(() => {})
     return NextResponse.json({ ok: true })
   } catch (err) {

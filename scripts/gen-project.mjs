@@ -7,7 +7,7 @@
  */
 
 import { spawnSync } from 'child_process'
-import { readFileSync, writeFileSync, mkdirSync } from 'fs'
+import { writeFileSync, mkdirSync } from 'fs'
 import { join, dirname } from 'path'
 import { fileURLToPath } from 'url'
 import { randomBytes } from 'crypto'
@@ -468,18 +468,6 @@ if (review) {
 // 写入
 const outPath = join(DATA_DIR, `${projectId}.json`)
 writeFileSync(outPath, JSON.stringify(project, null, 2), 'utf8')
-
-// 更新本地索引（供前端读取）
-const idxPath = join(__dir, '../data/projects-index.json')
-let idx = []
-try { idx = JSON.parse(readFileSync(idxPath, 'utf8')) } catch {}
-idx.unshift({
-  id: projectId, title: PREMISE.title,
-  updatedAt: project.updatedAt,
-  currentPhase: 'validate',
-  nodeCount: nodes.length,
-})
-writeFileSync(idxPath, JSON.stringify(idx, null, 2), 'utf8')
 
 console.log(`\n${'█'.repeat(60)}`)
 console.log(`  ✅ 完成：《${PREMISE.title}》`)

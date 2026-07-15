@@ -194,6 +194,54 @@ export function runValidation(project: Project): ValidationReport {
     }
   }
 
+  // 变量断链检测：条件/效果引用了不存在的变量（改名或删除变量后静默失效，视为0）
+  const knownVarNames = new Set((project.variables ?? []).map(v => v.name))
+
+  function extractConditionVars(expr: string | undefined): string[] {
+    if (!expr || !expr.trim()) return []
+    const parts = expr.includes('&&') ? expr.split('&&') : expr.includes('||') ? expr.split('||') : [expr]
+    const names: string[] = []
+    for (const part of parts) {
+      const m = part.trim().match(/^([a-zA-Z_][a-zA-Z0-9_]*)\s*(>=|<=|>|<|==|!=)\s*(.+)$/)
+      if (m) names.push(m[1])
+    }
+    return names
+  }
+
+  function extractEffectVars(expr: string | undefined): string[] {
+    if (!expr || !expr.trim()) return []
+    return expr.split(',').map(p => p.trim().replace(/^[+-]/, '').split('=')[0].trim()).filter(Boolean)
+  }
+
+  for (const node of safeNodes) {
+    for (const choice of node.choices) {
+      const refs = [...extractConditionVars(choice.conditions), ...extractEffectVars(choice.variableEffects)]
+      const unknown = [...new Set(refs.filter(name => !knownVarNames.has(name)))]
+      if (unknown.length > 0) {
+        issues.push({
+          id: nanoid(4),
+          level: 'warning',
+          code: 'UNKNOWN_VARIABLE_REF',
+          message: `节点「${node.title}」的选项「${choice.text}」引用了不存在的变量：${unknown.join('、')}，变量若已改名或删除，此处会静默失效（视为0）`,
+          relatedIds: [node.id],
+        })
+      }
+    }
+  }
+
+  for (const e of endingDefs) {
+    const unknown = [...new Set(extractConditionVars(e.conditions).filter(name => !knownVarNames.has(name)))]
+    if (unknown.length > 0) {
+      issues.push({
+        id: nanoid(4),
+        level: 'warning',
+        code: 'UNKNOWN_VARIABLE_REF',
+        message: `结局「${e.title}」的触发条件引用了不存在的变量：${unknown.join('、')}，该结局可能无法按预期触发`,
+        relatedIds: [],
+      })
+    }
+  }
+
   // 结局差异度检测
   if (endingDefs.length >= 2) {
     const types = new Set(endingDefs.map(e => e.type))

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { readdir, readFile, writeFile } from 'fs/promises'
+import { readdir, readFile } from 'fs/promises'
 import { join } from 'path'
+import { atomicWriteJson } from '@/lib/server/atomic-write'
 
 const DATA_DIR = join(process.cwd(), 'data', 'projects')
 
@@ -32,7 +33,7 @@ export async function POST(req: NextRequest) {
     }
     const { mkdir } = await import('fs/promises')
     await mkdir(DATA_DIR, { recursive: true })
-    await writeFile(join(DATA_DIR, `${project.id}.json`), JSON.stringify(project, null, 2), 'utf8')
+    await atomicWriteJson(join(DATA_DIR, `${project.id}.json`), project)
     return NextResponse.json({ ok: true })
   } catch (err) {
     return NextResponse.json({ ok: false, error: String(err) }, { status: 500 })

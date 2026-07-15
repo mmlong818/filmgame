@@ -51,6 +51,11 @@ scripts/.seed-witness-state.json
 # data logs
 data/gen-log.txt
 
+# 真实用户创作数据不应入库（含原子写入产生的 .tmp/.bak）
+data/projects/*.json
+data/projects/*.json.tmp
+data/projects/*.json.bak
+
 # user settings (contains API keys)
 data/settings.json
 data/archive/
