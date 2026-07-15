@@ -29,11 +29,12 @@ export const POST = withAuth(async (req: NextRequest) => {
     const context = body.context as Record<string, unknown>
     const timeoutMs = getTimeout(phase ?? '', action ?? '')
 
-    const result = await runChain({ phase: phase!, action: action!, context, timeoutMs })
-    return NextResponse.json({ ok: true, result })
+    const { result, runId } = await runChain({ phase: phase!, action: action!, context, timeoutMs })
+    return NextResponse.json({ ok: true, result, runId })
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err)
     const { error, errorType } = classifyError(msg)
-    return NextResponse.json({ ok: false, error, errorType, phase, action }, { status: 500 })
+    const runId = (err instanceof Error ? (err as Error & { runId?: string | null }).runId : null) ?? null
+    return NextResponse.json({ ok: false, error, errorType, phase, action, runId }, { status: 500 })
   }
 })

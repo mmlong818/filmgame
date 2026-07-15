@@ -1,5 +1,5 @@
 'use client'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { nanoid } from 'nanoid'
 import { useProjectStore } from '@/lib/store/projectStore'
@@ -13,6 +13,21 @@ type AiChapterDraft = { title: string; acts: AiActDraft[] }
 
 type AiChoice = { text: string; targetNodeTitle: string; targetNodeId?: string; variableEffects?: string; choiceWeight?: 'light' | 'heavy' | 'critical'; consequence?: string }
 type AiNodeChoices = { nodeTitle: string; nodeId?: string; choices: AiChoice[]; exploreReturnNodeId?: string }
+
+type StructProgress = { phase: 'spine' | 'chapters'; done: number; total: number }
+type StructStreamEvent =
+  | { type: 'run'; runId: string | null }
+  | { type: 'spine'; ok: boolean }
+  | { type: 'chapter'; done: number; total: number }
+  | { type: 'done'; chapters: AiChapterDraft[]; errors: string[] }
+  | { type: 'error'; error: string; errorType: string }
+
+function normalizeChapters(chapters: AiChapterDraft[]): AiChapterDraft[] {
+  return (chapters ?? []).map(ch => ({
+    ...ch,
+    acts: (ch.acts ?? []).map(act => ({ ...act, nodes: act.nodes ?? [] })),
+  }))
+}
 
 type Stage =
   | 'struct_loading' | 'struct_preview'
@@ -50,6 +65,8 @@ export default function StructurePage() {
   const [structDraft, setStructDraft] = useState<AiChapterDraft[] | null>(null)
   const [branchDraft, setBranchDraft] = useState<AiNodeChoices[] | null>(null)
   const [aiError, setAiError] = useState<string | null>(null)
+  const [structProgress, setStructProgress] = useState<StructProgress | null>(null)
+  const runIdRef = useRef<string | null>(null)
   const [expandedChapters, setExpandedChapters] = useState<Set<string>>(new Set())
   const [expandedActs, setExpandedActs] = useState<Set<string>>(new Set())
   const [confirmReset, setConfirmReset] = useState(false)
@@ -64,35 +81,111 @@ export default function StructurePage() {
     <div className="flex items-center justify-center h-64 text-gray-400 text-sm">加载中...</div>
   )
 
-  async function generateStructure() {
-    setStage('struct_loading')
-    setAiError(null)
-    const scalePlan = project!.scalePlanOptions.find(p => p.id === project!.selectedScalePlanId)
+  function appendRunId(msg: string): string {
+    return runIdRef.current ? `${msg}（trace: ${runIdRef.current}）` : msg
+  }
+
+  // 处理一帧 NDJSON 事件；返回 true 表示已到达终态（done/error），调用方据此判断流是否正常收尾
+  function handleStructStreamEvent(evt: StructStreamEvent): boolean {
+    if (evt.type === 'run') {
+      runIdRef.current = evt.runId
+      return false
+    }
+    if (evt.type === 'spine') {
+      setStructProgress({ phase: 'spine', done: evt.ok ? 1 : 0, total: 1 })
+      return false
+    }
+    if (evt.type === 'chapter') {
+      setStructProgress({ phase: 'chapters', done: evt.done, total: evt.total })
+      return false
+    }
+    if (evt.type === 'done') {
+      setStructDraft(normalizeChapters(evt.chapters))
+      setStage('struct_preview')
+      return true
+    }
+    setAiError(appendRunId(evt.error))
+    setStage('edit')
+    return true
+  }
+
+  // 消费流式 NDJSON 响应体；若流中途中断（未收到 done/error）返回 false，调用方展示超限提示
+  async function consumeStructStream(body: ReadableStream<Uint8Array>): Promise<boolean> {
+    const reader = body.getReader()
+    const decoder = new TextDecoder()
+    let buf = ''
+    let reachedEnd = false
+    try {
+      for (;;) {
+        const { value, done } = await reader.read()
+        if (done) break
+        buf += decoder.decode(value, { stream: true })
+        const lines = buf.split('\n')
+        buf = lines.pop() ?? ''
+        for (const line of lines) {
+          if (!line.trim()) continue
+          reachedEnd = handleStructStreamEvent(JSON.parse(line) as StructStreamEvent) || reachedEnd
+        }
+      }
+    } finally {
+      reader.releaseLock()
+    }
+    return reachedEnd
+  }
+
+  async function generateStructureFallback(payload: string) {
     try {
       const res = await fetch('/api/ai/structure', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          context: { worldAnchor: project!.worldAnchor, scalePlan, characters: project!.characters },
-        }),
+        body: payload,
       })
       const data = await res.json()
-      let chapters = data.result?.chapters ?? (Array.isArray(data.result) ? data.result : null)
+      runIdRef.current = data.runId ?? runIdRef.current
+      const chapters = data.result?.chapters ?? (Array.isArray(data.result) ? data.result : null)
       if (!data.ok || !Array.isArray(chapters)) {
-        setAiError(data.error || `AI 返回格式错误：${String(data.raw ?? '').slice(0, 200)}`)
+        setAiError(appendRunId(data.error || `AI 返回格式错误：${String(data.raw ?? '').slice(0, 200)}`))
         setStage('edit')
         return
       }
-      chapters = chapters.map((ch: AiChapterDraft) => ({
-        ...ch,
-        acts: (ch.acts ?? []).map((act: AiActDraft) => ({ ...act, nodes: act.nodes ?? [] })),
-      }))
-      setStructDraft(chapters)
+      setStructDraft(normalizeChapters(chapters))
       setStage('struct_preview')
     } catch (err) {
       setAiError(err instanceof Error ? err.message : '请求失败')
       setStage('edit')
     }
+  }
+
+  async function generateStructure() {
+    setStage('struct_loading')
+    setAiError(null)
+    setStructProgress(null)
+    runIdRef.current = null
+    const scalePlan = project!.scalePlanOptions.find(p => p.id === project!.selectedScalePlanId)
+    const payload = JSON.stringify({
+      context: { worldAnchor: project!.worldAnchor, scalePlan, characters: project!.characters },
+    })
+
+    let streamStarted = false
+    try {
+      const res = await fetch('/api/ai/structure/stream', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: payload,
+      })
+      if (res.ok && res.body) {
+        streamStarted = true
+        const reachedEnd = await consumeStructStream(res.body)
+        if (!reachedEnd) {
+          setAiError(appendRunId('生成中断（可能超出请求时长上限），请减少章节数、改用更快的 BYOK 模型，或在本地模式运行'))
+          setStage('edit')
+        }
+        return
+      }
+    } catch {
+      // 流式连接层面失败（网络/代理不透传）：走非流式回退
+    }
+    if (!streamStarted) await generateStructureFallback(payload)
   }
 
   function commitStructure(draft: AiChapterDraft[]) {
@@ -262,7 +355,11 @@ export default function StructurePage() {
       <h2 className="text-xl font-semibold text-gray-900 mb-2">结构与分支</h2>
       <div className="flex flex-col items-center justify-center py-24">
         <div className="w-8 h-8 border-2 border-amber-500 border-t-transparent rounded-full animate-spin mb-4" />
-        <p className="text-sm text-gray-500">AI 正在生成节点结构...</p>
+        <p className="text-sm text-gray-500">
+          {!structProgress && 'AI 正在生成叙事骨干...'}
+          {structProgress?.phase === 'spine' && '骨干生成完成，正在规划章节...'}
+          {structProgress?.phase === 'chapters' && `骨干完成，正在生成第 ${structProgress.done}/${structProgress.total} 章`}
+        </p>
         {aiError && <p className="mt-4 text-xs text-red-500">{aiError}</p>}
       </div>
     </div>
