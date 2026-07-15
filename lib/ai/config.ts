@@ -35,5 +35,8 @@ export function loadAIConfig(): AIConfig {
 
 export function saveAIConfig(config: AIConfig): void {
   if (typeof window === 'undefined') return
-  localStorage.setItem(SETTINGS_KEY, JSON.stringify(config))
+  // apiKey 不落 localStorage（BYOK 密钥仅经 POST /api/settings 上行，服务端加密存 DB）；
+  // 本地仅保留非敏感的 provider/model/baseUrl，用于下次打开设置页时的默认选中项。
+  const { provider, model, baseUrl } = config
+  localStorage.setItem(SETTINGS_KEY, JSON.stringify({ provider, model, baseUrl }))
 }

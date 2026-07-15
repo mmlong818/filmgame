@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { loadServerAIConfig, saveServerAIConfig } from '@/lib/ai/server-config'
+import { withAuth } from '@/lib/server/auth'
 
 const AIConfigSchema = z.object({
   provider: z.enum(['claude_cli', 'anthropic', 'openai', 'gemini', 'custom']),
@@ -9,7 +10,7 @@ const AIConfigSchema = z.object({
   baseUrl: z.string().url().max(512).optional(),
 })
 
-export async function GET() {
+export const GET = withAuth(async () => {
   const config = await loadServerAIConfig()
   const masked = { ...config }
   if (masked.apiKey) {
@@ -17,10 +18,10 @@ export async function GET() {
       ? masked.apiKey.slice(0, 4) + '•'.repeat(masked.apiKey.length - 8) + masked.apiKey.slice(-4)
       : '••••'
   }
-  return NextResponse.json({ ok: true, config: masked })
-}
+  return NextResponse.json({ ok: true, config: masked, deployMode: process.env.DEPLOY_MODE ?? 'local' })
+})
 
-export async function POST(req: NextRequest) {
+export const POST = withAuth(async (req: NextRequest) => {
   try {
     const body = await req.json()
     const parsed = AIConfigSchema.safeParse(body)
@@ -32,4 +33,4 @@ export async function POST(req: NextRequest) {
   } catch {
     return NextResponse.json({ ok: false, error: 'internal error' }, { status: 500 })
   }
-}
+})
