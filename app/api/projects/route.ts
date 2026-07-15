@@ -11,9 +11,11 @@ function formatZodError(error: import('zod').ZodError): string {
   return error.issues.map(i => `${i.path.join('.') || '(root)'}: ${i.message}`).join('; ')
 }
 
-export const GET = withAuth(async () => {
+export const GET = withAuth(async (req: NextRequest) => {
   try {
-    const projects = await listProjects()
+    // ?archived=true 返回全部项目（含已归档），供归档室 UI 使用；默认仅返回未归档项目。
+    const includeArchived = req.nextUrl.searchParams.get('archived') === 'true'
+    const projects = await listProjects({ includeArchived })
     return NextResponse.json({ ok: true, projects })
   } catch (err) {
     return NextResponse.json({ ok: false, error: String(err) }, { status: 500 })

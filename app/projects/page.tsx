@@ -2,7 +2,7 @@
 import { useState, useEffect, useCallback, useRef, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { nanoid } from 'nanoid'
-import { listProjects, archiveProject, deleteProject, saveProject, listArchivedProjects, restoreProject, permanentDeleteProject } from '@/lib/persistence'
+import { createProject, hasUnimportedLegacyData, importLegacyLocalData, removeLocalSnapshot } from '@/lib/persistence'
 import { createEmptyProject, useProjectStore } from '@/lib/store/projectStore'
 import { PHASES } from '@/lib/types/phase'
 import type { ProjectSummary } from '@/lib/types/project'
@@ -36,13 +36,15 @@ function ProjectsPageInner() {
   const [archivedProjects, setArchivedProjects] = useState<ProjectSummary[]>([])
   const [permDeleteId, setPermDeleteId] = useState<string | null>(null)
   const [showSettings, setShowSettings] = useState(false)
+  const [showLegacyPrompt, setShowLegacyPrompt] = useState(false)
+  const [legacyImporting, setLegacyImporting] = useState(false)
   const importInputRef = useRef<HTMLInputElement>(null)
 
   function handleImportJson(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
     if (!file) return
     const reader = new FileReader()
-    reader.onload = (ev) => {
+    reader.onload = async (ev) => {
       try {
         const raw = ev.target?.result as string
         const data = JSON.parse(raw)
@@ -59,10 +61,14 @@ function ProjectsPageInner() {
           updatedAt: new Date().toISOString(),
           phaseProgress: { ...base.phaseProgress, ...(data.phaseProgress ?? {}) },
         }
-        saveProject(imported)
-        useProjectStore.getState().setProject(imported)
-        toast(`已导入「${imported.title}」`)
-        router.push(`/project/${newId}/${imported.currentPhase ?? 'world'}`)
+        const result = await createProject(imported)
+        if (!result.ok) {
+          toast(`导入失败：${result.error}`, 'error')
+          return
+        }
+        useProjectStore.getState().setProject(result.project, 1)
+        toast(`已导入「${result.project.title}」`)
+        router.push(`/project/${newId}/${result.project.currentPhase ?? 'world'}`)
       } catch {
         toast('导入失败：无法解析 JSON 文件')
       } finally {
@@ -73,71 +79,117 @@ function ProjectsPageInner() {
   }
 
   const refresh = useCallback(() => {
-    const local = listProjects()
-    setProjects(local.sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()))
-    // 冷启动兜底：本地为准，服务端有而本地没有的项目也展示出来
     fetch('/api/projects').then(res => res.json()).then(data => {
       if (!data.ok || !Array.isArray(data.projects)) return
-      setProjects(prev => {
-        const localIds = new Set(prev.map(p => p.id))
-        const serverOnly = (data.projects as ProjectSummary[]).filter(p => p.id && !localIds.has(p.id))
-        if (serverOnly.length === 0) return prev
-        return [...prev, ...serverOnly].sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())
-      })
-    }).catch(() => {})
-  }, [])
+      setProjects((data.projects as ProjectSummary[]).sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()))
+    }).catch(() => toast('无法加载项目列表，请检查网络', 'error'))
+  }, [toast])
 
   useEffect(() => {
     refresh()
     if (searchParams.get('new') === '1') setShowNew(true)
+    if (hasUnimportedLegacyData()) setShowLegacyPrompt(true)
   }, [refresh, searchParams])
 
-  function handleCreate() {
+  async function handleLegacyImport() {
+    setLegacyImporting(true)
+    try {
+      const report = await importLegacyLocalData()
+      if (report.failed === 0) {
+        toast(`本地数据导入完成：新增 ${report.imported} 个，跳过 ${report.skipped} 个（服务端已是最新）`)
+        setShowLegacyPrompt(false)
+      } else {
+        toast(`导入部分完成：成功 ${report.imported}，跳过 ${report.skipped}，失败 ${report.failed}（本地数据已保留，可重试）`, 'error')
+      }
+      refresh()
+    } finally {
+      setLegacyImporting(false)
+    }
+  }
+
+  async function handleCreate() {
     if (!newTitle.trim()) return
     const p = createEmptyProject(newTitle.trim())
     if (selectedTemplate) { p.worldAnchor = selectedTemplate.world; p.phaseProgress.world = 'in_progress' }
-    saveProject(p)
-    useProjectStore.getState().setProject(p)
-    router.push(`/project/${p.id}/world`)
+    const result = await createProject(p)
+    if (!result.ok) {
+      toast(`创建失败：${result.error}`, 'error')
+      return
+    }
+    useProjectStore.getState().setProject(result.project, 1)
+    router.push(`/project/${result.project.id}/world`)
   }
 
   async function confirmArchive() {
     if (!deletingId) return
     const title = projects.find(p => p.id === deletingId)?.title ?? '项目'
-    archiveProject(deletingId)
-    await fetch(`/api/projects/${deletingId}/archive`, { method: 'POST' }).catch(() => {})
-    refresh()
+    try {
+      const res = await fetch(`/api/projects/${deletingId}/archive`, { method: 'POST' })
+      const data = await res.json()
+      if (!data.ok) throw new Error(data.error || '归档失败')
+      removeLocalSnapshot(deletingId)
+      refresh()
+      toast(`「${title}」已归档，可在归档室找回`)
+    } catch (err) {
+      toast(`归档失败：${String(err)}`, 'error')
+    }
     setDeletingId(null)
-    toast(`「${title}」已归档，可在归档室找回`)
   }
 
   async function confirmDelete() {
     if (!deletingId) return
     const title = projects.find(p => p.id === deletingId)?.title ?? '项目'
-    deleteProject(deletingId)
-    await fetch(`/api/projects/${deletingId}`, { method: 'DELETE' }).catch(() => {})
-    refresh()
+    try {
+      const res = await fetch(`/api/projects/${deletingId}`, { method: 'DELETE' })
+      const data = await res.json()
+      if (!data.ok) throw new Error(data.error || '删除失败')
+      removeLocalSnapshot(deletingId)
+      refresh()
+      toast(`「${title}」已删除`)
+    } catch (err) {
+      toast(`删除失败：${String(err)}`, 'error')
+    }
     setDeletingId(null)
-    toast(`「${title}」已删除`)
   }
 
-  function openArchive() {
-    setArchivedProjects(listArchivedProjects())
+  async function openArchive() {
     setShowArchive(true)
+    try {
+      const res = await fetch('/api/projects?archived=true')
+      const data = await res.json()
+      if (data.ok && Array.isArray(data.projects)) {
+        setArchivedProjects((data.projects as ProjectSummary[]).filter(p => p.archived))
+      }
+    } catch {
+      toast('无法加载归档室列表', 'error')
+    }
   }
 
-  function handleRestore(id: string) {
-    restoreProject(id)
-    fetch(`/api/projects/${id}/archive`, { method: 'DELETE' }).catch(() => {})
-    setArchivedProjects(listArchivedProjects())
-    refresh()
-    toast('项目已恢复')
+  // 注意：恢复语义走 PUT（取消归档），不可用 DELETE —— DB 模型下 DELETE 是硬删除（见
+  // app/api/projects/[id]/archive/route.ts 顶部注释），误用会连同节点一起删掉用户项目。
+  async function handleRestore(id: string) {
+    try {
+      const res = await fetch(`/api/projects/${id}/archive`, { method: 'PUT' })
+      const data = await res.json()
+      if (!data.ok) throw new Error(data.error || '恢复失败')
+      setArchivedProjects(prev => prev.filter(p => p.id !== id))
+      refresh()
+      toast('项目已恢复')
+    } catch (err) {
+      toast(`恢复失败：${String(err)}`, 'error')
+    }
   }
 
   async function handlePermDelete(id: string) {
-    permanentDeleteProject(id)
-    await fetch(`/api/projects/${id}/archive`, { method: 'DELETE' }).catch(() => {})
-    setArchivedProjects(listArchivedProjects())
+    try {
+      const res = await fetch(`/api/projects/${id}/archive`, { method: 'DELETE' })
+      const data = await res.json()
+      if (!data.ok) throw new Error(data.error || '删除失败')
+      removeLocalSnapshot(id)
+      setArchivedProjects(prev => prev.filter(p => p.id !== id))
+    } catch (err) {
+      toast(`永久删除失败：${String(err)}`, 'error')
+    }
     setPermDeleteId(null)
   }
 
@@ -209,6 +261,37 @@ function ProjectsPageInner() {
       </div>
 
       <GoldBar />
+
+      {/* ── Legacy localStorage import prompt (Task 9 Step 2) ── */}
+      {showLegacyPrompt && (
+        <div className="max-w-6xl mx-auto w-full px-8 pt-5">
+          <div
+            className="flex items-center justify-between gap-4 px-5 py-3.5"
+            style={{ background: 'rgba(200,168,76,0.1)', border: '1px solid var(--gold-dim)' }}
+          >
+            <p className="text-sm" style={{ color: 'var(--shell-fg-2)' }}>
+              检测到浏览器本地存有未同步到服务端的旧数据，是否现在导入？（不会删除本地数据）
+            </p>
+            <div className="flex gap-2 shrink-0">
+              <button
+                onClick={() => setShowLegacyPrompt(false)}
+                className="text-xs px-3 py-1.5 transition-all"
+                style={{ border: '1px solid var(--shell-border)', color: 'var(--shell-fg-2)' }}
+              >
+                稍后
+              </button>
+              <button
+                onClick={handleLegacyImport}
+                disabled={legacyImporting}
+                className="text-xs px-3 py-1.5 transition-all disabled:opacity-50"
+                style={{ background: 'var(--gold-mid)', color: 'var(--shell)' }}
+              >
+                {legacyImporting ? '导入中…' : '立即导入'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ── Page header ── */}
       <div className="relative overflow-hidden">

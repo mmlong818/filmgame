@@ -3,46 +3,37 @@ import { useEffect, useState } from 'react'
 import { useRouter, useSelectedLayoutSegment, useParams } from 'next/navigation'
 import Link from 'next/link'
 import { useProjectStore } from '@/lib/store/projectStore'
-import { saveProject } from '@/lib/persistence'
 import { useToast } from '@/app/components/toast'
 import { PHASES } from '@/lib/types/phase'
 import type { Phase } from '@/lib/types/phase'
+import { SaveStatusIndicator } from '@/app/components/save-status-indicator'
 
 export default function ProjectLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter()
   const segment = useSelectedLayoutSegment()
   const params = useParams()
   const id = params.id as string
-  const { project, loadProject, renameProject, setProject } = useProjectStore()
+  const { project, hydrateProject, renameProject, saveConflict, stale, clearConflict, clearStale } = useProjectStore()
   const { toast } = useToast()
   const [editingTitle, setEditingTitle] = useState(false)
   const [titleDraft, setTitleDraft] = useState('')
   const [notFound, setNotFound] = useState(false)
+  const [loadError, setLoadError] = useState(false)
 
+  // DB 为准的异步水合：先本地快照乐观 paint（hydrateProject 内部处理），再 GET 对账，DB 胜出。
   useEffect(() => {
     if (project && project.id === id) return
     setNotFound(false)
+    setLoadError(false)
     let cancelled = false
-    const ok = loadProject(id)
-    if (ok) return
-    // 本地未命中，尝试服务端恢复（服务端有防抖同步的备份）
     ;(async () => {
-      try {
-        const res = await fetch(`/api/projects/${id}`)
-        const data = await res.json()
-        if (cancelled) return
-        if (data.ok && data.project) {
-          saveProject(data.project)
-          setProject(data.project)
-        } else {
-          setNotFound(true)
-        }
-      } catch {
-        if (!cancelled) setNotFound(true)
-      }
+      const result = await hydrateProject(id)
+      if (cancelled) return
+      if (result === 'not-found') setNotFound(true)
+      else if (result === 'error') setLoadError(true)
     })()
     return () => { cancelled = true }
-  }, [id, project, loadProject, setProject, router])
+  }, [id, project, hydrateProject])
 
   useEffect(() => {
     function handleStorageError(e: Event) {
@@ -53,6 +44,12 @@ export default function ProjectLayout({ children }: { children: React.ReactNode 
     return () => window.removeEventListener('filmgame:storage-error', handleStorageError)
   }, [toast])
 
+  function handleReloadLatest() {
+    clearConflict()
+    clearStale()
+    void hydrateProject(id)
+  }
+
   if (notFound) {
     return (
       <div className="min-h-screen flex items-center justify-center" style={{ background: 'var(--shell)' }}>
@@ -62,6 +59,30 @@ export default function ProjectLayout({ children }: { children: React.ReactNode 
           <p className="text-sm mb-6" style={{ color: 'var(--shell-fg-3)' }}>该项目可能已被删除，或链接已失效</p>
           <div className="flex items-center gap-3 justify-center">
             <Link href="/projects" className="px-4 py-2 text-sm" style={{ background: 'var(--gold-mid)', color: 'var(--shell)' }}>
+              返回项目列表
+            </Link>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  if (loadError && !project) {
+    return (
+      <div className="min-h-screen flex items-center justify-center" style={{ background: 'var(--shell)' }}>
+        <div className="text-center">
+          <div className="text-6xl mb-6 opacity-30">🛰️</div>
+          <h2 className="text-xl font-light mb-3" style={{ color: 'var(--shell-fg)' }}>网络异常，无法加载项目</h2>
+          <p className="text-sm mb-6" style={{ color: 'var(--shell-fg-3)' }}>请检查网络连接后重试</p>
+          <div className="flex items-center gap-3 justify-center">
+            <button
+              onClick={() => { setLoadError(false); void hydrateProject(id) }}
+              className="px-4 py-2 text-sm"
+              style={{ background: 'var(--gold-mid)', color: 'var(--shell)' }}
+            >
+              重试
+            </button>
+            <Link href="/projects" className="px-4 py-2 text-sm" style={{ border: '1px solid var(--shell-border)', color: 'var(--shell-fg-2)' }}>
               返回项目列表
             </Link>
           </div>
@@ -193,8 +214,23 @@ export default function ProjectLayout({ children }: { children: React.ReactNode 
           })}
         </nav>
 
-        {/* Preview */}
-        <div className="ml-auto">
+        {/* Save status + conflict/stale banner */}
+        <div className="ml-auto flex items-center gap-3">
+          {(saveConflict || stale) && (
+            <div
+              className="flex items-center gap-2 text-xs px-3 py-1.5"
+              style={{ background: 'rgba(220,38,38,0.1)', border: '1px solid rgba(220,38,38,0.35)', color: 'rgb(220,38,38)' }}
+            >
+              <span>{saveConflict ? '保存冲突：已在别处修改' : '其他标签页有更新'}</span>
+              <button onClick={handleReloadLatest} className="underline font-medium shrink-0">
+                点击加载最新
+              </button>
+            </div>
+          )}
+          <SaveStatusIndicator projectId={project.id} />
+        </div>
+
+        <div>
           <Link
             href={`/project/${project.id}/preview`}
             className="text-xs px-3 py-1.5 font-medium transition-colors"
