@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { runChain } from '@/lib/ai/lc-chains'
+import { withAuth } from '@/lib/server/auth'
 import type { Phase } from '@/lib/types/phase'
 
 function getTimeout(phase: string, action: string): number {
@@ -19,7 +20,7 @@ function classifyError(msg: string): { error: string; errorType: string } {
   return { error: msg, errorType: 'unknown' }
 }
 
-export async function POST(req: NextRequest) {
+export const POST = withAuth(async (req: NextRequest) => {
   let phase: string | undefined
   let action: string | undefined
   try {
@@ -35,4 +36,4 @@ export async function POST(req: NextRequest) {
     const { error, errorType } = classifyError(msg)
     return NextResponse.json({ ok: false, error, errorType, phase, action }, { status: 500 })
   }
-}
+})

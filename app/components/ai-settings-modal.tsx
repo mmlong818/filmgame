@@ -13,10 +13,29 @@ const PROVIDERS: AIProvider[] = ['claude_cli', 'anthropic', 'openai', 'gemini', 
 export function AISettingsModal({ open, onClose }: Props) {
   const [config, setConfig] = useState<AIConfig>({ provider: 'claude_cli' })
   const [saved, setSaved] = useState(false)
+  const [deployMode, setDeployMode] = useState<'local' | 'deploy'>('local')
 
   useEffect(() => {
-    if (open) setConfig(loadAIConfig())
+    if (!open) return
+    const local = loadAIConfig()
+    setConfig(local)
+    fetch('/api/settings')
+      .then(res => res.json())
+      .then(data => {
+        if (data?.deployMode === 'deploy') {
+          setDeployMode('deploy')
+          // deploy 模式禁用 claude_cli，之前本地记录的选择若为 claude_cli 则回退到需要 BYOK 的默认项
+          setConfig(c => c.provider === 'claude_cli' ? { ...c, provider: 'anthropic', model: DEFAULT_MODELS.anthropic } : c)
+        } else {
+          setDeployMode('local')
+        }
+      })
+      .catch(() => {})
   }, [open])
+
+  const visibleProviders = deployMode === 'deploy'
+    ? PROVIDERS.filter(p => p !== 'claude_cli')
+    : PROVIDERS
 
   function handleSave() {
     saveAIConfig(config)
@@ -47,8 +66,13 @@ export function AISettingsModal({ open, onClose }: Props) {
           <label className="text-xs uppercase tracking-[0.3em] mb-2 block" style={{ color: 'var(--shell-fg-3)' }}>
             AI 提供商
           </label>
+          {deployMode === 'deploy' && (
+            <div className="mb-3 px-4 py-3 text-sm" style={{ background: 'var(--shell-raised)', border: '1px solid var(--shell-border)', color: 'var(--shell-fg-2)' }}>
+              当前为部署模式，Claude 订阅模式（CLI）不可用，请填写 API Key（BYOK）。
+            </div>
+          )}
           <div className="flex flex-col gap-2">
-            {PROVIDERS.map(p => (
+            {visibleProviders.map(p => (
               <button
                 key={p}
                 onClick={() => setConfig(c => ({ ...c, provider: p, model: DEFAULT_MODELS[p] || '' }))}

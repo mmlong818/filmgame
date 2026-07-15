@@ -14,6 +14,9 @@ export function createModel(config: AIConfig, opts: ProviderOptions = {}): BaseC
 
   switch (config.provider) {
     case 'claude_cli':
+      if (process.env.DEPLOY_MODE === 'deploy') {
+        throw new Error('no_cli: claude_cli disabled in deploy mode')
+      }
       return new ClaudeCLIModel({ timeoutMs: timeout })
 
     case 'anthropic':

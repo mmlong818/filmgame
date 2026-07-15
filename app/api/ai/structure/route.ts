@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { runStructureGraph } from '@/lib/ai/lg-structure'
+import { withAuth } from '@/lib/server/auth'
 
-export async function POST(req: NextRequest) {
+export const POST = withAuth(async (req: NextRequest) => {
   try {
     const body = await req.json()
     const context = body.context as Record<string, unknown>
@@ -24,4 +25,4 @@ export async function POST(req: NextRequest) {
       : msg.startsWith('timeout:') ? 'timeout' : 'unknown'
     return NextResponse.json({ ok: false, error: msg, errorType }, { status: 500 })
   }
-}
+})
