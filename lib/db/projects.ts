@@ -139,11 +139,23 @@ export function fromRows(projectRow: ProjectRow, nodeRows: NodeRow[]): Project {
 // ─── 读 ────────────────────────────────────────────────────────────────
 
 export async function getProject(id: string): Promise<Project | null> {
+  const result = await getProjectWithVersion(id)
+  return result ? result.project : null
+}
+
+/**
+ * 同 getProject，但附带 projects 行的乐观锁 version——供 API 路由把 version 回传给
+ * 客户端（用于后续保存时的 If-Match/expectedVersion）。fromRows 组装出的 Project 本身
+ * 不含 version 字段（乐观锁是仓储层/DB 概念，不属于文档模型），故用独立函数返回。
+ */
+export async function getProjectWithVersion(
+  id: string,
+): Promise<{ project: Project; version: number } | null> {
   const [projectRow] = await db.select().from(projects).where(eq(projects.id, id))
   if (!projectRow) return null
 
   const nodeRows = await db.select().from(nodes).where(eq(nodes.projectId, id))
-  return fromRows(projectRow, nodeRows)
+  return { project: fromRows(projectRow, nodeRows), version: projectRow.version }
 }
 
 export async function listProjects(

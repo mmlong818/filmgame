@@ -1,41 +1,53 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { readdir, readFile } from 'fs/promises'
-import { join } from 'path'
-import { atomicWriteJson } from '@/lib/server/atomic-write'
-
-const DATA_DIR = join(process.cwd(), 'data', 'projects')
-
-export async function GET() {
-  try {
-    const files = await readdir(DATA_DIR).catch(() => [] as string[])
-    const summaries = await Promise.all(
-      files.filter(f => f.endsWith('.json')).map(async f => {
-        try {
-          const raw = await readFile(join(DATA_DIR, f), 'utf8')
-          const p = JSON.parse(raw)
-          return { id: p.id, title: p.title, updatedAt: p.updatedAt, currentPhase: p.currentPhase, nodeCount: p.nodes?.length ?? 0 }
-        } catch { return null }
-      })
-    )
-    return NextResponse.json({ ok: true, projects: summaries.filter(Boolean) })
-  } catch (err) {
-    return NextResponse.json({ ok: false, error: String(err) }, { status: 500 })
-  }
-}
+import { withAuth } from '@/lib/server/auth'
+import { listProjects, saveProject } from '@/lib/db/projects'
+import { migrateProject } from '@/lib/schema/migrations'
+import { ProjectSchema } from '@/lib/schema/project'
+import type { Project } from '@/lib/types/project'
 
 const SAFE_ID = /^[a-zA-Z0-9_-]{1,64}$/
 
-export async function POST(req: NextRequest) {
+function formatZodError(error: import('zod').ZodError): string {
+  return error.issues.map(i => `${i.path.join('.') || '(root)'}: ${i.message}`).join('; ')
+}
+
+export const GET = withAuth(async () => {
   try {
-    const project = await req.json()
-    if (!project?.id || !SAFE_ID.test(project.id)) {
-      return NextResponse.json({ ok: false, error: 'invalid id' }, { status: 400 })
-    }
-    const { mkdir } = await import('fs/promises')
-    await mkdir(DATA_DIR, { recursive: true })
-    await atomicWriteJson(join(DATA_DIR, `${project.id}.json`), project)
-    return NextResponse.json({ ok: true })
+    const projects = await listProjects()
+    return NextResponse.json({ ok: true, projects })
   } catch (err) {
     return NextResponse.json({ ok: false, error: String(err) }, { status: 500 })
   }
-}
+})
+
+export const POST = withAuth(async (req: NextRequest) => {
+  let body: unknown
+  try {
+    body = await req.json()
+  } catch {
+    return NextResponse.json({ ok: false, error: 'invalid JSON body' }, { status: 400 })
+  }
+
+  const rawId = (body as { id?: unknown })?.id
+  if (typeof rawId !== 'string' || !SAFE_ID.test(rawId)) {
+    return NextResponse.json({ ok: false, error: 'invalid id' }, { status: 400 })
+  }
+
+  const migrated = migrateProject(body)
+  const parsed = ProjectSchema.safeParse(migrated)
+  if (!parsed.success) {
+    return NextResponse.json(
+      { ok: false, error: formatZodError(parsed.error) },
+      { status: 400 },
+    )
+  }
+
+  try {
+    // ProjectSchema 对若干字段刻意比 Project 类型更宽松（见 lib/schema/project.ts 头部注释），
+    // 与仓储层 fromRows 的 `as Project` 处理保持一致。
+    const saved = await saveProject(parsed.data as Project)
+    return NextResponse.json({ ok: true, project: saved })
+  } catch (err) {
+    return NextResponse.json({ ok: false, error: String(err) }, { status: 500 })
+  }
+})
