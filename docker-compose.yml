@@ -1,0 +1,20 @@
+services:
+  db:
+    image: postgres:17-alpine
+    container_name: filmgame-db
+    environment:
+      POSTGRES_USER: filmgame
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-filmgame}
+      POSTGRES_DB: filmgame
+    ports:
+      - '5432:5432'
+    volumes:
+      - filmgame_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U filmgame -d filmgame']
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+volumes:
+  filmgame_pgdata:

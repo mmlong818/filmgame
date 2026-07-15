@@ -67,3 +67,6 @@ data/archive/
 
 # worktrees
 .worktrees/
+
+# drizzle 迁移：提交 .sql，排除临时产物
+drizzle/**/*.tmp
