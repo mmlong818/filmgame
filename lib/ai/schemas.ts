@@ -56,6 +56,7 @@ export const EndingDesignSchema = z.object({
   id: z.string(),
   title: z.string(),
   type: z.union([z.enum(['good', 'bad', 'neutral', 'secret']), z.string()]),
+  description: z.string().optional(),
   triggerCondition: z.string(),
   avoidCondition: z.string().optional(),
   keyVariable: z.string().optional(),
@@ -72,6 +73,7 @@ export const ScalePlanSchema = z.object({
   id: z.string(),
   label: z.string(),
   chapterCount: z.number(),
+  actCountPerChapter: z.number().optional(),
   totalNodes: z.number(),
   chapters: z.array(z.object({
     title: z.string(),
@@ -90,8 +92,8 @@ export type ScaleGenerate = z.infer<typeof ScaleGenerateSchema>
 export const SpineSchema = z.object({
   throughlines: z.array(z.string()),
   chapter_handoffs: z.array(z.object({
-    from: z.string(),
-    to: z.string(),
+    from: z.coerce.number(),
+    to: z.coerce.number(),
     carry_over: z.string(),
   })).optional(),
   character_arcs: z.record(z.string(), z.array(z.string())).optional(),
@@ -123,11 +125,14 @@ export const ChoiceDraftSchema = z.object({
   variableEffects: z.string().optional(),
   choiceWeight: z.enum(['light', 'heavy', 'critical']).optional(),
   consequence: z.string().optional(),
+  conditions: z.string().optional(),
 })
 
 export const BranchesGenerateSchema = z.object({
   nodeChoices: z.array(z.object({
+    nodeTitle: z.string().optional(),
     nodeId: z.string(),
+    exploreReturnNodeId: z.string().optional(),
     choices: z.array(ChoiceDraftSchema),
   })),
 })
@@ -138,6 +143,7 @@ export type BranchesGenerate = z.infer<typeof BranchesGenerateSchema>
 export const FillEmotionSchema = z.object({
   emotionIn: z.string(),
   emotionOut: z.string(),
+  playerEmotion: z.string().optional(),
   tension: z.number().min(0).max(10),
   internal_lie: z.string().optional(),
   fear: z.string().optional(),
@@ -160,6 +166,7 @@ export const SuggestChoicesSchema = z.object({
   choices: z.array(z.object({
     text: z.string(),
     consequence: z.string(),
+    longterm: z.string().optional(),
     dramatic_cost: z.string(),
     thematic_resonance: z.string(),
   })),
@@ -167,16 +174,23 @@ export const SuggestChoicesSchema = z.object({
 export type SuggestChoices = z.infer<typeof SuggestChoicesSchema>
 
 export const SceneAnalysisSchema = z.object({
-  issues: z.array(z.string()),
+  working: z.string(),
+  issues: z.array(z.object({
+    line: z.string(),
+    problem: z.string(),
+    fix: z.string(),
+  })),
   killer_line: z.string().optional(),
-  suggestions: z.array(z.string()).optional(),
 })
 export type SceneAnalysis = z.infer<typeof SceneAnalysisSchema>
 
 export const SceneTensionSchema = z.object({
-  tension_score: z.number().min(0).max(10),
-  diagnosis: z.string(),
-  suggestions: z.array(z.string()),
+  tension_diagnosis: z.string(),
+  missing_element: z.string(),
+  rewrite_suggestion: z.string(),
+  upgraded_line: z.string(),
+  mcguffin: z.string(),
+  dramatic_irony: z.string(),
 })
 export type SceneTension = z.infer<typeof SceneTensionSchema>
 
@@ -184,14 +198,19 @@ export const CharacterVoiceSchema = z.object({
   speaking_rhythm: z.string(),
   vocabulary: z.string(),
   defense_mechanism: z.string(),
+  lie_tells: z.string().optional(),
   sample_lines: z.array(z.string()),
 })
 export type CharacterVoice = z.infer<typeof CharacterVoiceSchema>
 
 export const ChoiceConsequenceSchema = z.object({
   immediate: z.string(),
-  downstream: z.string(),
-  thematic_cost: z.string(),
+  chapter_impact: z.string(),
+  ending_probability: z.string(),
+  character_cost: z.string(),
+  thematic_resonance: z.string(),
+  regret_factor: z.string(),
+  regret_reason: z.string(),
 })
 export type ChoiceConsequence = z.infer<typeof ChoiceConsequenceSchema>
 
@@ -199,11 +218,7 @@ export type ChoiceConsequence = z.infer<typeof ChoiceConsequenceSchema>
 
 export const ValidateReportSchema = z.object({
   summary: z.string(),
-  priority_issues: z.array(z.object({
-    issue: z.string(),
-    severity: z.union([z.enum(['high', 'medium', 'low']), z.string()]),
-    suggestion: z.string(),
-  })),
+  priority_issues: z.array(z.string()),
   suggestions: z.array(z.string()),
 })
 export type ValidateReport = z.infer<typeof ValidateReportSchema>

@@ -43,10 +43,13 @@ async function generateSpineWithModel(
   const config = await loadServerAIConfig()
   const model = createModel(config, { timeoutMs: SPINE_TIMEOUT })
   const prompt = buildPrompt('structure', 'spine', { worldAnchor, scalePlan, characters })
+  // @langchain/google-genai 的 ChatGoogleGenerativeAI 构造函数不支持 timeout 字段，
+  // 借助 LangChain 通用的 RunnableConfig.timeout（invoke 时转换为 AbortSignal.timeout）兜底
+  const invokeOptions = config.provider === 'gemini' ? { timeout: SPINE_TIMEOUT } : undefined
 
   for (let i = 0; i < 3; i++) {
     const input = i === 0 ? prompt : prompt + RETRY_SUFFIX
-    const result = await model.invoke([new HumanMessage(input)])
+    const result = await model.invoke([new HumanMessage(input)], invokeOptions)
     const raw = typeof result.content === 'string' ? result.content : JSON.stringify(result.content)
     const extracted = extractJson(raw)
     if (extracted !== null) {
@@ -69,10 +72,11 @@ async function generateChapterWithModel(
   const prompt = buildPrompt('structure', 'chapter', {
     worldAnchor, scalePlan, characters, spine, chapterIndex,
   })
+  const invokeOptions = config.provider === 'gemini' ? { timeout: CHAPTER_TIMEOUT } : undefined
 
   for (let i = 0; i < 3; i++) {
     const input = i === 0 ? prompt : prompt + RETRY_SUFFIX
-    const result = await model.invoke([new HumanMessage(input)])
+    const result = await model.invoke([new HumanMessage(input)], invokeOptions)
     const raw = typeof result.content === 'string' ? result.content : JSON.stringify(result.content)
     const extracted = extractJson(raw)
     if (extracted !== null) {
@@ -103,7 +107,8 @@ export async function runStructureGraph(input: StructureGraphInput): Promise<Str
   // Phase 1: generate spine
   const spine = await generateSpineWithModel(worldAnchor, scalePlan, characters)
   if (!spine) {
-    // spine 解析失败时使用空骨干继续
+    // spine 解析失败时使用空骨干继续，但需让调用方感知这次降级
+    errors.push('叙事骨干生成失败，章节将在无跨章脉络下生成')
   }
 
   // Phase 2: parallel chapter generation

@@ -33,6 +33,9 @@ export function createModel(config: AIConfig, opts: ProviderOptions = {}): BaseC
       })
 
     case 'gemini':
+      // ChatGoogleGenerativeAI 构造函数不接受 timeout 字段（@langchain/google-genai 未透传该参数），
+      // 调用方（lc-chains.ts/lg-structure.ts）通过 invoke(..., { timeout }) 借助
+      // LangChain 通用的 RunnableConfig.timeout 机制施加超时
       return new ChatGoogleGenerativeAI({
         model: config.model ?? 'gemini-2.0-flash',
         apiKey: config.apiKey,

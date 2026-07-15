@@ -75,7 +75,7 @@ ${JSON.stringify(c, null, 2)}
 5. 互动主题表达：主题能否通过玩家的选择来体现？如果主题只能线性展示而无法通过分支选择让玩家"亲身经历"，则互动性不足
 
 【输出模板】字段名固定，值替换为真实审查结论：
-{"consistency":"通过","structure_analysis":"对故事核张力结构的分析，指出欲望和阻碍是否明确","interactive_potential":"高/中/低，主题能否通过互动选择体现","issues":[],"duration_match":"匹配","overall":"综合评价，1-2句"}
+{"consistency":"通过","structure_analysis":"对故事核张力结构的分析，指出欲望和阻碍是否明确","interactive_potential":"高","issues":[],"duration_match":"匹配","overall":"综合评价，1-2句"}
 
 字段说明（值只能按此规则填写）：
 - consistency：只能是 "通过" 或 "有风险"

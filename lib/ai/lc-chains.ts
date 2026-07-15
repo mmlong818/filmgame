@@ -59,11 +59,12 @@ async function runWithCliRetry(
 async function runWithStructuredOutput(
   model: BaseChatModel,
   prompt: string,
-  schema: z.ZodTypeAny
+  schema: z.ZodTypeAny,
+  invokeOptions?: { timeout?: number }
 ): Promise<unknown> {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const structured = (model as any).withStructuredOutput(schema)
-  return structured.invoke([new HumanMessage(prompt)])
+  return structured.invoke([new HumanMessage(prompt)], invokeOptions)
 }
 
 export interface ChainRunOptions {
@@ -79,7 +80,7 @@ let cachedCacheKey = ''
 
 async function getModel(timeoutMs: number): Promise<{ model: BaseChatModel; provider: string }> {
   const config = await loadServerAIConfig()
-  const cacheKey = `${config.provider}:${config.apiKey ?? ''}:${config.baseUrl ?? ''}`
+  const cacheKey = `${config.provider}:${config.apiKey ?? ''}:${config.baseUrl ?? ''}:${config.model ?? ''}:${timeoutMs}`
   if (!cachedModel || cachedCacheKey !== cacheKey) {
     cachedModel = createModel(config, { timeoutMs })
     cachedCacheKey = cacheKey
@@ -102,5 +103,8 @@ export async function runChain(opts: ChainRunOptions): Promise<unknown> {
   if (provider === 'claude_cli') {
     return runWithCliRetry(model, prompt, schema)
   }
-  return runWithStructuredOutput(model, prompt, schema)
+  // @langchain/google-genai 的 ChatGoogleGenerativeAI 构造函数不支持 timeout 字段，
+  // 借助 LangChain 通用的 RunnableConfig.timeout（invoke 时转换为 AbortSignal.timeout）兜底
+  const invokeOptions = provider === 'gemini' ? { timeout: timeoutMs } : undefined
+  return runWithStructuredOutput(model, prompt, schema, invokeOptions)
 }

@@ -12,8 +12,10 @@ const AIConfigSchema = z.object({
 export async function GET() {
   const config = await loadServerAIConfig()
   const masked = { ...config }
-  if (masked.apiKey && masked.apiKey.length > 8) {
-    masked.apiKey = masked.apiKey.slice(0, 4) + '•'.repeat(masked.apiKey.length - 8) + masked.apiKey.slice(-4)
+  if (masked.apiKey) {
+    masked.apiKey = masked.apiKey.length > 8
+      ? masked.apiKey.slice(0, 4) + '•'.repeat(masked.apiKey.length - 8) + masked.apiKey.slice(-4)
+      : '••••'
   }
   return NextResponse.json({ ok: true, config: masked })
 }
