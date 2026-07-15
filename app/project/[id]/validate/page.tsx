@@ -5,6 +5,7 @@ import { useProjectStore } from '@/lib/store/projectStore'
 import { runValidation } from '@/lib/validation/engine'
 import { exportProjectJson, exportInk } from '@/lib/persistence'
 import { useToast } from '@/app/components/toast'
+import { enumeratePaths } from '@/lib/graph'
 import type { ValidationReport, DirectorReview, Project, StoryNode } from '@/lib/types/project'
 
 export default function ValidatePage() {
@@ -13,6 +14,7 @@ export default function ValidatePage() {
   const [loading, setLoading] = useState(false)
   const [directorLoading, setDirectorLoading] = useState(false)
   const [aiSuggestions, setAiSuggestions] = useState<{ summary: string; priority_issues: string[]; suggestions: string[] } | null>(null)
+  const [aiError, setAiError] = useState<string | null>(null)
   const [directorReview, setLocalDirectorReview] = useState<DirectorReview | null>(() => project?.directorReview ?? null)
   const { toast } = useToast()
 
@@ -20,19 +22,6 @@ export default function ValidatePage() {
     if (!project) return
     const r = runValidation(project)
     setValidationReport(r)
-    const controller = new AbortController()
-    setLoading(true)
-    fetch('/api/ai', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ phase: 'validate', action: 'report', context: r }),
-      signal: controller.signal,
-    })
-      .then(res => res.json())
-      .then(data => { if (data.ok && data.result) setAiSuggestions(data.result) })
-      .catch(() => {})
-      .finally(() => setLoading(false))
-    return () => controller.abort()
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
@@ -59,6 +48,7 @@ export default function ValidatePage() {
   async function handleAiReport() {
     if (!report) return
     setLoading(true)
+    setAiError(null)
     try {
       const res = await fetch('/api/ai', {
         method: 'POST',
@@ -66,7 +56,13 @@ export default function ValidatePage() {
         body: JSON.stringify({ phase: 'validate', action: 'report', context: report }),
       })
       const data = await res.json()
-      if (data.ok && data.result) setAiSuggestions(data.result)
+      if (data.ok && data.result) {
+        setAiSuggestions(data.result)
+      } else {
+        setAiError(data.runId ? `${data.error ?? 'AI 请求失败'}（trace: ${data.runId}）` : (data.error ?? 'AI 请求失败'))
+      }
+    } catch (err) {
+      setAiError(err instanceof Error ? err.message : 'AI 请求失败')
     } finally {
       setLoading(false)
     }
@@ -269,16 +265,20 @@ export default function ValidatePage() {
             )}
           </div>
 
-          {!aiSuggestions ? (
-            <button
-              onClick={handleAiReport}
-              disabled={loading}
-              className="w-full py-2.5 text-sm text-amber-600 border border-amber-200 rounded-xl hover:bg-amber-50 disabled:opacity-40 transition-colors flex items-center justify-center gap-2"
-            >
-              {loading && <span className="w-3 h-3 border border-amber-400 border-t-transparent rounded-full animate-spin" />}
-              AI 生成改进建议
-            </button>
-          ) : (
+          <button
+            onClick={handleAiReport}
+            disabled={loading}
+            className="w-full py-2.5 mb-4 text-sm text-amber-600 border border-amber-200 rounded-xl hover:bg-amber-50 disabled:opacity-40 transition-colors flex items-center justify-center gap-2"
+          >
+            {loading && <span className="w-3 h-3 border border-amber-400 border-t-transparent rounded-full animate-spin" />}
+            {aiSuggestions ? '重新生成' : 'AI 生成改进建议'}
+          </button>
+
+          {aiError && (
+            <p className="mb-4 text-xs text-red-500 bg-red-50 border border-red-100 rounded-lg px-3 py-2">{aiError}</p>
+          )}
+
+          {aiSuggestions && (
             <div className="bg-amber-50 border border-amber-100 rounded-xl p-5 mb-4">
               <p className="text-xs font-semibold text-amber-600 uppercase tracking-wide mb-3">AI 改进建议</p>
               <p className="text-sm text-gray-700 mb-3">{aiSuggestions.summary}</p>
@@ -317,20 +317,7 @@ function PathDurationTable({ project }: { project: Project }) {
   const startNode = project.nodes.find(n => n.type === 'start')
   if (!startNode || project.nodes.length < 2) return null
 
-  const paths: string[][] = []
-  function dfs(nodeId: string, path: string[], visited: Set<string>) {
-    if (visited.has(nodeId) || paths.length >= 30) return
-    const node = nodeMap.get(nodeId)
-    if (!node) return
-    const newPath = [...path, nodeId]
-    if (node.type === 'ending') { paths.push(newPath); return }
-    const newVisited = new Set(visited)
-    newVisited.add(nodeId)
-    for (const choice of (node.choices ?? [])) {
-      if (choice.targetNodeId) dfs(choice.targetNodeId, newPath, newVisited)
-    }
-  }
-  dfs(startNode.id, [], new Set())
+  const paths = enumeratePaths(startNode.id, nodeMap, 30)
   if (paths.length === 0) return null
 
   const pathData = paths.map((path, i) => {

@@ -2,27 +2,8 @@
 import Link from 'next/link'
 import { useParams } from 'next/navigation'
 import { useProjectStore } from '@/lib/store/projectStore'
-import type { StoryNode, NodeType } from '@/lib/types/project'
-
-// ── DFS path finder ────────────────────────────────────────────────────────
-
-function findAllPaths(startId: string, nodeMap: Map<string, StoryNode>): string[][] {
-  const paths: string[][] = []
-  function dfs(nodeId: string, path: string[], visited: Set<string>) {
-    if (visited.has(nodeId)) return
-    const node = nodeMap.get(nodeId)
-    if (!node) return
-    const newPath = [...path, nodeId]
-    if (node.type === 'ending') { paths.push(newPath); return }
-    if (paths.length > 50) return
-    visited.add(nodeId)
-    for (const choice of (node.choices ?? [])) {
-      if (choice.targetNodeId) dfs(choice.targetNodeId, newPath, new Set(visited))
-    }
-  }
-  dfs(startId, [], new Set())
-  return paths
-}
+import { enumeratePaths } from '@/lib/graph'
+import type { NodeType } from '@/lib/types/project'
 
 // ── Type config ────────────────────────────────────────────────────────────
 
@@ -102,7 +83,7 @@ export default function BranchesPage() {
 
   // Path analysis
   const startNode = nodes.find(n => n.type === 'start')
-  const paths = startNode ? findAllPaths(startNode.id, nodeMap) : []
+  const paths = startNode ? enumeratePaths(startNode.id, nodeMap, 50) : []
   const pathLengths = paths.map(p => p.length)
   const minSteps = pathLengths.length > 0 ? Math.min(...pathLengths) : 0
   const maxSteps = pathLengths.length > 0 ? Math.max(...pathLengths) : 0

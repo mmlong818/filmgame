@@ -128,6 +128,8 @@ export default function PreviewPage() {
   const [currentNodeId, setCurrentNodeId] = useState<string | null>(null)
   const [history, setHistory] = useState<string[]>([])
   const [varState, setVarState] = useState<Record<string, string | number>>({})
+  // varHistory[i] = 进入/停留在 history[i] 时刻（离开该节点前）的 varState 快照，与 history 索引严格对齐
+  const [varHistory, setVarHistory] = useState<Record<string, string | number>[]>([])
   const [unlockedEndings, setUnlockedEndings] = useState<string[]>([])
   const [theme, setThemeState] = useState<'dark' | 'light'>('dark')
 
@@ -147,31 +149,37 @@ export default function PreviewPage() {
   const currentNode = activeId ? nodeMap.get(activeId) : undefined
 
   const navigateTo = useCallback((nodeId: string, choiceEffect?: string, fromExplore?: boolean) => {
-    setHistory(prev => {
-      const current = currentNodeId ?? startNode?.id
-      if (!current) return prev
-      if (fromExplore) return prev
-      return [...prev, current]
-    })
+    const current = currentNodeId ?? startNode?.id
+    // fromExplore（探索节点返回主线）不入 history，varHistory 必须同步不入栈，否则索引错位
+    if (current && !fromExplore) {
+      setHistory(prev => [...prev, current])
+      setVarHistory(prev => [...prev, varState])
+    }
     if (choiceEffect) setVarState(s => applyVariableEffect(s, choiceEffect))
     setCurrentNodeId(nodeId)
-  }, [currentNodeId, startNode?.id])
+  }, [currentNodeId, startNode?.id, varState])
 
   const enterExplore = useCallback((exploreNodeId: string, choiceEffect?: string) => {
-    setHistory(prev => {
-      const current = currentNodeId ?? startNode?.id
-      if (!current) return prev
-      return [...prev, current]
-    })
+    const current = currentNodeId ?? startNode?.id
+    if (current) {
+      setHistory(prev => [...prev, current])
+      setVarHistory(prev => [...prev, varState])
+    }
     if (choiceEffect) setVarState(s => applyVariableEffect(s, choiceEffect))
     setCurrentNodeId(exploreNodeId)
-  }, [currentNodeId, startNode?.id])
+  }, [currentNodeId, startNode?.id, varState])
 
   const goBack = useCallback(() => {
     setHistory(prev => {
       if (prev.length === 0) return prev
       const last = prev[prev.length - 1]
       setCurrentNodeId(last)
+      return prev.slice(0, -1)
+    })
+    setVarHistory(prev => {
+      if (prev.length === 0) return prev
+      const last = prev[prev.length - 1]
+      setVarState(last)
       return prev.slice(0, -1)
     })
   }, [])
@@ -181,11 +189,14 @@ export default function PreviewPage() {
     if (idx === -1) return
     setCurrentNodeId(nodeId)
     setHistory(prev => prev.slice(0, idx))
-  }, [history])
+    setVarState(varHistory[idx])
+    setVarHistory(prev => prev.slice(0, idx))
+  }, [history, varHistory])
 
   const reset = useCallback(() => {
     setCurrentNodeId(null)
     setHistory([])
+    setVarHistory([])
     const init: Record<string, string | number> = {}
     project?.variables?.forEach(v => { init[v.name] = v.defaultValue ?? 0 })
     setVarState(init)

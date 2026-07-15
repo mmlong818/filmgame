@@ -1,6 +1,7 @@
 'use client'
 import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
+import { nanoid } from 'nanoid'
 import { useProjectStore } from '@/lib/store/projectStore'
 import type { WorldAnchor, Character, EndingDesign, Variable, AiReview, VoiceProfile } from '@/lib/types/project'
 
@@ -145,7 +146,7 @@ export default function WorldPage() {
       const data = await res.json()
       if (data.ok && Array.isArray(data.result?.characters)) {
         const chars = (data.result.characters as Array<Record<string,string>>).map(c => ({
-          id: Math.random().toString(36).slice(2, 10),
+          id: nanoid(8),
           name: c.name ?? '新角色',
           role: (c.role ?? 'support') as import('@/lib/types/project').Character['role'],
           motivation: c.motivation ?? '',
@@ -172,7 +173,7 @@ export default function WorldPage() {
       const data = await res.json()
       if (data.ok && Array.isArray(data.result?.variables)) {
         const vars = (data.result.variables as Array<Record<string,string>>).map(v => ({
-          id: Math.random().toString(36).slice(2, 10),
+          id: nanoid(8),
           name: v.name ?? 'var',
           type: (v.type ?? 'counter') as import('@/lib/types/project').Variable['type'],
           defaultValue: v.defaultValue ?? '0',
