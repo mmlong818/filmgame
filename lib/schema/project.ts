@@ -233,6 +233,7 @@ export const DirectorReviewSchema = z.object({
   greenlit: z.boolean(),
   executiveSummary: z.string(),
   mustFix: z.array(z.string()).default([]),
+  standout_moment: z.string().optional(),
 })
 
 // ─── Project ────────────────────────────────────────────────────────

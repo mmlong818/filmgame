@@ -200,6 +200,7 @@ export interface DirectorReview {
   greenlit: boolean
   executiveSummary: string
   mustFix: string[]
+  standout_moment?: string
 }
 
 export interface Project {
