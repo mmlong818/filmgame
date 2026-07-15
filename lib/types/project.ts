@@ -128,6 +128,7 @@ export interface StoryNode {
   type: NodeType
   order: number
   position: { x: number; y: number }
+  positionManual?: boolean
   emotionFunction: EmotionFunction
   systemFunction: SystemFunction
   sceneHeader?: {

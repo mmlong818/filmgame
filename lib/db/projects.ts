@@ -52,6 +52,7 @@ function nodeToRow(projectId: string, node: StoryNode, sortOrder: number): NodeR
       notes: node.notes,
       dramaticWeight: node.dramaticWeight,
       exploreReturnNodeId: node.exploreReturnNodeId,
+      positionManual: node.positionManual,
     },
   }
 }
@@ -75,6 +76,7 @@ function rowToStoryNode(row: NodeRow): StoryNode {
     notes: data.notes as string,
     dramaticWeight: data.dramaticWeight as StoryNode['dramaticWeight'],
     exploreReturnNodeId: data.exploreReturnNodeId as string | undefined,
+    positionManual: data.positionManual as boolean | undefined,
   }
 }
 

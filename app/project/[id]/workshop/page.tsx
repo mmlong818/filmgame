@@ -1,5 +1,5 @@
 'use client'
-import { useState, useEffect, useRef, Suspense } from 'react'
+import { useState, useEffect, useRef, useCallback, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useToast } from '@/app/components/toast'
 import { useProjectStore } from '@/lib/store/projectStore'
@@ -13,7 +13,10 @@ import {
   SceneDescHint,
   Section,
   BulkProgressOverlay,
+  BufferedInput,
+  BufferedTextarea,
 } from './components/widgets'
+import { useBufferedField } from '@/lib/hooks/useBufferedField'
 import {
   SceneAnalysisPanel,
   SceneTensionPanel,
@@ -26,6 +29,24 @@ type NodeDraft = {
   emotionFunction?: EmotionFunction
   sceneDesc?: string
   dialogue?: DialogueLine[]
+}
+
+// 场景描述文本框 + 字数提示需共享同一份本地缓冲值（提示要随打字实时变化，而不是等回写 store 才更新）。
+function SceneDescField({ value, onCommit }: { value: string; onCommit: (v: string) => void }) {
+  const { value: local, onChange, onBlur } = useBufferedField(value, onCommit)
+  return (
+    <Section title="场景描述">
+      <textarea
+        value={local}
+        onChange={e => onChange(e.target.value)}
+        onBlur={onBlur}
+        rows={3}
+        className={`${inputClass} resize-none text-sm leading-relaxed`}
+        placeholder="镜头语言描述：交代环境、氛围、角色位置关系…"
+      />
+      <SceneDescHint n={local.length} />
+    </Section>
+  )
 }
 
 function WorkshopPageInner() {
@@ -85,6 +106,18 @@ function WorkshopPageInner() {
     return () => window.removeEventListener('keydown', handleKey)
   }, [selectedId, project?.nodes])
 
+  // 稳定引用的回调，配合 NodeTreeSidebar 的 memo() 避免每次渲染都因内联函数导致 sidebar 重渲染
+  const handleSelectNode = useCallback((id: string) => {
+    setSelectedId(id)
+    setChoiceSuggestions(null); setSceneAnalysis(null); setSceneTension(null); setChoiceConsequence(null); setLoading(null)
+  }, [])
+  const handleHasDraft = useCallback((id: string) => !!nodeDrafts[id], [nodeDrafts])
+  const handleAddNode = useCallback((actId: string) => {
+    const n = addNode(actId)
+    setSelectedId(n.id)
+    setChoiceSuggestions(null); setSceneAnalysis(null); setSceneTension(null); setChoiceConsequence(null); setLoading(null)
+  }, [addNode])
+
   if (!project) return (
     <div className="flex items-center justify-center h-64 text-gray-400 text-sm">
       加载中...
@@ -110,6 +143,10 @@ function WorkshopPageInner() {
     updateNode(exploreNodeId, { exploreReturnNodeId: fromNodeId })
   }
 
+  function withRunId(msg: string, runId?: string | null) {
+    return runId ? `${msg}（trace: ${runId}）` : msg
+  }
+
   async function callAiForNode(action: string, node: StoryNode) {
     const nodeId = node.id
     setLoading(action)
@@ -121,7 +158,7 @@ function WorkshopPageInner() {
         body: JSON.stringify({ phase: 'workshop', action, context: { node, worldAnchor: project!.worldAnchor, characters: project!.characters, variables: project!.variables } }),
       })
       const data = await res.json()
-      if (!data.ok) { if (selectedIdRef.current === nodeId) setAiError(data.error ?? 'AI 请求失败'); return }
+      if (!data.ok) { if (selectedIdRef.current === nodeId) setAiError(withRunId(data.error ?? 'AI 请求失败', data.runId)); return }
 
       // nodeDrafts 按 nodeId 索引，切换节点后写入仍安全，不会串号
       const prev = nodeDrafts[node.id] || {}
@@ -151,7 +188,7 @@ function WorkshopPageInner() {
       })
       const data = await res.json()
       if (selectedIdRef.current !== nodeId) return
-      if (!data.ok) { setAiError(data.error ?? 'AI 请求失败'); return }
+      if (!data.ok) { setAiError(withRunId(data.error ?? 'AI 请求失败', data.runId)); return }
       if (data.result?.choices) {
         setChoiceSuggestions(data.result.choices as Array<{text:string;consequence:string;longterm:string}>)
       }
@@ -175,7 +212,7 @@ function WorkshopPageInner() {
       })
       const data = await res.json()
       if (selectedIdRef.current !== nodeId) return
-      if (!data.ok) { setAiError(data.error ?? 'AI 请求失败'); return }
+      if (!data.ok) { setAiError(withRunId(data.error ?? 'AI 请求失败', data.runId)); return }
       if (data.result) {
         setSceneAnalysis(data.result as {working:string;issues:Array<{line:string;problem:string;fix:string}>;killer_line:string})
       }
@@ -199,7 +236,7 @@ function WorkshopPageInner() {
       })
       const data = await res.json()
       if (selectedIdRef.current !== nodeId) return
-      if (!data.ok) { setAiError(data.error ?? 'AI 请求失败'); return }
+      if (!data.ok) { setAiError(withRunId(data.error ?? 'AI 请求失败', data.runId)); return }
       if (data.result) {
         setSceneTension(data.result)
         setSceneTensionOpen(true)
@@ -224,7 +261,7 @@ function WorkshopPageInner() {
       })
       const data = await res.json()
       if (selectedIdRef.current !== nodeId) return
-      if (!data.ok) { setAiError(data.error ?? 'AI 请求失败'); return }
+      if (!data.ok) { setAiError(withRunId(data.error ?? 'AI 请求失败', data.runId)); return }
       if (data.result) {
         setChoiceConsequence(data.result)
       }
@@ -392,16 +429,9 @@ function WorkshopPageInner() {
           nodeSearch={nodeSearch}
           onSearchChange={setNodeSearch}
           selectedId={selectedId}
-          onSelectNode={(id) => {
-            setSelectedId(id)
-            setChoiceSuggestions(null); setSceneAnalysis(null); setSceneTension(null); setChoiceConsequence(null); setLoading(null)
-          }}
-          hasDraft={(id) => !!nodeDrafts[id]}
-          onAddNode={(actId) => {
-            const n = addNode(actId)
-            setSelectedId(n.id)
-            setChoiceSuggestions(null); setSceneAnalysis(null); setSceneTension(null); setChoiceConsequence(null); setLoading(null)
-          }}
+          onSelectNode={handleSelectNode}
+          hasDraft={handleHasDraft}
+          onAddNode={handleAddNode}
         />
 
         <div className="flex-1 overflow-y-auto">
@@ -450,9 +480,10 @@ function WorkshopPageInner() {
                       {selected.dialogue.length > 0 && `约 ${Math.round(selected.dialogue.length * 18)}s · ${selected.dialogue.length} 行对白`}
                     </span>
                   </div>
-                  <input
+                  <BufferedInput
+                    key={selected.id}
                     value={selected.title}
-                    onChange={e => updateNode(selected.id, { title: e.target.value })}
+                    onCommit={v => updateNode(selected.id, { title: v })}
                     className="text-xl font-semibold text-gray-900 border-none outline-none bg-transparent w-full"
                     placeholder="节点标题"
                   />
@@ -568,16 +599,11 @@ function WorkshopPageInner() {
                 </select>
               </div>
 
-              <Section title="场景描述">
-                <textarea
-                  value={selected.sceneDesc ?? ''}
-                  onChange={e => updateNode(selected.id, { sceneDesc: e.target.value })}
-                  rows={3}
-                  className={`${inputClass} resize-none text-sm leading-relaxed`}
-                  placeholder="镜头语言描述：交代环境、氛围、角色位置关系…"
-                />
-                <SceneDescHint n={(selected.sceneDesc ?? '').length} />
-              </Section>
+              <SceneDescField
+                key={selected.id}
+                value={selected.sceneDesc ?? ''}
+                onCommit={v => updateNode(selected.id, { sceneDesc: v })}
+              />
 
               <Section title="情感函数" action={{ label: 'AI 填写', loading: loading === 'fill_emotion', onClick: () => callAiForNode('fill_emotion', selected) }}>
                 <div className="grid grid-cols-2 gap-3">
@@ -631,16 +657,16 @@ function WorkshopPageInner() {
                     <div key={line.id} className="group relative py-3 border-b border-gray-50 last:border-0">
                       {/* 角色名行 */}
                       <div className="flex items-center justify-center gap-2 mb-1.5">
-                        <input
+                        <BufferedInput
                           value={line.speaker}
-                          onChange={e => { const d = [...selected.dialogue]; d[i] = { ...line, speaker: e.target.value }; updateNode(selected.id, { dialogue: d }) }}
+                          onCommit={v => { const d = [...selected.dialogue]; d[i] = { ...line, speaker: v }; updateNode(selected.id, { dialogue: d }) }}
                           className={`text-xs font-bold tracking-widest uppercase bg-transparent border-none outline-none text-center w-32 ${line.speaker ? speakerColor(line.speaker) : 'text-amber-600'}`}
                           placeholder="角色名"
                         />
                         <span className="text-gray-300 text-xs">·</span>
-                        <input
+                        <BufferedInput
                           value={line.emotion}
-                          onChange={e => { const d = [...selected.dialogue]; d[i] = { ...line, emotion: e.target.value }; updateNode(selected.id, { dialogue: d }) }}
+                          onCommit={v => { const d = [...selected.dialogue]; d[i] = { ...line, emotion: v }; updateNode(selected.id, { dialogue: d }) }}
                           className="text-xs text-gray-400 italic bg-transparent border-none outline-none w-20"
                           placeholder="情绪"
                         />
@@ -651,9 +677,9 @@ function WorkshopPageInner() {
                       </div>
                       {/* 台词 */}
                       <div className="px-8">
-                        <input
+                        <BufferedInput
                           value={line.text}
-                          onChange={e => { const d = [...selected.dialogue]; d[i] = { ...line, text: e.target.value }; updateNode(selected.id, { dialogue: d }) }}
+                          onCommit={v => { const d = [...selected.dialogue]; d[i] = { ...line, text: v }; updateNode(selected.id, { dialogue: d }) }}
                           className="text-sm text-gray-800 w-full bg-transparent border-none outline-none leading-relaxed"
                           placeholder="台词..."
                         />
@@ -744,10 +770,10 @@ function WorkshopPageInner() {
                         <div key={choice.id}>
                           <div className="flex items-center gap-3 bg-gray-50 rounded-lg px-3 py-2.5 group">
                             <span className="text-xs text-gray-400 font-medium w-5 shrink-0">{i + 1}</span>
-                            <input
+                            <BufferedInput
                               value={choice.text}
-                              onChange={e => {
-                                const updated = selected.choices.map((c, j) => j === i ? { ...c, text: e.target.value } : c)
+                              onCommit={v => {
+                                const updated = selected.choices.map((c, j) => j === i ? { ...c, text: v } : c)
                                 updateNode(selected.id, { choices: updated })
                               }}
                               className="text-sm text-gray-800 bg-transparent border-none outline-none flex-1"
@@ -859,9 +885,10 @@ function WorkshopPageInner() {
               )}
 
               <Section title="设计备注">
-                <textarea
+                <BufferedTextarea
+                  key={selected.id}
                   value={selected.notes}
-                  onChange={e => updateNode(selected.id, { notes: e.target.value })}
+                  onCommit={v => updateNode(selected.id, { notes: v })}
                   rows={3}
                   className={inputClass}
                   placeholder="节点的创作意图、技术要求、注意事项..."

@@ -110,6 +110,7 @@ export const StoryNodeSchema = z.object({
   type: NodeTypeSchema,
   order: z.number(),
   position: PositionSchema,
+  positionManual: z.boolean().optional(),
   emotionFunction: EmotionFunctionSchema,
   systemFunction: SystemFunctionSchema,
   sceneHeader: SceneHeaderSchema.optional(),

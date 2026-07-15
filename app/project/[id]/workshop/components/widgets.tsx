@@ -1,5 +1,7 @@
 'use client'
+import type { InputHTMLAttributes, TextareaHTMLAttributes } from 'react'
 import type { StoryNode } from '@/lib/types/project'
+import { useBufferedField } from '@/lib/hooks/useBufferedField'
 
 export const inputClass = 'w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500 bg-white'
 
@@ -172,5 +174,33 @@ export function BulkProgressOverlay({
         取消
       </button>
     </div>
+  )
+}
+
+type BufferedInputProps = Omit<InputHTMLAttributes<HTMLInputElement>, 'value' | 'onChange' | 'onBlur'> & {
+  value: string
+  onCommit: (v: string) => void
+  delay?: number
+}
+
+// 高频文本输入的本地缓冲版 <input>：打字期间只改本地 state，blur/300ms 防抖才回写 store。
+export function BufferedInput({ value, onCommit, delay, ...rest }: BufferedInputProps) {
+  const { value: local, onChange, onBlur } = useBufferedField(value, onCommit, delay)
+  return (
+    <input {...rest} value={local} onChange={e => onChange(e.target.value)} onBlur={onBlur} />
+  )
+}
+
+type BufferedTextareaProps = Omit<TextareaHTMLAttributes<HTMLTextAreaElement>, 'value' | 'onChange' | 'onBlur'> & {
+  value: string
+  onCommit: (v: string) => void
+  delay?: number
+}
+
+// 高频文本输入的本地缓冲版 <textarea>，语义同 BufferedInput。
+export function BufferedTextarea({ value, onCommit, delay, ...rest }: BufferedTextareaProps) {
+  const { value: local, onChange, onBlur } = useBufferedField(value, onCommit, delay)
+  return (
+    <textarea {...rest} value={local} onChange={e => onChange(e.target.value)} onBlur={onBlur} />
   )
 }

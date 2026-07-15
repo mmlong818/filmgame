@@ -5,6 +5,7 @@ import { ReactFlow, Background, Controls, MiniMap, Handle, Position, MarkerType 
 import type { Node, Edge, NodeProps, NodeMouseHandler, OnNodeDrag } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
 import type { Project, StoryNode } from '@/lib/types/project'
+import { useProjectStore } from '@/lib/store/projectStore'
 
 // ── Node type config ────────────────────────────────────────────────────────
 
@@ -236,9 +237,10 @@ function buildFlowData(project: Project, hoveredNodeId: string | null, manualPos
   // Compute auto-layout positions using act structure
   const autoPos = autoLayout(pNodes, project.acts ?? [], project.chapters ?? [])
 
-  // Manual drag overrides auto-layout; auto-layout ignores stale saved positions from old code
+  // Manual drag overrides auto-layout; persisted manual positions (positionManual) take
+  // precedence over auto-layout too, so a reload still honors the user's dragged layout.
   function getPos(node: StoryNode): { x: number; y: number } {
-    return manualPos.get(node.id) ?? autoPos.get(node.id) ?? { x: 0, y: 0 }
+    return manualPos.get(node.id) ?? (node.positionManual ? node.position : undefined) ?? autoPos.get(node.id) ?? { x: 0, y: 0 }
   }
 
   // Render ALL project nodes
@@ -308,14 +310,18 @@ export default function FlowView({ project }: { project: Project }) {
   const router = useRouter()
   const params = useParams()
   const onEditNode = (nodeId: string) => router.push(`/project/${params.id}/workshop?node=${nodeId}`)
+  const updateNode = useProjectStore(s => s.updateNode)
   const [hoveredNodeId, setHoveredNodeId] = useState<string | null>(null)
-  // Manual positions: user-dragged overrides that take precedence over auto-layout
-  const [manualPos, setManualPos] = useState<Map<string, { x: number; y: number }>>(new Map())
+  // Manual positions: user-dragged overrides that take precedence over auto-layout.
+  // Seeded from any previously persisted positionManual nodes so a reload keeps the layout.
+  const [manualPos, setManualPos] = useState<Map<string, { x: number; y: number }>>(
+    () => new Map(project.nodes.filter(n => n.positionManual).map(n => [n.id, n.position]))
+  )
 
   const { nodes, edges } = useMemo(
     () => buildFlowData(project, hoveredNodeId, manualPos, onEditNode),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [project, hoveredNodeId, manualPos]
+    [project.nodes, project.acts, project.chapters, hoveredNodeId, manualPos]
   )
 
   const handleNodeMouseEnter: NodeMouseHandler = useCallback((_evt, node) => {
@@ -327,8 +333,10 @@ export default function FlowView({ project }: { project: Project }) {
   }, [])
 
   const handleNodeDragStop: OnNodeDrag = useCallback((_evt, node) => {
-    setManualPos(prev => new Map(prev).set(node.id, { x: node.position.x, y: node.position.y }))
-  }, [])
+    const position = { x: node.position.x, y: node.position.y }
+    setManualPos(prev => new Map(prev).set(node.id, position))
+    updateNode(node.id, { position, positionManual: true })
+  }, [updateNode])
 
   if (nodes.length === 0) {
     return (
