@@ -5,7 +5,14 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "start": "next start"
+    "start": "next start",
+    "db:up": "docker compose up -d",
+    "db:down": "docker compose down",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "drizzle-kit migrate",
+    "db:studio": "drizzle-kit studio",
+    "db:seed": "node scripts/seed-db.mjs",
+    "db:migrate-json": "node scripts/migrate-json-to-db.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.81.0",
