@@ -11,7 +11,7 @@ export const POST = withAuth(async (req: NextRequest) => {
     const context = body.context as Record<string, unknown>
     const { worldAnchor, scalePlan, characters } = context
 
-    const { chapters, errors } = await runStructureGraph(
+    const { chapters, errors, warnings } = await runStructureGraph(
       { worldAnchor, scalePlan, characters },
       { callbacks: [collector] }
     )
@@ -26,7 +26,7 @@ export const POST = withAuth(async (req: NextRequest) => {
       }, { status: 502 })
     }
 
-    return NextResponse.json({ ok: true, result: { chapters }, runId })
+    return NextResponse.json({ ok: true, result: { chapters }, warnings, runId })
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err)
     const errorType = msg.startsWith('no_cli:') ? 'no_cli'

@@ -18,8 +18,8 @@ type StructProgress = { phase: 'spine' | 'chapters'; done: number; total: number
 type StructStreamEvent =
   | { type: 'run'; runId: string | null }
   | { type: 'spine'; ok: boolean }
-  | { type: 'chapter'; done: number; total: number }
-  | { type: 'done'; chapters: AiChapterDraft[]; errors: string[] }
+  | { type: 'chapter'; done: number; total: number; warnings?: string[] }
+  | { type: 'done'; chapters: AiChapterDraft[]; errors: string[]; warnings?: string[] }
   | { type: 'error'; error: string; errorType: string }
 
 function normalizeChapters(chapters: AiChapterDraft[]): AiChapterDraft[] {
@@ -65,6 +65,7 @@ export default function StructurePage() {
   const [structDraft, setStructDraft] = useState<AiChapterDraft[] | null>(null)
   const [branchDraft, setBranchDraft] = useState<AiNodeChoices[] | null>(null)
   const [aiError, setAiError] = useState<string | null>(null)
+  const [structWarnings, setStructWarnings] = useState<string[]>([])
   const [structProgress, setStructProgress] = useState<StructProgress | null>(null)
   const runIdRef = useRef<string | null>(null)
   const [expandedChapters, setExpandedChapters] = useState<Set<string>>(new Set())
@@ -97,10 +98,16 @@ export default function StructurePage() {
     }
     if (evt.type === 'chapter') {
       setStructProgress({ phase: 'chapters', done: evt.done, total: evt.total })
+      if (evt.warnings && evt.warnings.length > 0) {
+        setStructWarnings(prev => [...prev, ...evt.warnings!])
+      }
       return false
     }
     if (evt.type === 'done') {
       setStructDraft(normalizeChapters(evt.chapters))
+      if (evt.warnings && evt.warnings.length > 0) {
+        setStructWarnings(prev => [...prev, ...evt.warnings!].filter((w, i, arr) => arr.indexOf(w) === i))
+      }
       setStage('struct_preview')
       return true
     }
@@ -148,6 +155,9 @@ export default function StructurePage() {
         setStage('edit')
         return
       }
+      if (Array.isArray(data.warnings) && data.warnings.length > 0) {
+        setStructWarnings(prev => [...prev, ...data.warnings])
+      }
       setStructDraft(normalizeChapters(chapters))
       setStage('struct_preview')
     } catch (err) {
@@ -159,6 +169,7 @@ export default function StructurePage() {
   async function generateStructure() {
     setStage('struct_loading')
     setAiError(null)
+    setStructWarnings([])
     setStructProgress(null)
     runIdRef.current = null
     const scalePlan = project!.scalePlanOptions.find(p => p.id === project!.selectedScalePlanId)
@@ -397,6 +408,11 @@ export default function StructurePage() {
           >通过 → 生成分支</button>
         </div>
       </div>
+      {structWarnings.length > 0 && (
+        <div className="mb-4 text-xs text-amber-600 bg-amber-50 border border-amber-100 rounded-lg px-3 py-2 space-y-1">
+          {structWarnings.map((w, i) => <p key={i}>{w}</p>)}
+        </div>
+      )}
       <div className="space-y-3">
         {(structDraft ?? []).map((ch, ci) => (
           <div key={ci} className="bg-gray-50 border border-gray-200 rounded-xl overflow-hidden">
@@ -568,6 +584,11 @@ export default function StructurePage() {
           </div>
         )}
         {aiError && <p className="mb-4 text-xs text-red-500 bg-red-50 border border-red-100 rounded-lg px-3 py-2">{aiError}</p>}
+        {structWarnings.length > 0 && (
+          <div className="mb-4 text-xs text-amber-600 bg-amber-50 border border-amber-100 rounded-lg px-3 py-2 space-y-1">
+            {structWarnings.map((w, i) => <p key={i}>{w}</p>)}
+          </div>
+        )}
       </div>
 
       {/* 内容区 */}

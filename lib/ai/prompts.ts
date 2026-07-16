@@ -104,14 +104,15 @@ ${JSON.stringify(c, null, 2)}
 【结局设计】
 ${endingsSummary || '暂无——请根据故事类型自行设计3-5个有意义的追踪变量（如关系好感度、道德倾向、关键标记等）'}
 
-【变量类型说明】
-- counter：整数累加（如好感度0~5，道德值0~10）
+【变量机制约定——全部变量共用同一套小整数量表，禁止百分比】
+玩家每做一次相关选择，变量以整数增量（通常+1，少数+2）累积，全程关键选择次数有限，变量现实上限约为0-10，不是0-100的百分比进度条。
+- counter：整数累加，defaultValue通常为"0"，现实量程0~10（如好感度、道德值）
 - flag：0或1的开关（如是否完成了某件事、是否发现了秘密）
-- relationship：关系值（-5到+5，负为敌对，正为亲密）
+- relationship：关系值，量程约-5到+5，负为敌对，正为亲密
 - item：是否持有某物品/信息
 
 【要求】从结局条件提取变量名（如"affection_A>=3"→变量affection_A）；每个变量名用英文下划线命名；给出type/defaultValue/description；共3-6个变量
-若某结局标注了"关键变量"（如"勇气值>=80"），必须原样提取该变量名对应的英文下划线命名并生成对应变量（如"勇气值"→courage），不得另造无关新变量名，确保每个结局的关键变量都能在输出的变量列表中找到对应项
+若某结局标注了"关键变量"（如"勇气值>=4"），必须原样提取该变量名对应的英文下划线命名并生成对应变量（如"勇气值"→courage），不得另造无关新变量名，确保每个结局的关键变量都能在输出的变量列表中找到对应项。结局给出的阈值应落在0-10整数量表内（建议3-6），若结局阈值明显是百分比或超出该量表，仍按原变量名生成变量，但description中注明"阈值需在应用层按0-10量表校准"。
 
 【输出模板】
 {"variables":[{"name":"affection_A","type":"counter","defaultValue":"0","description":"主角与角色A的好感度"},{"name":"trust","type":"counter","defaultValue":"0","description":"信任度，影响关键时刻选项"}]}
@@ -136,15 +137,19 @@ ${endingsSummary || '暂无——请根据故事类型自行设计3-5个有意�
 【主要角色】
 ${charSummary || '暂无'}
 
+【变量机制约定——keyVariable的阈值必须遵守，禁止使用百分比】
+本游戏的叙事变量不是百分比进度条，而是小整数计数器：玩家每做一次相关选择，变量通常以+1的整数增量累积（少数情况+2），全程关键选择次数有限，变量现实上限约为0-10。
+因此keyVariable的阈值必须是与"+1累积"机制匹配的小整数，建议范围3-6（例如"courage>=4"），禁止写成百分比（如"80%"、"100%"）或不成比例的大数字（如">=80"）。
+
 【设计要求】
 - 每个结局必须代表主题的不同维度（救赎/毁灭/妥协/真相…）
 - 结局之间的达成路径要互斥——选择不同的关键节点才能到达
 - triggerCondition：玩家需要做什么关键选择才能走向此结局（具体行为，非抽象描述）
 - avoidCondition：哪类选择会导致偏离此结局走向其他结局
-- keyVariable：如果有变量追踪（如信任度、勇气值），写出关键变量名和阈值，否则留空
+- keyVariable：如果有变量追踪（如信任度、勇气值），写出关键变量名和阈值（遵守上面的0-10整数量表，阈值3-6），否则留空
 
 【输出模板（共${count}个结局）】
-{"endings":[{"id":"e1","title":"结局标题","type":"good","description":"此结局中玩家经历的最终命运，1-2句","triggerCondition":"达成此结局需要做的关键选择（具体）","avoidCondition":"哪些选择会让玩家偏离此结局","keyVariable":"变量名>=值 或 留空"},{"id":"e2","title":"结局标题","type":"bad","description":"...","triggerCondition":"...","avoidCondition":"...","keyVariable":""},{"id":"e3","title":"结局标题","type":"neutral","description":"...","triggerCondition":"...","avoidCondition":"...","keyVariable":""}]}
+{"endings":[{"id":"e1","title":"结局标题","type":"good","description":"此结局中玩家经历的最终命运，1-2句","triggerCondition":"达成此结局需要做的关键选择（具体）","avoidCondition":"哪些选择会让玩家偏离此结局","keyVariable":"courage>=4（0-10整数量表，阈值3-6；无变量追踪则留空）"},{"id":"e2","title":"结局标题","type":"bad","description":"...","triggerCondition":"...","avoidCondition":"...","keyVariable":""},{"id":"e3","title":"结局标题","type":"neutral","description":"...","triggerCondition":"...","avoidCondition":"...","keyVariable":""}]}
 
 type只能是：good、bad、neutral、secret之一。secret结局需要特别隐蔽的条件。
 
@@ -223,8 +228,14 @@ ${chapters.map((ch, i) => `第${i+1}章：${ch.title} — ${ch.brief}`).join('\n
 
       const isFirst = chapterIndex === 0
       const isLast = chapterIndex === chapterCount - 1
-      const nodesPerAct = Math.max(2, Math.round(totalNodes / (chapterCount * actCount)))
       const endingsDesign = (world.endingsDesign as Array<{title:string,type:string,triggerCondition:string}> | undefined) ?? []
+
+      // 按规模方案（totalNodes/chapterCount/actCountPerChapter）推导本章、本幕的节点数硬约束，
+      // 而不是像旧版本那样算出 nodesPerAct 却弃之不用——骨架的实际节点数必须贴合选中的规模方案。
+      const chapterTargetNodes = Math.max(actCount * 2, Math.round(totalNodes / chapterCount))
+      const baseNodesPerAct = Math.floor(chapterTargetNodes / actCount)
+      const actRemainder = chapterTargetNodes - baseNodesPerAct * actCount
+      const perActTarget = Array.from({ length: actCount }, (_, ai) => baseNodesPerAct + (ai < actRemainder ? 1 : 0))
 
       type SkelNode = { title: string; type: string; notes: string }
 
@@ -261,32 +272,59 @@ ${chapters.map((ch, i) => `第${i+1}章：${ch.title} — ${ch.brief}`).join('\n
             })
           }
         } else {
-          // 非终章：菱形分支——每条路有专属场景（内容真实不同），之后汇回主线；variableEffects记录选择差异
-          const pathCount = Math.min(Math.max(2, endingsDesign.length || endingCount), 3)
-          nodes.push({ title: '节点名', type: 'branch', notes: `关键选择：${pathCount}条路径各有专属场景，结束后汇回；variableEffects必须记录此选择对变量的影响` })
-          for (let p = 0; p < pathCount; p++) {
-            const label = ['A', 'B', 'C'][p]
-            const hint = endingsDesign[p]
-              ? `与「${endingsDesign[p].title}」结局相关的选择，affection或变量+1`
-              : `路径${label}：与此路线角色的专属场景，情节与其他路径明显不同`
-            nodes.push({ title: '节点名', type: 'normal', notes: `[路径${label}] ${hint}` })
+          // 非终章：预算（本幕目标节点数）决定要不要放得下一个完整菱形分支——
+          // 旧版本无论预算大小都无条件塞入"branch+多路径+merge+explore"的固定模板，
+          // 是63节点/24节点(2.6倍超标)问题的根源之一；现在按剩余预算动态伸缩结构。
+          const budget = perActTarget[ai] - nodes.length // 开场节点已占1个位置，这是留给本幕其余内容的预算
+          if (budget < 3) {
+            // 预算容不下"branch+至少2条路径"（最少需要3个节点位），改为纯推进节点占位，不引入分支
+            const fillCount = Math.max(1, budget)
+            for (let f = 0; f < fillCount; f++) {
+              nodes.push({ title: '节点名', type: 'normal', notes: '剧情推进：聚焦人物关系或线索揭示，为后续张力做铺垫（本幕预算较小，暂不设关键分支）' })
+            }
+          } else {
+            const maxPaths = Math.min(3, budget - 1) // 给branch本身留1个节点位，其余留给各路径
+            const pathCount = Math.min(Math.max(2, endingsDesign.length || endingCount), maxPaths)
+            nodes.push({ title: '节点名', type: 'branch', notes: `关键选择：${pathCount}条路径各有专属场景，结束后汇回；variableEffects必须记录此选择对变量的影响` })
+            for (let p = 0; p < pathCount; p++) {
+              const label = ['A', 'B', 'C'][p]
+              const hint = endingsDesign[p]
+                ? `与「${endingsDesign[p].title}」结局相关的选择，affection或变量+1`
+                : `路径${label}：与此路线角色的专属场景，情节与其他路径明显不同`
+              nodes.push({ title: '节点名', type: 'normal', notes: `[路径${label}] ${hint}` })
+            }
+            const remainAfterPaths = perActTarget[ai] - nodes.length
+            if (remainAfterPaths >= 1) {
+              nodes.push({ title: '续接', type: 'merge', notes: '各路径汇回主线，故事继续向前推进' })
+            }
+            if (!isLast && remainAfterPaths >= 2) {
+              nodes.push({ title: '探索：槽位名', type: 'explore', notes: '可选隐藏内容：角色秘密、线索物品或世界背景' })
+            }
           }
-          nodes.push({ title: '续接', type: 'merge', notes: '各路径汇回主线，故事继续向前推进' })
-          if (!isLast) {
-            nodes.push({ title: '探索：槽位名', type: 'explore', notes: '可选隐藏内容：角色秘密、线索物品或世界背景' })
-          }
+        }
+
+        // 补足到本幕规模方案要求的节点数：结构性骨架（开场/分支/结局等）不足时插入内容推进节点；
+        // 若结局数量等结构性下限已超过目标（如小规模方案+多结局），保留结构完整性，不强行裁剪。
+        const target = perActTarget[ai]
+        let guard = 0
+        while (nodes.length < target && guard < 30) {
+          nodes.splice(1, 0, { title: '节点名', type: 'normal', notes: '剧情推进节点：补充本幕内容密度，承接前文并为后续做铺垫，可展开人物互动或信息揭示' })
+          guard++
         }
 
         return nodes
       }
 
+      const acts = Array.from({ length: actCount }, (_, ai) => ({
+        title: `第${ai + 1}幕：幕名`,
+        nodes: buildActNodes(ai),
+      }))
       const chapterSkeleton = {
         title: chapterOutline[chapterIndex]?.title ?? `第${chapterIndex + 1}章`,
-        acts: Array.from({ length: actCount }, (_, ai) => ({
-          title: `第${ai + 1}幕：幕名`,
-          nodes: buildActNodes(ai),
-        })),
+        acts,
       }
+      const actualNodeCounts = acts.map(a => a.nodes.length)
+      const actualChapterTotal = actualNodeCounts.reduce((s, n) => s + n, 0)
 
       const handoffs = (spine.chapter_handoffs as Array<{from:number,to:number,carry_over:string}> | undefined) ?? []
       const incomingHandoff = handoffs.find(h => h.to === chapterIndex + 1)
@@ -307,6 +345,11 @@ ${chapters.map((ch, i) => `第${i+1}章：${ch.title} — ${ch.brief}`).join('\n
 【故事世界设定】${world.storyCore ?? ''}
 【主题】${world.theme ?? ''}
 
+【本章节点数量硬性约束——依据你选择的规模方案精确计算，不可增减】
+规模方案：全剧共${totalNodes}个节点 / ${chapterCount}章 / 每章${actCount}幕。本章目标节点数=${chapterTargetNodes}，下方骨架已据此精确搭建，实际共${actualChapterTotal}个节点：
+${actualNodeCounts.map((n, ai) => `第${ai + 1}幕恰好${n}个节点`).join('，')}。
+输出时每一幕的 nodes 数组长度必须与骨架逐幕完全一致，禁止增加或删除任何节点（结局等结构性节点已包含在上述数字中）。
+
 【跨章叙事线】${((spine.throughlines as string[]) ?? []).join(' / ')}
 【本章角色状态】${chapterArcs || '见世界设定'}
 ${incomingHandoff ? `【承接上章】${incomingHandoff.carry_over}` : '【本章定位】故事开篇，建立世界与主角'}
@@ -316,12 +359,12 @@ ${endingsSummary}
 
 【节点type规则】start=开场(唯一) | ending=结局 | branch=关键选择点 | normal=主线推进 | explore=可选旁支（不再使用merge节点）
 【分支规则】非终章：branch → [A路径 normal] + [B路径 normal] → 两条路径各自独立推进到本幕末尾，不设汇聚节点；终章：branch → 多个ending节点（每个结局对应一条路径）
-【变量规则】branch节点的每个选项必须在variableEffects字段写出修改了哪个变量（例：trust+1 / betrayed=true），后续节点可根据变量值限制选项
+【变量规则】branch节点的每个选项必须在variableEffects字段写出修改了哪个变量（例：trust+1，0-10整数量表，不用百分比），后续节点可根据变量值限制选项
 
-【骨架（填充后输出）】
+【骨架（填充后输出，节点数量已按规模方案精确计算，见上方硬性约束）】
 ${JSON.stringify(chapterSkeleton, null, 2)}
 
-输出（结构必须与骨架完全一致：节点数量、顺序、type均不可更改；仅替换title/notes值；严禁出现merge类型节点；严禁将branch降为normal）：`
+输出（结构必须与骨架完全一致：节点数量（本章共${actualChapterTotal}个，逐幕数量见上）、顺序、type均不可更改；仅替换title/notes值；严禁出现merge类型节点；严禁将branch降为normal）：`
     },
 
     'branches:generate': (c) => {
@@ -372,8 +415,21 @@ ${JSON.stringify(chapterSkeleton, null, 2)}
         }
       }
 
+      // ── 结局设计中的关键变量（用于路线门控/终章直通的conditions对齐）────────
+      type EndingDesignLite = { title: string; type?: string; keyVariable?: string; triggerCondition?: string }
+      const world0 = (c.worldAnchor as Record<string, unknown>) ?? {}
+      const endingsDesign = ((world0.endingsDesign ?? []) as EndingDesignLite[])
+      const endingInfoByTitle = new Map(endingsDesign.map(e => [e.title, e]))
+      const endingHint = (endingTitle: string): string => {
+        const info = endingInfoByTitle.get(endingTitle)
+        if (!info) return ' （需在conditions写对应变量条件，0-10整数量表，阈值3-6）'
+        return info.keyVariable
+          ? ` （对应结局「${info.title}」，conditions必须使用其关键变量：${info.keyVariable}，禁止另选变量或改用百分比）`
+          : ` （对应结局「${info.title}」，triggerCondition=${info.triggerCondition ?? ''}；conditions填0-10整数量表下的变量阈值，阈值3-6）`
+      }
+
       // ── 第二步：构建连接拓扑 ─────────────────────────────────────────────
-      type Conn = { from: N; targets: N[]; role: 'advance' | 'branch'; branchKind?: 'route' | 'variable' | 'terminal' | 'diamond' }
+      type Conn = { from: N; targets: N[]; role: 'advance' | 'branch'; branchKind?: 'route' | 'variable' | 'terminal' | 'diamond'; endings?: (N | null)[] }
       const conns: Conn[] = []
 
       for (let i = 0; i < nodes.length; i++) {
@@ -395,11 +451,12 @@ ${JSON.stringify(chapterSkeleton, null, 2)}
           } else if (blocks.length >= 2) {
             // 多路线门控（多个 [normal+ending] 块）：终章路线门控
             const routeEntries = blocks.map(b => b.normals[0] ?? b.ending).filter(Boolean) as N[]
-            conns.push({ from: n, targets: routeEntries, role: 'branch', branchKind: 'route' })
+            const routeEndings = blocks.map(b => b.ending)
+            conns.push({ from: n, targets: routeEntries, role: 'branch', branchKind: 'route', endings: routeEndings })
           } else if (blocks.length === 1 && blocks[0].ending && blocks[0].normals.length === 0) {
             // 单个无内容块：终章直通结局（不常见）
             const endings = blocks.map(b => b.ending).filter(Boolean) as N[]
-            conns.push({ from: n, targets: endings, role: 'branch', branchKind: 'terminal' })
+            conns.push({ from: n, targets: endings, role: 'branch', branchKind: 'terminal', endings })
           } else if (blocks.length === 1 && blocks[0].normals.length >= 2) {
             // 菱形分支：同一块内多个 normal = 多条路径，之后接 merge
             const paths = blocks[0].normals
@@ -442,9 +499,11 @@ ${JSON.stringify(chapterSkeleton, null, 2)}
             : kind === 'terminal' ? '终章直通结局（永久分叉）'
             : kind === 'diamond' ? '菱形分支（每个选项有独立专属场景，之后汇回续接节点）'
             : '变量积累（所有选项指向同一节点，仅variableEffects不同）'
-          const targetsStr = conn.targets.map((t, idx) =>
-            `    选项${idx + 1}: "${t.title}"[id:${t.id}]${t.type === 'ending' ? ' [结局]' : ''}${kind === 'route' ? ' （需在conditions写对应变量条件）' : ''}`
-          ).join('\n')
+          const targetsStr = conn.targets.map((t, idx) => {
+            const relatedEnding = kind === 'route' ? (conn.endings?.[idx] ?? null) : (kind === 'terminal' ? t : null)
+            const hint = (kind === 'route' || kind === 'terminal') && relatedEnding ? endingHint(relatedEnding.title) : ''
+            return `    选项${idx + 1}: "${t.title}"[id:${t.id}]${t.type === 'ending' ? ' [结局]' : ''}${hint}`
+          }).join('\n')
           return `${fromStr}[branch/${kind}] → ${kindLabel}:\n${targetsStr}`
         }
         if (conn.from.type === 'explore') {
@@ -458,7 +517,11 @@ ${JSON.stringify(chapterSkeleton, null, 2)}
       }).join('\n')
 
       const needChoices = nodes.filter(n => n.type !== 'ending')
-      const world = (c.worldAnchor as Record<string,unknown>) ?? {}
+      const world = world0
+
+      const endingsSummary = endingsDesign.length > 0
+        ? `\n【结局关键变量对照表——路线门控/终章直通的conditions必须与此对齐】\n${endingsDesign.map((e, i) => `结局${i + 1}「${e.title}」(${e.type ?? ''})：${e.keyVariable ? `关键变量=${e.keyVariable}` : '无预设关键变量，可从叙事变量中选一个语义匹配的'}；触发条件=${e.triggerCondition ?? ''}`).join('\n')}`
+        : ''
 
       return `你是互动影游编剧，为每个节点设计玩家选项并输出JSON。
 禁止输出JSON以外的任何内容，禁止Markdown代码块，字段名必须与模板完全一致。
@@ -467,6 +530,9 @@ ${JSON.stringify(chapterSkeleton, null, 2)}
 【主题】${world.theme ?? ''}
 【角色】${((c.characters ?? []) as Array<{name:string,role:string}>).map(ch => `${ch.name}(${ch.role})`).join('、') || '见故事设定'}
 ${varNames ? `【叙事变量】${varNames}` : ''}
+${endingsSummary}
+
+【变量机制约定】所有变量为0-10的小整数量表，通过variableEffects以+1（少数+2）累积，禁止使用百分比。conditions中的阈值必须是3-6之间的小整数，且路线门控/终章直通的每个选项必须使用其对应结局的keyVariable（见上表），不得自行发明新变量名或改用其他变量。
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 【连接拓扑——targetNodeId必须完全按此填写，禁止更改】
@@ -481,8 +547,8 @@ ${needChoices.map((n, i) => `${i+1}. [${n.type}] id="${n.id}" "${n.title}"`).joi
 【选项设计规则（严格按branch类型区分）】
 - branch/diamond（菱形分支）：每个选项指向不同的专属路径节点（内容各不相同），variableEffects必须写出此选择对变量的影响（如"affection_A+1"），choiceWeight="heavy"
 - branch/variable（变量积累型）：2-3个选项，所有选项targetNodeId相同，但variableEffects各不同，choiceWeight="heavy"
-- branch/route（路线门控）：每个选项指向不同路线入口，conditions填变量阈值（如"affection_A>=3"），choiceWeight="critical"
-- branch/terminal（终章直通）：每个选项指向结局节点，conditions填变量条件，choiceWeight="critical"
+- branch/route（路线门控）：每个选项指向不同路线入口，conditions必须使用对应结局的keyVariable（见结局关键变量对照表），阈值为0-10量表下的3-6整数（如"courage>=4"），禁止百分比或自造变量，choiceWeight="critical"
+- branch/terminal（终章直通）：每个选项指向结局节点，conditions同样必须使用该结局的keyVariable和3-6整数阈值，choiceWeight="critical"
 - 菱形路径节点[路线节点]：1个推进选项指向续接节点（汇回主线），choiceWeight="light"
 - normal/start节点：1个推进选项(choiceWeight="light") + 可选探索触发
 - explore节点：choices=[]，只填exploreReturnNodeId（按拓扑）

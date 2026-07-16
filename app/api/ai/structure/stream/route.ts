@@ -5,7 +5,7 @@ import { RunCollectorCallbackHandler } from '@langchain/core/tracers/run_collect
 import { getRunId } from '@/lib/ai/lc-chains'
 import type { Spine, ChapterDraft } from '@/lib/ai/schemas'
 
-type NodeUpdate = Record<string, { spine?: Spine | null; chapters?: ChapterDraft[]; errors?: string[] }>
+type NodeUpdate = Record<string, { spine?: Spine | null; chapters?: ChapterDraft[]; errors?: string[]; warnings?: string[] }>
 
 function classifyError(msg: string): { error: string; errorType: string } {
   if (msg.startsWith('no_cli:')) return { error: msg, errorType: 'no_cli' }
@@ -38,11 +38,12 @@ export const POST = withAuth(async (req: NextRequest) => {
 
       const chapters: ChapterDraft[] = []
       const errors: string[] = []
+      const warnings: string[] = []
       let chaptersDone = 0
 
       try {
         const iterator = await structureGraph.stream(
-          { worldAnchor, scalePlan, characters, chapterCount, chapterIndex: 0, spine: null, chapters: [], errors: [] },
+          { worldAnchor, scalePlan, characters, chapterCount, chapterIndex: 0, spine: null, chapters: [], errors: [], warnings: [] },
           { streamMode: 'updates', callbacks: [collector] }
         )
 
@@ -59,13 +60,14 @@ export const POST = withAuth(async (req: NextRequest) => {
             const part = update.generateChapter
             if (part.chapters) chapters.push(...part.chapters)
             if (part.errors) errors.push(...part.errors)
+            if (part.warnings) warnings.push(...part.warnings)
             chaptersDone += 1
-            send({ type: 'chapter', done: chaptersDone, total: chapterCount })
+            send({ type: 'chapter', done: chaptersDone, total: chapterCount, warnings: part.warnings ?? [] })
           }
         }
 
         sendRunId()
-        send({ type: 'done', chapters, errors })
+        send({ type: 'done', chapters, errors, warnings })
       } catch (err) {
         sendRunId()
         const msg = err instanceof Error ? err.message : String(err)

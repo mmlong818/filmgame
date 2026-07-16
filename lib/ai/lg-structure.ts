@@ -54,6 +54,11 @@ const StructureState = Annotation.Root({
     reducer: (existing, incoming) => [...existing, ...incoming],
     default: () => [],
   }),
+  /** 非阻断性提示（如实际节点数偏离规模方案），不影响生成结果被判定为成功 */
+  warnings: Annotation<string[]>({
+    reducer: (existing, incoming) => [...existing, ...incoming],
+    default: () => [],
+  }),
 })
 
 type StructureStateType = typeof StructureState.State
@@ -94,6 +99,24 @@ function fanOutChapters(state: StructureStateType) {
   )
 }
 
+// ─── 软校验：实际节点数是否偏离规模方案（不阻断生成，仅记录警告） ───────────
+// 计算方式需与 lib/ai/prompts.ts 的 structure:chapter 模板保持一致（chapterTargetNodes）。
+
+function checkNodeCountDeviation(state: StructureStateType, chapter: ChapterDraft): string[] {
+  const scalePlan = (state.scalePlan ?? {}) as Record<string, unknown>
+  const actCount = Number(scalePlan.actCountPerChapter ?? 3)
+  const totalNodes = Number(scalePlan.totalNodes ?? 25)
+  const chapterCount = Math.max(1, state.chapterCount || 1)
+  const targetNodes = Math.max(actCount * 2, Math.round(totalNodes / chapterCount))
+  const actualNodes = chapter.acts.reduce((sum, act) => sum + act.nodes.length, 0)
+  if (targetNodes <= 0) return []
+  const deviation = Math.abs(actualNodes - targetNodes) / targetNodes
+  if (deviation > 0.3) {
+    return [`第${state.chapterIndex + 1}章实际生成${actualNodes}个节点，与规模方案目标(约${targetNodes}个)偏差超过30%`]
+  }
+  return []
+}
+
 // ─── 节点：生成单章（并行，失败互不影响） ─────────────────────────────
 
 async function generateChapter(state: StructureStateType): Promise<Partial<StructureStateType>> {
@@ -117,7 +140,7 @@ async function generateChapter(state: StructureStateType): Promise<Partial<Struc
       const extracted = extractJson(raw)
       if (extracted !== null) {
         const parsed = ChapterDraftSchema.safeParse(extracted)
-        if (parsed.success) return { chapters: [parsed.data] }
+        if (parsed.success) return { chapters: [parsed.data], warnings: checkNodeCountDeviation(state, parsed.data) }
       }
     }
     return { errors: [`第${chapterIndex + 1}章解析失败`] }
@@ -151,6 +174,8 @@ export interface StructureGraphResult {
   spine: Spine | null
   chapters: ChapterDraft[]
   errors: string[]
+  /** 非阻断性提示（如实际节点数偏离规模方案），不代表生成失败 */
+  warnings: string[]
 }
 
 export interface RunStructureGraphOptions {
@@ -166,9 +191,9 @@ export async function runStructureGraph(
   const chapterCount = Number(scalePlan?.chapterCount ?? 3)
 
   const result = await structureGraph.invoke(
-    { ...input, chapterCount, chapterIndex: 0, spine: null, chapters: [], errors: [] },
+    { ...input, chapterCount, chapterIndex: 0, spine: null, chapters: [], errors: [], warnings: [] },
     options?.callbacks ? { callbacks: options.callbacks } : undefined
   )
 
-  return { spine: result.spine, chapters: result.chapters, errors: result.errors }
+  return { spine: result.spine, chapters: result.chapters, errors: result.errors, warnings: result.warnings }
 }
