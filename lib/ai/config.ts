@@ -5,6 +5,10 @@ export interface AIConfig {
   apiKey?: string
   model?: string
   baseUrl?: string
+  /** 快速模式使用的模型 ID；留空按 provider 给默认（见 lib/ai/lc-providers.ts resolveModel） */
+  modelFast?: string
+  /** 思考模式使用的模型 ID；留空则沿用 model */
+  modelThinking?: string
 }
 
 export const DEFAULT_MODELS: Record<AIProvider, string> = {
@@ -36,7 +40,7 @@ export function loadAIConfig(): AIConfig {
 export function saveAIConfig(config: AIConfig): void {
   if (typeof window === 'undefined') return
   // apiKey 不落 localStorage（BYOK 密钥仅经 POST /api/settings 上行，服务端加密存 DB）；
-  // 本地仅保留非敏感的 provider/model/baseUrl，用于下次打开设置页时的默认选中项。
-  const { provider, model, baseUrl } = config
-  localStorage.setItem(SETTINGS_KEY, JSON.stringify({ provider, model, baseUrl }))
+  // 本地仅保留非敏感的 provider/model/baseUrl/modelFast/modelThinking，用于下次打开设置页时的默认选中项。
+  const { provider, model, baseUrl, modelFast, modelThinking } = config
+  localStorage.setItem(SETTINGS_KEY, JSON.stringify({ provider, model, baseUrl, modelFast, modelThinking }))
 }
