@@ -91,6 +91,7 @@ export function toRows(project: Project): { projectRow: ProjectRowBase; nodeRows
     selectedScalePlanId: project.selectedScalePlanId,
     schemaVersion: project.schemaVersion ?? 1,
     downstreamStale: project.downstreamStale ?? false,
+    aiMode: project.aiMode ?? null,
     phaseProgress: project.phaseProgress,
     worldAnchor: project.worldAnchor,
     characters: project.characters,
@@ -132,6 +133,7 @@ export function fromRows(projectRow: ProjectRow, nodeRows: NodeRow[]): Project {
     directorReview: projectRow.directorReview,
     downstreamStale: projectRow.downstreamStale,
     schemaVersion: projectRow.schemaVersion,
+    aiMode: projectRow.aiMode,
   }
 
   const migrated = migrateProject(doc)

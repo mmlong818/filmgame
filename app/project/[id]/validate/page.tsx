@@ -5,6 +5,7 @@ import { useProjectStore } from '@/lib/store/projectStore'
 import { runValidation } from '@/lib/validation/engine'
 import { exportProjectJson, exportInk } from '@/lib/persistence'
 import { useToast } from '@/app/components/toast'
+import { aiFetch } from '@/lib/ai/client'
 import { enumeratePaths } from '@/lib/graph'
 import type { ValidationReport, DirectorReview, Project, StoryNode } from '@/lib/types/project'
 
@@ -50,11 +51,7 @@ export default function ValidatePage() {
     setLoading(true)
     setAiError(null)
     try {
-      const res = await fetch('/api/ai', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phase: 'validate', action: 'report', context: report }),
-      })
+      const res = await aiFetch('validate', 'report', report as unknown as Record<string, unknown>)
       const data = await res.json()
       if (data.ok && data.result) {
         setAiSuggestions(data.result)
@@ -72,23 +69,16 @@ export default function ValidatePage() {
     if (!project) return
     setDirectorLoading(true)
     try {
-      const res = await fetch('/api/ai', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          phase: 'validate', action: 'director_review',
-          context: {
-            worldAnchor: project.worldAnchor,
-            characters: project.characters,
-            endings: project.endings,
-            nodes: project.nodes.map(n => ({
-              ...n,
-              choiceTargets: n.choices.map(c => c.targetNodeId),
-              fakeBranch: n.type === 'branch' && n.choices.length > 0 &&
-                new Set(n.choices.map(c => c.targetNodeId).filter(Boolean)).size === 1,
-            })),
-          },
-        }),
+      const res = await aiFetch('validate', 'director_review', {
+        worldAnchor: project.worldAnchor,
+        characters: project.characters,
+        endings: project.endings,
+        nodes: project.nodes.map(n => ({
+          ...n,
+          choiceTargets: n.choices.map(c => c.targetNodeId),
+          fakeBranch: n.type === 'branch' && n.choices.length > 0 &&
+            new Set(n.choices.map(c => c.targetNodeId).filter(Boolean)).size === 1,
+        })),
       })
       const data = await res.json()
       if (data.ok && data.result) {

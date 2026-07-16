@@ -139,6 +139,38 @@ export function AISettingsModal({ open, onClose }: Props) {
                 />
               </div>
             )}
+
+            <div className="mb-4">
+              <label className="text-xs uppercase tracking-[0.3em] mb-2 block" style={{ color: 'var(--shell-fg-3)' }}>
+                快速模式模型（可选）
+              </label>
+              <input
+                type="text"
+                value={config.modelFast || ''}
+                onChange={e => setConfig(c => ({ ...c, modelFast: e.target.value }))}
+                placeholder="留空使用默认（如 glm-5-turbo / claude-haiku-4-5）"
+                className="w-full px-4 py-3 text-sm focus:outline-none"
+                style={{ background: 'var(--shell-raised)', border: '1px solid var(--shell-border)', color: 'var(--shell-fg)' }}
+                onFocus={e => { e.currentTarget.style.borderColor = 'var(--gold-mid)' }}
+                onBlur={e => { e.currentTarget.style.borderColor = 'var(--shell-border)' }}
+              />
+            </div>
+
+            <div className="mb-6">
+              <label className="text-xs uppercase tracking-[0.3em] mb-2 block" style={{ color: 'var(--shell-fg-3)' }}>
+                思考模式模型（可选）
+              </label>
+              <input
+                type="text"
+                value={config.modelThinking || ''}
+                onChange={e => setConfig(c => ({ ...c, modelThinking: e.target.value }))}
+                placeholder="留空则沿用上方「模型」"
+                className="w-full px-4 py-3 text-sm focus:outline-none"
+                style={{ background: 'var(--shell-raised)', border: '1px solid var(--shell-border)', color: 'var(--shell-fg)' }}
+                onFocus={e => { e.currentTarget.style.borderColor = 'var(--gold-mid)' }}
+                onBlur={e => { e.currentTarget.style.borderColor = 'var(--shell-border)' }}
+              />
+            </div>
           </>
         )}
 

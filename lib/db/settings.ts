@@ -18,6 +18,8 @@ export async function getSettings(): Promise<AIConfig | null> {
     model: row.model ?? undefined,
     baseUrl: row.baseUrl ?? undefined,
     apiKey: row.apiKeyEnc ? decryptSecret(row.apiKeyEnc) : undefined,
+    modelFast: row.modelFast ?? undefined,
+    modelThinking: row.modelThinking ?? undefined,
   }
 }
 
@@ -35,6 +37,9 @@ export async function saveSettings(config: AIConfig): Promise<void> {
       model: config.model ?? null,
       baseUrl: config.baseUrl ?? null,
       apiKeyEnc,
+      // 空字符串视为"清空/使用默认"，与 apiKey 的留空语义不同（这两个字段不敏感，允许直接清空覆盖）
+      modelFast: config.modelFast || null,
+      modelThinking: config.modelThinking || null,
       updatedAt: now,
     }
 

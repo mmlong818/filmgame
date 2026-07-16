@@ -19,6 +19,7 @@ export const VariableTypeSchema = z.enum(['flag', 'counter', 'relationship', 'it
 export const IssueLevelSchema = z.enum(['error', 'warning', 'info'])
 export const PhaseSchema = z.enum(['world', 'scale', 'structure', 'workshop', 'validate'])
 export const PhaseStatusSchema = z.enum(['locked', 'in_progress', 'done'])
+export const AiModeSchema = z.enum(['fast', 'thinking'])
 
 // ─── VoiceProfile / Character ──────────────────────────────────────
 
@@ -267,6 +268,7 @@ export const ProjectSchema = z.object({
   directorReview: DirectorReviewSchema.nullable(),
   downstreamStale: z.boolean().optional(),
   schemaVersion: z.number().optional(),
+  aiMode: AiModeSchema.optional(),
 })
 
 export type ProjectSchemaType = z.infer<typeof ProjectSchema>

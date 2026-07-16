@@ -2,6 +2,7 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { useProjectStore } from '@/lib/store/projectStore'
+import { aiFetch } from '@/lib/ai/client'
 import type { ScalePlan } from '@/lib/types/project'
 
 function PlanCard({
@@ -156,11 +157,7 @@ export default function ScalePage() {
     setLoading(true)
     setError(null)
     try {
-      const res = await fetch('/api/ai', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phase: 'scale', action: 'generate', context: project.worldAnchor }),
-      })
+      const res = await aiFetch('scale', 'generate', project.worldAnchor as unknown as Record<string, unknown>)
       const data = await res.json()
       if (!data.ok) {
         setError(data.error ?? 'AI 服务不可用，请稍后重试')

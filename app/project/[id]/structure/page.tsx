@@ -3,6 +3,7 @@ import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { nanoid } from 'nanoid'
 import { useProjectStore } from '@/lib/store/projectStore'
+import { aiFetch, aiStructureFetch } from '@/lib/ai/client'
 import type { NodeType, Chapter, Act, StoryNode } from '@/lib/types/project'
 import FlowView from './FlowView'
 import EndingsSection from './EndingsSection'
@@ -140,13 +141,9 @@ export default function StructurePage() {
     return reachedEnd
   }
 
-  async function generateStructureFallback(payload: string) {
+  async function generateStructureFallback(context: Record<string, unknown>) {
     try {
-      const res = await fetch('/api/ai/structure', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: payload,
-      })
+      const res = await aiStructureFetch('/api/ai/structure', context)
       const data = await res.json()
       runIdRef.current = data.runId ?? runIdRef.current
       const chapters = data.result?.chapters ?? (Array.isArray(data.result) ? data.result : null)
@@ -173,17 +170,11 @@ export default function StructurePage() {
     setStructProgress(null)
     runIdRef.current = null
     const scalePlan = project!.scalePlanOptions.find(p => p.id === project!.selectedScalePlanId)
-    const payload = JSON.stringify({
-      context: { worldAnchor: project!.worldAnchor, scalePlan, characters: project!.characters },
-    })
+    const context = { worldAnchor: project!.worldAnchor, scalePlan, characters: project!.characters }
 
     let streamStarted = false
     try {
-      const res = await fetch('/api/ai/structure/stream', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: payload,
-      })
+      const res = await aiStructureFetch('/api/ai/structure/stream', context)
       if (res.ok && res.body) {
         streamStarted = true
         const reachedEnd = await consumeStructStream(res.body)
@@ -204,7 +195,7 @@ export default function StructurePage() {
       }
       // 流式连接在建立阶段就失败（网络/代理不透传）：走非流式回退
     }
-    if (!streamStarted) await generateStructureFallback(payload)
+    if (!streamStarted) await generateStructureFallback(context)
   }
 
   function commitStructure(draft: AiChapterDraft[]) {
@@ -240,18 +231,11 @@ export default function StructurePage() {
     setAiError(null)
     const nodeList = nodes ?? project!.nodes
     try {
-      const res = await fetch('/api/ai', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          phase: 'branches', action: 'generate',
-          context: {
-            worldAnchor: project!.worldAnchor,
-            characters: project!.characters,
-            variables: project!.variables,
-            nodes: nodeList.map(n => ({ id: n.id, title: n.title, type: n.type, notes: n.notes })),
-          },
-        }),
+      const res = await aiFetch('branches', 'generate', {
+        worldAnchor: project!.worldAnchor,
+        characters: project!.characters,
+        variables: project!.variables,
+        nodes: nodeList.map(n => ({ id: n.id, title: n.title, type: n.type, notes: n.notes })),
       })
       const data = await res.json()
       const nodeChoices = data.result?.nodeChoices

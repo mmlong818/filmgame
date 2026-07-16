@@ -6,9 +6,17 @@ import { SpineSchema, ChapterDraftSchema, type Spine, type ChapterDraft } from '
 import { HumanMessage } from '@langchain/core/messages'
 import { RETRY_SUFFIX } from './lc-cli-model'
 import type { BaseCallbackHandler } from '@langchain/core/callbacks/base'
+import type { AiMode } from '../types/project'
 
 const SPINE_TIMEOUT = 90000
 const CHAPTER_TIMEOUT = 300000
+const FAST_TIMEOUT_FLOOR = 60000
+
+// fast 模式下用现有超时预算的 1/3（下限 60s）；thinking（含缺省）沿用现状。
+function effectiveTimeout(base: number, mode?: AiMode): number {
+  if (mode !== 'fast') return base
+  return Math.max(FAST_TIMEOUT_FLOOR, Math.round(base / 3))
+}
 
 function extractJson(text: string): unknown {
   const t = text.trim()
@@ -45,6 +53,7 @@ const StructureState = Annotation.Root({
   characters: Annotation<unknown>(),
   chapterCount: Annotation<number>(),
   chapterIndex: Annotation<number>(),
+  mode: Annotation<AiMode | undefined>({ reducer: (_left, right) => right, default: () => undefined }),
   spine: Annotation<Spine | null>({ reducer: (_left, right) => right, default: () => null }),
   chapters: Annotation<ChapterDraft[]>({
     reducer: (existing, incoming) => [...existing, ...incoming],
@@ -67,7 +76,8 @@ type StructureStateType = typeof StructureState.State
 
 async function generateSpine(state: StructureStateType): Promise<Partial<StructureStateType>> {
   const config = await loadServerAIConfig()
-  const model = createModel(config, { timeoutMs: SPINE_TIMEOUT })
+  const timeoutMs = effectiveTimeout(SPINE_TIMEOUT, state.mode)
+  const model = createModel(config, { timeoutMs, mode: state.mode })
   const prompt = buildPrompt('structure', 'spine', {
     worldAnchor: state.worldAnchor,
     scalePlan: state.scalePlan,
@@ -75,7 +85,7 @@ async function generateSpine(state: StructureStateType): Promise<Partial<Structu
   })
   // @langchain/google-genai 的 ChatGoogleGenerativeAI 构造函数不支持 timeout 字段，
   // 借助 LangChain 通用的 RunnableConfig.timeout（invoke 时转换为 AbortSignal.timeout）兜底
-  const invokeOptions = config.provider === 'gemini' ? { timeout: SPINE_TIMEOUT } : undefined
+  const invokeOptions = config.provider === 'gemini' ? { timeout: timeoutMs } : undefined
 
   for (let i = 0; i < 3; i++) {
     const input = i === 0 ? prompt : prompt + RETRY_SUFFIX
@@ -123,7 +133,8 @@ async function generateChapter(state: StructureStateType): Promise<Partial<Struc
   const { chapterIndex } = state
   try {
     const config = await loadServerAIConfig()
-    const model = createModel(config, { timeoutMs: CHAPTER_TIMEOUT })
+    const timeoutMs = effectiveTimeout(CHAPTER_TIMEOUT, state.mode)
+    const model = createModel(config, { timeoutMs, mode: state.mode })
     const prompt = buildPrompt('structure', 'chapter', {
       worldAnchor: state.worldAnchor,
       scalePlan: state.scalePlan,
@@ -131,7 +142,7 @@ async function generateChapter(state: StructureStateType): Promise<Partial<Struc
       spine: state.spine,
       chapterIndex,
     })
-    const invokeOptions = config.provider === 'gemini' ? { timeout: CHAPTER_TIMEOUT } : undefined
+    const invokeOptions = config.provider === 'gemini' ? { timeout: timeoutMs } : undefined
 
     for (let i = 0; i < 3; i++) {
       const input = i === 0 ? prompt : prompt + RETRY_SUFFIX
@@ -168,6 +179,7 @@ export interface StructureGraphInput {
   worldAnchor: unknown
   scalePlan: unknown
   characters: unknown
+  mode?: AiMode
 }
 
 export interface StructureGraphResult {

@@ -22,6 +22,8 @@ export const projects = pgTable('projects', {
   archived: boolean('archived').notNull().default(false),
   archivedAt: timestamp('archived_at', { withTimezone: true }),
   downstreamStale: boolean('downstream_stale').notNull().default(false),
+  // AI 双模式：'fast' | 'thinking'；为空时按 'thinking' 处理（见 lib/schema/migrations.ts normalizeLegacy）。
+  aiMode: text('ai_mode'),
 
   // JSONB 小集合（不含 nodes，nodes 独立成表）
   phaseProgress: jsonb('phase_progress').notNull(),
@@ -63,6 +65,9 @@ export const settings = pgTable('settings', {
   model: text('model'),
   baseUrl: text('base_url'),
   apiKeyEnc: text('api_key_enc'),
+  // 双模式各自使用的模型 ID；为空时按 provider 给默认（见 lib/ai/lc-providers.ts resolveModel）。
+  modelFast: text('model_fast'),
+  modelThinking: text('model_thinking'),
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull(),
 })
 

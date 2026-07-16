@@ -8,6 +8,8 @@ const AIConfigSchema = z.object({
   apiKey: z.string().max(256).optional(),
   model: z.string().max(128).optional(),
   baseUrl: z.string().url().max(512).optional(),
+  modelFast: z.string().max(128).optional(),
+  modelThinking: z.string().max(128).optional(),
 })
 
 export const GET = withAuth(async () => {

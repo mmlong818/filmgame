@@ -3,16 +3,18 @@ import { runStructureGraph } from '@/lib/ai/lg-structure'
 import { withAuth } from '@/lib/server/auth'
 import { RunCollectorCallbackHandler } from '@langchain/core/tracers/run_collector'
 import { getRunId } from '@/lib/ai/lc-chains'
+import type { AiMode } from '@/lib/types/project'
 
 export const POST = withAuth(async (req: NextRequest) => {
   const collector = new RunCollectorCallbackHandler()
   try {
     const body = await req.json()
     const context = body.context as Record<string, unknown>
+    const mode = body.mode as AiMode | undefined
     const { worldAnchor, scalePlan, characters } = context
 
     const { chapters, errors, warnings } = await runStructureGraph(
-      { worldAnchor, scalePlan, characters },
+      { worldAnchor, scalePlan, characters, mode },
       { callbacks: [collector] }
     )
     const runId = getRunId(collector)

@@ -4,6 +4,7 @@ import { withAuth } from '@/lib/server/auth'
 import { RunCollectorCallbackHandler } from '@langchain/core/tracers/run_collector'
 import { getRunId } from '@/lib/ai/lc-chains'
 import type { Spine, ChapterDraft } from '@/lib/ai/schemas'
+import type { AiMode } from '@/lib/types/project'
 
 type NodeUpdate = Record<string, { spine?: Spine | null; chapters?: ChapterDraft[]; errors?: string[]; warnings?: string[] }>
 
@@ -17,6 +18,7 @@ function classifyError(msg: string): { error: string; errorType: string } {
 export const POST = withAuth(async (req: NextRequest) => {
   const body = await req.json()
   const context = body.context as Record<string, unknown>
+  const mode = body.mode as AiMode | undefined
   const { worldAnchor, scalePlan, characters } = context
   const chapterCount = Number((scalePlan as Record<string, unknown>)?.chapterCount ?? 3)
 
@@ -43,7 +45,7 @@ export const POST = withAuth(async (req: NextRequest) => {
 
       try {
         const iterator = await structureGraph.stream(
-          { worldAnchor, scalePlan, characters, chapterCount, chapterIndex: 0, spine: null, chapters: [], errors: [], warnings: [] },
+          { worldAnchor, scalePlan, characters, chapterCount, chapterIndex: 0, spine: null, chapters: [], errors: [], warnings: [], mode },
           { streamMode: 'updates', callbacks: [collector] }
         )
 

@@ -3,6 +3,7 @@ import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { nanoid } from 'nanoid'
 import { useProjectStore } from '@/lib/store/projectStore'
+import { aiFetch } from '@/lib/ai/client'
 import type { WorldAnchor, Character, EndingDesign, Variable, AiReview, VoiceProfile } from '@/lib/types/project'
 
 export default function WorldPage() {
@@ -56,15 +57,7 @@ export default function WorldPage() {
   async function generateVoiceProfile(ch: Character) {
     setVoiceLoading(ch.id)
     try {
-      const res = await fetch('/api/ai', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          phase: 'workshop',
-          action: 'character_voice',
-          context: { character: ch, worldAnchor: form },
-        }),
-      })
+      const res = await aiFetch('workshop', 'character_voice', { character: ch, worldAnchor: form })
       const data = await res.json()
       if (data.ok && data.result) {
         setVoiceProfiles(p => ({ ...p, [ch.id]: data.result }))
@@ -77,11 +70,7 @@ export default function WorldPage() {
   async function fixIssues(issues: AiReview['issues']) {
     setFixLoading(true)
     try {
-      const res = await fetch('/api/ai', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phase: 'world', action: 'fix_issues', context: { worldAnchor: form, issues } }),
-      })
+      const res = await aiFetch('world', 'fix_issues', { worldAnchor: form, issues })
       const data = await res.json()
       if (data.ok && data.result) {
         const patch = data.result as Partial<WorldAnchor>
@@ -96,11 +85,7 @@ export default function WorldPage() {
     setLoading(true)
     setReview(null)
     try {
-      const res = await fetch('/api/ai', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phase: 'world', action: 'review', context: { ...form, characters: project?.characters ?? [] } }),
-      })
+      const res = await aiFetch('world', 'review', { ...form, characters: project?.characters ?? [] })
       const data = await res.json()
       if (data.ok) setReview(data.result as AiReview)
     } catch (e) {
@@ -113,15 +98,7 @@ export default function WorldPage() {
   async function generateEndings() {
     setEndingsLoading(true)
     try {
-      const res = await fetch('/api/ai', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          phase: 'world',
-          action: 'endings_design',
-          context: { worldAnchor: form, characters: project?.characters ?? [] },
-        }),
-      })
+      const res = await aiFetch('world', 'endings_design', { worldAnchor: form, characters: project?.characters ?? [] })
       const data = await res.json()
       if (data.ok && data.result?.endings) {
         const endings = data.result.endings as EndingDesign[]
@@ -138,11 +115,7 @@ export default function WorldPage() {
   async function generateCharacters() {
     setCharactersLoading(true)
     try {
-      const res = await fetch('/api/ai', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phase: 'world', action: 'suggest_characters', context: { worldAnchor: form } }),
-      })
+      const res = await aiFetch('world', 'suggest_characters', { worldAnchor: form })
       const data = await res.json()
       if (data.ok && Array.isArray(data.result?.characters)) {
         const chars = (data.result.characters as Array<Record<string,string>>).map(c => ({
@@ -165,11 +138,7 @@ export default function WorldPage() {
   async function suggestVariables() {
     setVariablesLoading(true)
     try {
-      const res = await fetch('/api/ai', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phase: 'world', action: 'suggest_variables', context: { worldAnchor: form, characters: project?.characters ?? [] } }),
-      })
+      const res = await aiFetch('world', 'suggest_variables', { worldAnchor: form, characters: project?.characters ?? [] })
       const data = await res.json()
       if (data.ok && Array.isArray(data.result?.variables)) {
         const vars = (data.result.variables as Array<Record<string,string>>).map(v => ({

@@ -1,5 +1,6 @@
 import type { Phase } from './phase'
 
+export type AiMode = 'fast' | 'thinking'
 export type NodeType = 'normal' | 'branch' | 'merge' | 'ending' | 'start' | 'explore'
 export type DramaticWeight = 'setup' | 'tension' | 'payoff' | 'relief' | 'reveal' | 'dilemma'
 export type VariableType = 'flag' | 'counter' | 'relationship' | 'item'
@@ -224,6 +225,8 @@ export interface Project {
   directorReview: DirectorReview | null
   downstreamStale?: boolean
   schemaVersion?: number
+  /** AI 双模式：fast（快速搭骨架）/ thinking（深度精修）。缺省按 thinking 处理（保持迁移前行为）。 */
+  aiMode?: AiMode
 }
 
 export interface ProjectSummary {

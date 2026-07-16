@@ -36,6 +36,8 @@ export function normalizeLegacy(doc: any): any {
   if (out.lastValidation === undefined) out.lastValidation = null
   if (out.directorReview === undefined) out.directorReview = null
   if (out.downstreamStale === undefined) out.downstreamStale = false
+  // 缺省/非法值一律按 thinking 处理，保持迁移前（无双模式概念时）的深度生成行为不变。
+  if (out.aiMode !== 'fast' && out.aiMode !== 'thinking') out.aiMode = 'thinking'
 
   for (const key of ['characters', 'scalePlanOptions', 'chapters', 'acts', 'nodes', 'variables', 'endings']) {
     if (!Array.isArray(out[key])) out[key] = []

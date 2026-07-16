@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import { nanoid } from 'nanoid'
-import type { Project, StoryNode, Choice, Variable, WorldAnchor, ScalePlan, ValidationReport, Chapter, Act, Character, Ending, EndingDesign } from '@/lib/types/project'
+import type { Project, StoryNode, Choice, Variable, WorldAnchor, ScalePlan, ValidationReport, Chapter, Act, Character, Ending, EndingDesign, AiMode } from '@/lib/types/project'
 import type { Phase } from '@/lib/types/phase'
 import { loadLocalSnapshot, writeLocalSnapshot, saveProject, saveProjectMeta, saveNode, setHydrated, clearConflictLock } from '@/lib/persistence'
 import type { SaveStateDetail } from '@/lib/persistence'
@@ -15,7 +15,7 @@ const defaultPhaseProgress = (): Record<Phase, 'locked' | 'in_progress' | 'done'
   validate: 'locked',
 })
 
-export function createEmptyProject(title: string): Project {
+export function createEmptyProject(title: string, mode: AiMode = 'thinking'): Project {
   return {
     id: nanoid(8),
     title,
@@ -36,6 +36,7 @@ export function createEmptyProject(title: string): Project {
     directorReview: null,
     downstreamStale: false,
     schemaVersion: 1,
+    aiMode: mode,
   }
 }
 
@@ -95,6 +96,7 @@ interface ProjectStore {
   setEndingsDesign: (endings: EndingDesign[]) => void
 
   renameProject: (title: string) => void
+  setAiMode: (mode: AiMode) => void
   setValidationReport: (report: ValidationReport) => void
   setDirectorReview: (review: import('@/lib/types/project').DirectorReview) => void
 }
@@ -448,6 +450,13 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
   renameProject: (title) => set((s) => {
     if (!s.project) return s
     const p = { ...s.project, title, updatedAt: new Date().toISOString() }
+    saveProjectMeta(p, s.loadedVersion ?? undefined)
+    return { project: p }
+  }),
+
+  setAiMode: (mode) => set((s) => {
+    if (!s.project) return s
+    const p = { ...s.project, aiMode: mode, updatedAt: new Date().toISOString() }
     saveProjectMeta(p, s.loadedVersion ?? undefined)
     return { project: p }
   }),

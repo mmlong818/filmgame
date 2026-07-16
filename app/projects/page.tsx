@@ -5,7 +5,7 @@ import { nanoid } from 'nanoid'
 import { createProject, hasUnimportedLegacyData, importLegacyLocalData, removeLocalSnapshot } from '@/lib/persistence'
 import { createEmptyProject, useProjectStore } from '@/lib/store/projectStore'
 import { PHASES } from '@/lib/types/phase'
-import type { ProjectSummary } from '@/lib/types/project'
+import type { ProjectSummary, AiMode } from '@/lib/types/project'
 import { useToast } from '@/app/components/toast'
 import { ArtDecoRule, ArtDecoStepCorner, ShellWordmark, GoldBar } from '@/app/components/art-deco'
 import { AISettingsModal } from '@/app/components/ai-settings-modal'
@@ -20,6 +20,11 @@ const PROJECT_TEMPLATES = [
 
 type ProjectTemplate = typeof PROJECT_TEMPLATES[number]
 
+const AI_MODE_OPTIONS: { id: AiMode; emoji: string; label: string; desc: string }[] = [
+  { id: 'fast', emoji: '⚡', label: '快速模式', desc: '快速生成基础剧本结构，适合先搭骨架' },
+  { id: 'thinking', emoji: '🧠', label: '思考模式', desc: '深度推理，质量优先，单次生成 1-10 分钟' },
+]
+
 const PHASE_LABELS: Record<string, string> = { world: '世界锚点', scale: '规模规划', structure: '故事结构', workshop: '剧本工坊', validate: '全局校验' }
 const PHASE_STEPS = ['world', 'scale', 'structure', 'workshop', 'validate']
 
@@ -31,6 +36,7 @@ function ProjectsPageInner() {
   const [showNew, setShowNew] = useState(false)
   const [newTitle, setNewTitle] = useState('')
   const [selectedTemplate, setSelectedTemplate] = useState<ProjectTemplate | null>(null)
+  const [newAiMode, setNewAiMode] = useState<AiMode>('thinking')
   const [deletingId, setDeletingId] = useState<string | null>(null)
   const [showArchive, setShowArchive] = useState(false)
   const [archivedProjects, setArchivedProjects] = useState<ProjectSummary[]>([])
@@ -109,7 +115,7 @@ function ProjectsPageInner() {
 
   async function handleCreate() {
     if (!newTitle.trim()) return
-    const p = createEmptyProject(newTitle.trim())
+    const p = createEmptyProject(newTitle.trim(), newAiMode)
     if (selectedTemplate) { p.worldAnchor = selectedTemplate.world; p.phaseProgress.world = 'in_progress' }
     const result = await createProject(p)
     if (!result.ok) {
@@ -591,6 +597,28 @@ function ProjectsPageInner() {
             />
 
             <div className="mb-6">
+              <p className="text-xs uppercase tracking-[0.3em] mb-3" style={{ color: 'var(--shell-fg-3)' }}>AI 生成模式</p>
+              <div className="grid grid-cols-2 gap-2.5">
+                {AI_MODE_OPTIONS.map(m => (
+                  <button
+                    key={m.id}
+                    onClick={() => setNewAiMode(m.id)}
+                    className="text-left p-3 text-sm transition-all"
+                    style={{
+                      background: newAiMode === m.id ? 'var(--gold-trace)' : 'var(--shell-raised)',
+                      border: `1px solid ${newAiMode === m.id ? 'var(--gold-mid)' : 'var(--shell-border)'}`,
+                      color: newAiMode === m.id ? 'var(--gold-bright)' : 'var(--shell-fg-2)',
+                    }}
+                  >
+                    <div className="font-medium mb-1">{m.emoji} {m.label}</div>
+                    <div className="text-xs opacity-70 leading-snug" style={{ color: 'var(--shell-fg-3)' }}>{m.desc}</div>
+                  </button>
+                ))}
+              </div>
+              <p className="text-xs mt-2" style={{ color: 'var(--shell-fg-3)' }}>项目内可随时切换，典型流程：快速搭骨架 → 切思考模式重构精修</p>
+            </div>
+
+            <div className="mb-6">
               <p className="text-xs uppercase tracking-[0.3em] mb-3" style={{ color: 'var(--shell-fg-3)' }}>从模板开始</p>
               <div className="grid grid-cols-3 gap-2.5">
                 {PROJECT_TEMPLATES.map(t => (
@@ -613,7 +641,7 @@ function ProjectsPageInner() {
 
             <div className="flex gap-3">
               <button
-                onClick={() => { setShowNew(false); setNewTitle(''); setSelectedTemplate(null) }}
+                onClick={() => { setShowNew(false); setNewTitle(''); setSelectedTemplate(null); setNewAiMode('thinking') }}
                 className="flex-1 py-3 text-sm font-medium tracking-wider transition-all"
                 style={{ border: '1px solid var(--shell-border)', color: 'var(--shell-fg-2)', background: 'transparent' }}
                 onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--gold-dim)'; e.currentTarget.style.color = 'var(--shell-fg)' }}

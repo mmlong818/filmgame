@@ -9,6 +9,7 @@ import { loadServerAIConfig } from './server-config'
 import { SCHEMA_REGISTRY } from './schemas'
 import { RETRY_SUFFIX } from './lc-cli-model'
 import type { Phase } from '@/lib/types/phase'
+import type { AiMode } from '@/lib/types/project'
 
 /** 取当前已知的 root run id：优先用无 parent 的 run，否则任一已完成 run 的 trace_id 也指向根 run */
 export function getRunId(collector: RunCollectorCallbackHandler): string | null {
@@ -84,17 +85,18 @@ export interface ChainRunOptions {
   action: string
   context: Context
   timeoutMs?: number
+  mode?: AiMode
 }
 
 // 模块级缓存，避免每次请求重新创建 LangChain 实例导致内存泄漏
 let cachedModel: BaseChatModel | null = null
 let cachedCacheKey = ''
 
-async function getModel(timeoutMs: number): Promise<{ model: BaseChatModel; provider: string }> {
+async function getModel(timeoutMs: number, mode?: AiMode): Promise<{ model: BaseChatModel; provider: string }> {
   const config = await loadServerAIConfig()
-  const cacheKey = `${config.provider}:${config.apiKey ?? ''}:${config.baseUrl ?? ''}:${config.model ?? ''}:${timeoutMs}`
+  const cacheKey = `${config.provider}:${config.apiKey ?? ''}:${config.baseUrl ?? ''}:${config.model ?? ''}:${config.modelFast ?? ''}:${config.modelThinking ?? ''}:${mode ?? ''}:${timeoutMs}`
   if (!cachedModel || cachedCacheKey !== cacheKey) {
-    cachedModel = createModel(config, { timeoutMs })
+    cachedModel = createModel(config, { timeoutMs, mode })
     cachedCacheKey = cacheKey
   }
   return { model: cachedModel, provider: config.provider }
@@ -106,7 +108,7 @@ export interface ChainRunResult {
 }
 
 export async function runChain(opts: ChainRunOptions): Promise<ChainRunResult> {
-  const { phase, action, context, timeoutMs = 120000 } = opts
+  const { phase, action, context, timeoutMs = 120000, mode } = opts
   const key = `${phase}:${action}`
   const schema = SCHEMA_REGISTRY[key]
 
@@ -115,7 +117,7 @@ export async function runChain(opts: ChainRunOptions): Promise<ChainRunResult> {
   }
 
   const prompt = buildPrompt(phase as Phase, action, context)
-  const { model, provider } = await getModel(timeoutMs)
+  const { model, provider } = await getModel(timeoutMs, mode)
   const collector = new RunCollectorCallbackHandler()
 
   try {
