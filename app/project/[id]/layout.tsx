@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react'
 import { useRouter, useSelectedLayoutSegment, useParams } from 'next/navigation'
 import Link from 'next/link'
 import { useProjectStore } from '@/lib/store/projectStore'
+import { hasPendingWrites, flushPendingWrites } from '@/lib/persistence'
 import { useToast } from '@/app/components/toast'
 import { PHASES } from '@/lib/types/phase'
 import type { Phase } from '@/lib/types/phase'
@@ -13,7 +14,7 @@ export default function ProjectLayout({ children }: { children: React.ReactNode 
   const segment = useSelectedLayoutSegment()
   const params = useParams()
   const id = params.id as string
-  const { project, hydrateProject, renameProject, saveConflict, stale, clearConflict, clearStale, hydrated } = useProjectStore()
+  const { project, hydrateProject, renameProject, setAiMode, saveConflict, stale, clearConflict, clearStale, hydrated } = useProjectStore()
   const { toast } = useToast()
   const [editingTitle, setEditingTitle] = useState(false)
   const [titleDraft, setTitleDraft] = useState('')
@@ -48,10 +49,30 @@ export default function ProjectLayout({ children }: { children: React.ReactNode 
     return () => window.removeEventListener('filmgame:storage-error', handleStorageError)
   }, [toast])
 
+  // 关闭/刷新前兜底：防抖窗口内还有未落库的写入时，立即冲刷（首次尝试 keepalive，
+  // 关页后仍可送达）并弹浏览器确认框，双保险防止最后 ~1 秒的输入丢失。
+  useEffect(() => {
+    function handleBeforeUnload(e: BeforeUnloadEvent) {
+      if (!hasPendingWrites(id)) return
+      flushPendingWrites(id)
+      e.preventDefault()
+    }
+    window.addEventListener('beforeunload', handleBeforeUnload)
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload)
+  }, [id])
+
   function handleReloadLatest() {
     clearConflict()
     clearStale()
     void hydrateProject(id)
+  }
+
+  function toggleAiMode() {
+    if (!project) return
+    const current = project.aiMode ?? 'thinking'
+    const next = current === 'fast' ? 'thinking' : 'fast'
+    setAiMode(next)
+    toast(`后续 AI 生成将使用${next === 'fast' ? '快速' : '思考'}模式`)
   }
 
   if (notFound) {
@@ -157,6 +178,20 @@ export default function ProjectLayout({ children }: { children: React.ReactNode 
             {project.title}
           </h1>
         )}
+
+        {/* AI 双模式徽标：点击切换，后续 AI 动作按新模式执行 */}
+        <button
+          onClick={toggleAiMode}
+          title="点击切换 AI 生成模式"
+          className="text-xs font-medium px-2.5 py-1 rounded-full transition-colors shrink-0"
+          style={{
+            background: (project.aiMode ?? 'thinking') === 'fast' ? 'rgba(234,179,8,0.15)' : 'rgba(129,140,248,0.15)',
+            color: (project.aiMode ?? 'thinking') === 'fast' ? '#eab308' : '#818cf8',
+            border: `1px solid ${(project.aiMode ?? 'thinking') === 'fast' ? 'rgba(234,179,8,0.4)' : 'rgba(129,140,248,0.4)'}`,
+          }}
+        >
+          {(project.aiMode ?? 'thinking') === 'fast' ? '⚡ 快速' : '🧠 思考'}
+        </button>
 
         {/* Phase tabs */}
         <nav className="flex items-center ml-6 gap-0.5">

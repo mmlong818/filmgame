@@ -93,24 +93,27 @@ function writeLocalSnapshotImmediate(project: Project): void {
   }
 }
 
-const lsTimers = new Map<string, ReturnType<typeof setTimeout>>()
+const lsTimers = new Map<string, { timer: ReturnType<typeof setTimeout>; project: Project }>()
 const LS_DEBOUNCE_MS = 300
 
 /** 防抖写入最近快照，供乐观 paint 与离线兜底使用。不是权威源。 */
 export function writeLocalSnapshot(project: Project): void {
   if (typeof window === 'undefined') return
   const existing = lsTimers.get(project.id)
-  if (existing) clearTimeout(existing)
-  lsTimers.set(project.id, setTimeout(() => {
-    lsTimers.delete(project.id)
-    writeLocalSnapshotImmediate(project)
-  }, LS_DEBOUNCE_MS))
+  if (existing) clearTimeout(existing.timer)
+  lsTimers.set(project.id, {
+    project,
+    timer: setTimeout(() => {
+      lsTimers.delete(project.id)
+      writeLocalSnapshotImmediate(project)
+    }, LS_DEBOUNCE_MS),
+  })
 }
 
 export function removeLocalSnapshot(id: string): void {
   if (typeof window === 'undefined') return
-  const timer = lsTimers.get(id)
-  if (timer) { clearTimeout(timer); lsTimers.delete(id) }
+  const entry = lsTimers.get(id)
+  if (entry) { clearTimeout(entry.timer); lsTimers.delete(id) }
   localStorage.removeItem(projectKey(id))
 }
 
@@ -164,13 +167,24 @@ type SendResult =
 
 const RETRY_DELAYS_MS = [1000, 2000, 4000]
 
-async function sendWithRetry(url: string, body: unknown, method: 'POST' | 'PATCH'): Promise<SendResult> {
+// keepalive 请求在页面卸载后仍会被浏览器送达，但 body 上限约 64KB——
+// 仅在关闭前冲刷（flushPendingWrites）的首次尝试且 body 足够小时启用。
+const KEEPALIVE_BODY_LIMIT = 60_000
+
+async function sendWithRetry(
+  url: string,
+  body: unknown,
+  method: 'POST' | 'PATCH',
+  opts: { keepaliveFirst?: boolean } = {},
+): Promise<SendResult> {
+  const payload = JSON.stringify(body)
   for (let attempt = 0; attempt <= RETRY_DELAYS_MS.length; attempt++) {
     try {
       const res = await authFetch(url, {
         method,
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body),
+        body: payload,
+        keepalive: !!opts.keepaliveFirst && attempt === 0 && payload.length < KEEPALIVE_BODY_LIMIT,
       })
       if (res.status === 401) return { ok: false, fatal: true }
       if (res.status === 409) {
@@ -189,9 +203,23 @@ async function sendWithRetry(url: string, body: unknown, method: 'POST' | 'PATCH
   return { ok: false }
 }
 
-// ─── 整档保存（防抖） ────────────────────────────────────────────────
+// ─── 保存中计数（关闭前兜底判断用） ─────────────────────────────────────
 
-const projectSaveTimers = new Map<string, ReturnType<typeof setTimeout>>()
+const inFlightSaves = new Map<string, number>()
+
+function trackInFlight(id: string, delta: 1 | -1): void {
+  const next = (inFlightSaves.get(id) ?? 0) + delta
+  if (next <= 0) inFlightSaves.delete(id)
+  else inFlightSaves.set(id, next)
+}
+
+// ─── 整档保存（防抖） ────────────────────────────────────────────────
+// 三个防抖 Map 统一存 { timer, exec }：exec 是"清掉自己并立即执行保存"的闭包，
+// 供 flushPendingWrites（页面关闭前兜底）绕过防抖窗口直接触发。
+
+type ArmedSave = { timer: ReturnType<typeof setTimeout>; exec: (keepaliveFirst?: boolean) => void }
+
+const projectSaveTimers = new Map<string, ArmedSave>()
 const DEBOUNCE_MS = 700
 
 /** 防抖(700ms) 整档保存。expectedVersion 传入即启用乐观锁（409 冲突检测）。 */
@@ -205,39 +233,49 @@ export function saveProject(project: Project, expectedVersion?: number): void {
   }
 
   const existing = projectSaveTimers.get(project.id)
-  if (existing) clearTimeout(existing)
-  projectSaveTimers.set(project.id, setTimeout(() => {
+  if (existing) clearTimeout(existing.timer)
+  const exec = (keepaliveFirst?: boolean) => {
     projectSaveTimers.delete(project.id)
-    void performProjectSave(project, expectedVersion)
-  }, DEBOUNCE_MS))
+    void performProjectSave(project, expectedVersion, { keepaliveFirst })
+  }
+  projectSaveTimers.set(project.id, { exec, timer: setTimeout(exec, DEBOUNCE_MS) })
 }
 
-async function performProjectSave(project: Project, expectedVersion?: number): Promise<void> {
+async function performProjectSave(
+  project: Project,
+  expectedVersion?: number,
+  opts: { keepaliveFirst?: boolean } = {},
+): Promise<void> {
   if (isConflictLocked(project.id)) {
     dispatchSaveState({ state: 'conflict', id: project.id })
     return
   }
   dispatchSaveState({ state: 'saving', id: project.id })
-  const body = expectedVersion !== undefined ? { ...project, version: expectedVersion } : project
-  const result = await sendWithRetry(`/api/projects/${project.id}`, body, 'POST')
+  trackInFlight(project.id, 1)
+  try {
+    const body = expectedVersion !== undefined ? { ...project, version: expectedVersion } : project
+    const result = await sendWithRetry(`/api/projects/${project.id}`, body, 'POST', opts)
 
-  if (result.ok) {
-    // saveProject 仓储层是 project.version 的唯一 mutator：expectedVersion 校验通过后
-    // 服务端必为 expectedVersion+1（见 lib/db/projects.ts saveProject）；未知基线时无法推算，version 留空。
-    const version = expectedVersion !== undefined ? expectedVersion + 1 : undefined
-    dispatchSaveState({ state: 'saved', id: project.id, version })
-    dequeuePending(project.id, { kind: 'project', project, expectedVersion })
-    return
-  }
-  if ('conflict' in result) {
-    lockConflict(project.id)
-    dispatchSaveState({ state: 'conflict', id: project.id, currentVersion: result.conflict.currentVersion })
-    return
-  }
-  if ('fatal' in result) return // 401 已跳转登录
+    if (result.ok) {
+      // saveProject 仓储层是 project.version 的唯一 mutator：expectedVersion 校验通过后
+      // 服务端必为 expectedVersion+1（见 lib/db/projects.ts saveProject）；未知基线时无法推算，version 留空。
+      const version = expectedVersion !== undefined ? expectedVersion + 1 : undefined
+      dispatchSaveState({ state: 'saved', id: project.id, version })
+      dequeuePending(project.id, { kind: 'project', project, expectedVersion })
+      return
+    }
+    if ('conflict' in result) {
+      lockConflict(project.id)
+      dispatchSaveState({ state: 'conflict', id: project.id, currentVersion: result.conflict.currentVersion })
+      return
+    }
+    if ('fatal' in result) return // 401 已跳转登录
 
-  enqueuePending(project.id, { kind: 'project', project, expectedVersion })
-  dispatchSaveState({ state: 'error', id: project.id })
+    enqueuePending(project.id, { kind: 'project', project, expectedVersion })
+    dispatchSaveState({ state: 'error', id: project.id })
+  } finally {
+    trackInFlight(project.id, -1)
+  }
 }
 
 /** 立即（不防抖）创建新项目，用于「新建/导入」流程——路由跳转前必须确认服务端已落库。 */
@@ -267,7 +305,7 @@ export async function createProject(
 
 // ─── 项目级元数据保存（防抖，PATCH，不触碰 nodes 表） ────────────────────
 
-const projectMetaSaveTimers = new Map<string, ReturnType<typeof setTimeout>>()
+const projectMetaSaveTimers = new Map<string, ArmedSave>()
 
 /**
  * 防抖(700ms) 项目元数据保存：只 PATCH projects 行的非 nodes 字段（角色/变量/结局定义、
@@ -284,42 +322,52 @@ export function saveProjectMeta(project: Project, expectedVersion?: number): voi
   }
 
   const existing = projectMetaSaveTimers.get(project.id)
-  if (existing) clearTimeout(existing)
-  projectMetaSaveTimers.set(project.id, setTimeout(() => {
+  if (existing) clearTimeout(existing.timer)
+  const exec = (keepaliveFirst?: boolean) => {
     projectMetaSaveTimers.delete(project.id)
-    void performProjectMetaSave(project, expectedVersion)
-  }, DEBOUNCE_MS))
+    void performProjectMetaSave(project, expectedVersion, { keepaliveFirst })
+  }
+  projectMetaSaveTimers.set(project.id, { exec, timer: setTimeout(exec, DEBOUNCE_MS) })
 }
 
-async function performProjectMetaSave(project: Project, expectedVersion?: number): Promise<void> {
+async function performProjectMetaSave(
+  project: Project,
+  expectedVersion?: number,
+  opts: { keepaliveFirst?: boolean } = {},
+): Promise<void> {
   if (isConflictLocked(project.id)) {
     dispatchSaveState({ state: 'conflict', id: project.id })
     return
   }
   dispatchSaveState({ state: 'saving', id: project.id })
-  const body = expectedVersion !== undefined ? { ...project, version: expectedVersion } : project
-  const result = await sendWithRetry(`/api/projects/${project.id}`, body, 'PATCH')
+  trackInFlight(project.id, 1)
+  try {
+    const body = expectedVersion !== undefined ? { ...project, version: expectedVersion } : project
+    const result = await sendWithRetry(`/api/projects/${project.id}`, body, 'PATCH', opts)
 
-  if (result.ok) {
-    const version = expectedVersion !== undefined ? expectedVersion + 1 : undefined
-    dispatchSaveState({ state: 'saved', id: project.id, version })
-    dequeuePending(project.id, { kind: 'projectMeta', project, expectedVersion })
-    return
-  }
-  if ('conflict' in result) {
-    lockConflict(project.id)
-    dispatchSaveState({ state: 'conflict', id: project.id, currentVersion: result.conflict.currentVersion })
-    return
-  }
-  if ('fatal' in result) return
+    if (result.ok) {
+      const version = expectedVersion !== undefined ? expectedVersion + 1 : undefined
+      dispatchSaveState({ state: 'saved', id: project.id, version })
+      dequeuePending(project.id, { kind: 'projectMeta', project, expectedVersion })
+      return
+    }
+    if ('conflict' in result) {
+      lockConflict(project.id)
+      dispatchSaveState({ state: 'conflict', id: project.id, currentVersion: result.conflict.currentVersion })
+      return
+    }
+    if ('fatal' in result) return
 
-  enqueuePending(project.id, { kind: 'projectMeta', project, expectedVersion })
-  dispatchSaveState({ state: 'error', id: project.id })
+    enqueuePending(project.id, { kind: 'projectMeta', project, expectedVersion })
+    dispatchSaveState({ state: 'error', id: project.id })
+  } finally {
+    trackInFlight(project.id, -1)
+  }
 }
 
 // ─── 节点级保存（防抖） ──────────────────────────────────────────────
 
-const nodeSaveTimers = new Map<string, ReturnType<typeof setTimeout>>()
+const nodeSaveTimers = new Map<string, ArmedSave>()
 
 /** 防抖(700ms) 单节点保存，仅写一条小体积 PATCH，避免整档保存的写放大。 */
 export function saveNode(projectId: string, node: StoryNode, expectedVersion?: number): void {
@@ -331,36 +379,47 @@ export function saveNode(projectId: string, node: StoryNode, expectedVersion?: n
   }
   const timerKey = `${projectId}:${node.id}`
   const existing = nodeSaveTimers.get(timerKey)
-  if (existing) clearTimeout(existing)
-  nodeSaveTimers.set(timerKey, setTimeout(() => {
+  if (existing) clearTimeout(existing.timer)
+  const exec = (keepaliveFirst?: boolean) => {
     nodeSaveTimers.delete(timerKey)
-    void performNodeSave(projectId, node, expectedVersion)
-  }, DEBOUNCE_MS))
+    void performNodeSave(projectId, node, expectedVersion, { keepaliveFirst })
+  }
+  nodeSaveTimers.set(timerKey, { exec, timer: setTimeout(exec, DEBOUNCE_MS) })
 }
 
-async function performNodeSave(projectId: string, node: StoryNode, expectedVersion?: number): Promise<void> {
+async function performNodeSave(
+  projectId: string,
+  node: StoryNode,
+  expectedVersion?: number,
+  opts: { keepaliveFirst?: boolean } = {},
+): Promise<void> {
   if (isConflictLocked(projectId)) {
     dispatchSaveState({ state: 'conflict', id: projectId, nodeId: node.id })
     return
   }
   dispatchSaveState({ state: 'saving', id: projectId, nodeId: node.id })
-  const body = expectedVersion !== undefined ? { node, version: expectedVersion } : { node }
-  const result = await sendWithRetry(`/api/projects/${projectId}/nodes/${node.id}`, body, 'PATCH')
+  trackInFlight(projectId, 1)
+  try {
+    const body = expectedVersion !== undefined ? { node, version: expectedVersion } : { node }
+    const result = await sendWithRetry(`/api/projects/${projectId}/nodes/${node.id}`, body, 'PATCH', opts)
 
-  if (result.ok) {
-    dispatchSaveState({ state: 'saved', id: projectId, nodeId: node.id })
-    dequeuePending(projectId, { kind: 'node', node, expectedVersion })
-    return
-  }
-  if ('conflict' in result) {
-    lockConflict(projectId)
-    dispatchSaveState({ state: 'conflict', id: projectId, nodeId: node.id, currentVersion: result.conflict.currentVersion })
-    return
-  }
-  if ('fatal' in result) return
+    if (result.ok) {
+      dispatchSaveState({ state: 'saved', id: projectId, nodeId: node.id })
+      dequeuePending(projectId, { kind: 'node', node, expectedVersion })
+      return
+    }
+    if ('conflict' in result) {
+      lockConflict(projectId)
+      dispatchSaveState({ state: 'conflict', id: projectId, nodeId: node.id, currentVersion: result.conflict.currentVersion })
+      return
+    }
+    if ('fatal' in result) return
 
-  enqueuePending(projectId, { kind: 'node', node, expectedVersion })
-  dispatchSaveState({ state: 'error', id: projectId, nodeId: node.id })
+    enqueuePending(projectId, { kind: 'node', node, expectedVersion })
+    dispatchSaveState({ state: 'error', id: projectId, nodeId: node.id })
+  } finally {
+    trackInFlight(projectId, -1)
+  }
 }
 
 // ─── 离线 flush（`online` 事件触发） ─────────────────────────────────
@@ -440,6 +499,42 @@ export function flushPending(): void {
 
 if (typeof window !== 'undefined') {
   window.addEventListener('online', () => flushPending())
+}
+
+// ─── 页面关闭前兜底（全局 beforeunload 守卫用） ─────────────────────────
+
+/** 该项目是否还有未落库的写入：防抖窗口内的保存、正在发送中的请求、或离线兜底队列。 */
+export function hasPendingWrites(id: string): boolean {
+  if (projectSaveTimers.has(id) || projectMetaSaveTimers.has(id) || lsTimers.has(id)) return true
+  for (const key of nodeSaveTimers.keys()) {
+    if (key.startsWith(`${id}:`)) return true
+  }
+  if ((inFlightSaves.get(id) ?? 0) > 0) return true
+  return readPending(id).length > 0
+}
+
+/**
+ * 立即冲刷该项目所有防抖窗口内的保存（绕过 700ms 等待），首次尝试带 keepalive
+ * （页面卸载后浏览器仍会送达，body ≤ ~64KB 的节点/小项目保存可无损落库）。
+ * localStorage 快照同步落盘，保证最坏情况下离线兜底里也有最新内容。
+ */
+export function flushPendingWrites(id: string): void {
+  if (typeof window === 'undefined') return
+  const ls = lsTimers.get(id)
+  if (ls) {
+    clearTimeout(ls.timer)
+    lsTimers.delete(id)
+    writeLocalSnapshotImmediate(ls.project)
+  }
+  const armed: ArmedSave[] = []
+  const project = projectSaveTimers.get(id)
+  if (project) { clearTimeout(project.timer); armed.push(project) }
+  const meta = projectMetaSaveTimers.get(id)
+  if (meta) { clearTimeout(meta.timer); armed.push(meta) }
+  for (const [key, entry] of nodeSaveTimers) {
+    if (key.startsWith(`${id}:`)) { clearTimeout(entry.timer); armed.push(entry) }
+  }
+  for (const entry of armed) entry.exec(true)
 }
 
 // ─── 一次性 localStorage 遗留数据导入（Task 9 Step 2） ──────────────────
