@@ -191,7 +191,7 @@ export default function ScalePage() {
         <div className="mb-4 flex items-center gap-3 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3">
           <span className="text-amber-600 text-sm flex-1">世界锚点已更新，当前方案基于旧版本</span>
           <button
-            onClick={() => { clearDownstream(); generatePlans() }}
+            onClick={() => { clearDownstream('scale'); generatePlans() }}
             className="text-xs px-3 py-1.5 bg-amber-600 text-white rounded-lg hover:bg-amber-700"
           >重新生成</button>
           <button

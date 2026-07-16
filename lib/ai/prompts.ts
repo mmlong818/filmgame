@@ -89,9 +89,9 @@ ${JSON.stringify(c, null, 2)}
 
     'world:suggest_variables': (c) => {
       const wa = (c.worldAnchor ?? c) as Record<string, unknown>
-      const endings = (wa.endingsDesign as Array<{title:string,type:string,triggerCondition:string,avoidCondition:string}> | undefined) ?? []
+      const endings = (wa.endingsDesign as Array<{title:string,type:string,triggerCondition:string,avoidCondition:string,keyVariable?:string}> | undefined) ?? []
       const chars = (c.characters ?? []) as Array<{name:string,role:string}>
-      const endingsSummary = endings.map((e, i) => `结局${i+1}「${e.title}」(${e.type})：达成条件=${e.triggerCondition}`).join('\n')
+      const endingsSummary = endings.map((e, i) => `结局${i+1}「${e.title}」(${e.type})：达成条件=${e.triggerCondition}${e.keyVariable ? `；关键变量=${e.keyVariable}` : ''}`).join('\n')
       const charSummary = chars.map(ch => `${ch.name}(${ch.role})`).join('、')
       return `你是互动影游系统设计师。根据故事设定和结局条件，提取出游戏需要追踪的叙事变量，输出JSON。
 禁止输出JSON以外的任何内容，禁止Markdown代码块，字段名必须与模板完全一致。
@@ -111,6 +111,7 @@ ${endingsSummary || '暂无——请根据故事类型自行设计3-5个有意�
 - item：是否持有某物品/信息
 
 【要求】从结局条件提取变量名（如"affection_A>=3"→变量affection_A）；每个变量名用英文下划线命名；给出type/defaultValue/description；共3-6个变量
+若某结局标注了"关键变量"（如"勇气值>=80"），必须原样提取该变量名对应的英文下划线命名并生成对应变量（如"勇气值"→courage），不得另造无关新变量名，确保每个结局的关键变量都能在输出的变量列表中找到对应项
 
 【输出模板】
 {"variables":[{"name":"affection_A","type":"counter","defaultValue":"0","description":"主角与角色A的好感度"},{"name":"trust","type":"counter","defaultValue":"0","description":"信任度，影响关键时刻选项"}]}

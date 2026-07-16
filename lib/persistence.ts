@@ -6,7 +6,7 @@
 //   写入失败/离线时排队进 filmgame:pending:<id>，`online` 事件时自动 flush。
 // - 保存状态通过 window 事件 `filmgame:save-state` 广播，供 UI（如保存指示器）监听。
 import type { Project, StoryNode } from './types/project'
-import { conditionsToInk } from './conditions'
+import { conditionsToInk, parseEffectPart } from './conditions'
 
 const projectKey = (id: string) => `filmgame:project:${id}`
 const pendingKey = (id: string) => `filmgame:pending:${id}`
@@ -436,18 +436,21 @@ export function exportInk(project: Project): void {
     }
     return fixed
   }
+  // 解析交给 lib/conditions.ts 的 parseEffectPart 统一处理（同时认识 AI 生成的
+  // "name+1" 后缀写法与工坊快捷按钮的 "+name" 前缀写法，此前这里只认后者，
+  // 导致 89 个 AI 生成选项的 variableEffects 在导出的 .ink 里全部消失，无法变更任何变量）。
   const applyInkEffects = (effects: string): string[] => {
     if (!effects.trim()) return []
-    return effects.split(',').map(p => p.trim()).filter(Boolean).map(p => {
-      if (p.startsWith('+')) return `~ ${inkVarName(p.slice(1))} = ${inkVarName(p.slice(1))} + 1`
-      if (p.startsWith('-') && !p.includes('=')) return `~ ${inkVarName(p.slice(1))} = ${inkVarName(p.slice(1))} - 1`
-      if (p.includes('=')) {
-        const eq = p.indexOf('=')
-        const name = inkVarName(p.slice(0, eq))
-        const val = p.slice(eq + 1)
-        return `~ ${name} = ${isNaN(Number(val)) ? `"${val}"` : val}`
+    return effects.split(',').map(part => {
+      const parsed = parseEffectPart(part)
+      if (!parsed) return ''
+      const name = inkVarName(parsed.name)
+      if (parsed.kind === 'set') {
+        const val = typeof parsed.value === 'number' ? parsed.value : `"${parsed.value}"`
+        return `~ ${name} = ${val}`
       }
-      return ''
+      const op = parsed.kind === 'inc' ? '+' : '-'
+      return `~ ${name} = ${name} ${op} ${parsed.value}`
     }).filter(Boolean)
   }
 
@@ -465,13 +468,33 @@ export function exportInk(project: Project): void {
     lines.push('')
   }
 
+  // 节点 id 是 nanoid，默认字母表含 '-' 和 '_'，而 ink 的 knot 名/divert 目标必须是合法标识符
+  // （字母/下划线开头，仅含字母数字下划线）——直接把原始 id 当 knot 名会产出 `=== -mgaNQkr ===`
+  // 这种 ink 解析器无法识别的语法（连字符在 ink 里不是合法标识符字符，且不能作为开头）。
+  // 统一映射成 `n_<sanitized>` 形式，knot 声明和所有 divert 目标都必须使用同一份映射，否则连不上。
+  const knotNameCache = new Map<string, string>()
+  const usedKnotNames = new Set<string>()
+  const inkKnotName = (id: string): string => {
+    const cached = knotNameCache.get(id)
+    if (cached) return cached
+    let base = `n_${id.replace(/[^a-zA-Z0-9_]/g, '_')}`
+    let candidate = base
+    let suffix = 1
+    while (usedKnotNames.has(candidate)) {
+      candidate = `${base}_${suffix++}`
+    }
+    usedKnotNames.add(candidate)
+    knotNameCache.set(id, candidate)
+    return candidate
+  }
+
   const nodeMap = new Map(project.nodes.map(n => [n.id, n]))
   const startNode = project.nodes.find(n => n.type === 'start') ?? project.nodes[0]
-  if (startNode) lines.push(`-> ${startNode.id}`)
+  if (startNode) lines.push(`-> ${inkKnotName(startNode.id)}`)
   lines.push('')
 
   for (const node of project.nodes) {
-    lines.push(`=== ${node.id} ===`)
+    lines.push(`=== ${inkKnotName(node.id)} ===`)
     if (node.title) lines.push(`// ${node.title}`)
     if (node.sceneDesc) lines.push(`// [场景] ${node.sceneDesc}`)
     for (const line of node.dialogue) {
@@ -483,11 +506,16 @@ export function exportInk(project: Project): void {
       if (ending) lines.push(`// [结局: ${ending.title}] ${ending.description}`)
       lines.push('-> END')
     } else if (node.choices.length === 0) {
-      lines.push('-> END')
+      // 探索节点（explore）没有自己的选项，靠 exploreReturnNodeId 在预览里自动回到主线
+      // （见 preview/page.tsx 的"返回故事主线"按钮）。此前导出忽略了这个字段，一律 -> END，
+      // 玩家在 ink 播放器里进入探索内容后就再也回不到主线——和预览里的实际行为不一致。
+      const returnTarget = node.exploreReturnNodeId ? nodeMap.get(node.exploreReturnNodeId) : undefined
+      lines.push(returnTarget ? `-> ${inkKnotName(returnTarget.id)}` : '-> END')
     } else if (node.choices.length === 1 && node.type !== 'branch') {
       const c = node.choices[0]
+      const cTarget = nodeMap.get(c.targetNodeId)
       applyInkEffects(c.variableEffects).forEach(l => lines.push(l))
-      lines.push(`-> ${c.targetNodeId || 'END'}`)
+      lines.push(`-> ${cTarget ? inkKnotName(c.targetNodeId) : 'END'}`)
     } else {
       for (const choice of node.choices) {
         const target = nodeMap.get(choice.targetNodeId)
@@ -496,12 +524,12 @@ export function exportInk(project: Project): void {
           lines.push(`{ ${inkCond}:`)
           lines.push(`  + [${choice.text}]`)
           applyInkEffects(choice.variableEffects).forEach(l => lines.push(`    ${l}`))
-          lines.push(`    -> ${target ? choice.targetNodeId : 'END'}`)
+          lines.push(`    -> ${target ? inkKnotName(choice.targetNodeId) : 'END'}`)
           lines.push(`}`)
         } else {
           lines.push(`+ [${choice.text}]`)
           applyInkEffects(choice.variableEffects).forEach(l => lines.push(`  ${l}`))
-          lines.push(`  -> ${target ? choice.targetNodeId : 'END'}`)
+          lines.push(`  -> ${target ? inkKnotName(choice.targetNodeId) : 'END'}`)
         }
       }
     }

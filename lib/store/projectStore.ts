@@ -63,7 +63,7 @@ interface ProjectStore {
   selectScalePlan: (planId: string) => void
   advancePhase: () => void
   goToPhase: (phase: Phase) => void
-  clearDownstream: () => void
+  clearDownstream: (targetPhase?: Phase) => void
   clearStaleFlag: () => void
 
   addCharacter: () => void
@@ -143,11 +143,14 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
   setWorldAnchor: (anchor) => set((s) => {
     if (!s.project) return s
     const changed = JSON.stringify(s.project.worldAnchor) !== JSON.stringify(anchor)
+    // 只有下游已经生成过规模方案或结构节点时，世界锚点变更才需要标记"基于旧版本"；
+    // 首次填写/AI生成世界锚点阶段（尚无下游产物）不应误报过期
+    const hasDownstream = s.project.scalePlanOptions.length > 0 || s.project.nodes.length > 0
     const p: Project = {
       ...s.project,
       worldAnchor: anchor,
       updatedAt: new Date().toISOString(),
-      ...(changed ? { downstreamStale: true } : {}),
+      ...(changed && hasDownstream ? { downstreamStale: true } : {}),
     }
     saveProject(p, s.loadedVersion ?? undefined)
     return { project: p }
@@ -218,9 +221,27 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
     return { project: p }
   }),
 
-  clearDownstream: () => set((s) => {
+  // targetPhase：清空下游内容后，currentPhase 不能继续停留在比实际内容更靠后的阶段
+  // （例如已清空 nodes 却仍是 workshop），否则会出现"阶段已到 workshop 但节点数为 0"
+  // 这种阶段与内容脱节的不一致状态。若当前阶段已经领先于 targetPhase，回退阶段并把
+  // targetPhase 之后的阶段重新锁定；若当前阶段本就未超过 targetPhase，则不改变阶段。
+  clearDownstream: (targetPhase) => set((s) => {
     if (!s.project) return s
-    const p = { ...s.project, scalePlanOptions: [], selectedScalePlanId: null, chapters: [], acts: [], nodes: [], downstreamStale: false, updatedAt: new Date().toISOString() }
+    let nextPhase = s.project.currentPhase
+    let nextProgress = s.project.phaseProgress
+    if (targetPhase) {
+      const curIdx = PHASE_ORDER.indexOf(s.project.currentPhase)
+      const targetIdx = PHASE_ORDER.indexOf(targetPhase)
+      if (targetIdx < curIdx) {
+        nextPhase = targetPhase
+        nextProgress = { ...s.project.phaseProgress }
+        PHASE_ORDER.forEach((ph, i) => {
+          if (i > targetIdx) nextProgress[ph] = 'locked'
+        })
+        nextProgress[targetPhase] = 'in_progress'
+      }
+    }
+    const p = { ...s.project, scalePlanOptions: [], selectedScalePlanId: null, chapters: [], acts: [], nodes: [], downstreamStale: false, currentPhase: nextPhase, phaseProgress: nextProgress, updatedAt: new Date().toISOString() }
     saveProject(p, s.loadedVersion ?? undefined)
     return { project: p }
   }),

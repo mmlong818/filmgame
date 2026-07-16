@@ -1,5 +1,6 @@
 import type { Project, ValidationIssue, ValidationReport } from '@/lib/types/project'
 import { nanoid } from 'nanoid'
+import { parseEffectPart } from '@/lib/conditions'
 
 export function runValidation(project: Project): ValidationReport {
   const issues: ValidationIssue[] = []
@@ -163,6 +164,39 @@ export function runValidation(project: Project): ValidationReport {
     }
   }
 
+  // 陷阱分支检测：NO_PATH_TO_ENDING 只验证「从开场出发是否存在至少一条路径到达结局」，
+  // 只要玩家有别的选择能到结局，该检测就会通过——但某个具体分支选项一旦被选中，
+  // 可能把玩家带入一个再也无法到达任何结局的子图（例如某条门控路线走到底却没接上任何结局），
+  // 玩家会在里面无限打转直到重置。这类"陷阱分支"必须从每个分支节点的每个选项单独验证可达性，
+  // 而不能只看整体图是否连通。canReachEnding 结果只取决于目标节点本身，与 startId 无关，
+  // 用 memo 缓存跨节点复用，避免 O(节点数²) 的重复 BFS。
+  const reachMemo = new Map<string, boolean>()
+  function canReachEndingMemo(id: string): boolean {
+    const cached = reachMemo.get(id)
+    if (cached !== undefined) return cached
+    const result = canReachEnding(id, nodeMap)
+    reachMemo.set(id, result)
+    return result
+  }
+  const decisionNodes = safeNodes.filter(n => {
+    const distinctTargets = new Set(n.choices.map(c => c.targetNodeId).filter(Boolean))
+    return n.type !== 'ending' && distinctTargets.size >= 2
+  })
+  for (const node of decisionNodes) {
+    for (const choice of node.choices) {
+      if (!choice.targetNodeId) continue
+      if (!canReachEndingMemo(choice.targetNodeId)) {
+        issues.push({
+          id: nanoid(4),
+          level: 'error',
+          code: 'TRAP_BRANCH',
+          message: `节点「${node.title}」的选项「${choice.text}」通向的分支是一条死路：走下去之后，再也无法到达任何结局`,
+          relatedIds: [node.id],
+        })
+      }
+    }
+  }
+
   // 结局节点↔endings 记录双向验证
   const endingDefs = project.endings ?? []
   const endingNodeIds = new Set(endingNodes.map(n => n.id))
@@ -208,9 +242,13 @@ export function runValidation(project: Project): ValidationReport {
     return names
   }
 
+  // 曾经只会剥离前缀 "+name"/"-name" 或按 "=" 切分，对 AI 生成的绝大多数选项使用的
+  // 后缀写法 "name+1"（见 lib/ai/prompts.ts 'branches:generate'）完全不识别——会把整个
+  // "name+1" 当成变量名去查未知变量表，导致几乎每个 AI 生成的选项都被误报"引用了不存在的变量"。
+  // 复用 lib/conditions.ts 的 parseEffectPart（与 preview/ink 导出共用同一套解析规则）。
   function extractEffectVars(expr: string | undefined): string[] {
     if (!expr || !expr.trim()) return []
-    return expr.split(',').map(p => p.trim().replace(/^[+-]/, '').split('=')[0].trim()).filter(Boolean)
+    return expr.split(',').map(p => parseEffectPart(p)?.name).filter((n): n is string => !!n)
   }
 
   for (const node of safeNodes) {

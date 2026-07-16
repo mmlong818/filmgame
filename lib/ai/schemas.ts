@@ -75,11 +75,13 @@ export const ScalePlanSchema = z.object({
   chapterCount: z.number(),
   actCountPerChapter: z.number().optional(),
   totalNodes: z.number(),
+  totalBranches: z.number().optional(),
   chapters: z.array(z.object({
     title: z.string(),
     brief: z.string(),
   })),
   estimatedHours: z.number().optional(),
+  aiRationale: z.string().optional(),
 })
 
 export const ScaleGenerateSchema = z.object({

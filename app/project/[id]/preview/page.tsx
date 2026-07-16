@@ -4,7 +4,7 @@ import { useState, useCallback, useEffect } from 'react'
 import Link from 'next/link'
 import { useParams, useSearchParams, useRouter, usePathname } from 'next/navigation'
 import { useProjectStore } from '@/lib/store/projectStore'
-import { evalConditions } from '@/lib/conditions'
+import { evalConditions, applyVariableEffect } from '@/lib/conditions'
 import type { StoryNode } from '@/lib/types/project'
 
 type PreviewMode = 'author' | 'player'
@@ -82,31 +82,6 @@ function loadUnlockedEndings(projectId: string): string[] {
 function persistUnlockedEndings(projectId: string, ids: string[]): void {
   if (typeof window === 'undefined') return
   try { localStorage.setItem(unlockedKey(projectId), JSON.stringify(ids)) } catch { /* ignore */ }
-}
-
-function applyVariableEffect(state: Record<string, string | number>, effect: string): Record<string, string | number> {
-  if (!effect.trim()) return state
-  const next = { ...state }
-  for (const part of effect.split(',')) {
-    const p = part.trim()
-    if (!p) continue
-    if (p.startsWith('+')) {
-      const name = p.slice(1)
-      next[name] = typeof next[name] === 'number' ? (next[name] as number) + 1 : 1
-    } else if (p.startsWith('-') && !p.includes('=')) {
-      const name = p.slice(1)
-      next[name] = typeof next[name] === 'number' ? (next[name] as number) - 1 : -1
-    } else if (/^[a-zA-Z_]+=-?\d+$/.test(p)) {
-      const [name, val] = p.split('=')
-      next[name] = Number(val)
-    } else if (p.includes('=')) {
-      const eqIdx = p.indexOf('=')
-      const name = p.slice(0, eqIdx)
-      const val = p.slice(eqIdx + 1)
-      next[name] = isNaN(Number(val)) ? val : Number(val)
-    }
-  }
-  return next
 }
 
 export default function PreviewPage() {
@@ -441,7 +416,11 @@ export default function PreviewPage() {
         )}
 
         {!isEnding && (mode === 'author' || project.variables.length > 0) && (
-          <div className="absolute bottom-6 right-6 bg-white/90 border border-slate-200 rounded-lg px-4 py-3 max-w-[220px] space-y-2">
+          // 此前用 absolute，定位基准是紧邻的 flex-1 内容容器——当前节点内容很少时（如对白为空的
+          // 开场节点）该容器会随内容收缩到很矮，导致这块变量/情感调试面板被顶到页面顶部，盖住
+          // 上方的项目导航栏，甚至挡住其按钮的点击（真实检查中用 Playwright 点击"重置"时被它
+          // 拦截，报 "intercepts pointer events"）。改成 fixed 使其始终锚定视口右下角。
+          <div className="fixed bottom-6 right-6 bg-white/90 border border-slate-200 rounded-lg px-4 py-3 max-w-[220px] space-y-2 z-10">
             {mode === 'author' && (emotionFunction.emotionIn || emotionFunction.emotionOut) && (
               <div className="text-slate-400 text-xs">
                 <span className="text-slate-600">{emotionFunction.emotionIn || '—'}</span>

@@ -11,7 +11,7 @@ type AiNodeDraft = { title: string; type: string; notes: string }
 type AiActDraft = { title: string; nodes: AiNodeDraft[] }
 type AiChapterDraft = { title: string; acts: AiActDraft[] }
 
-type AiChoice = { text: string; targetNodeTitle: string; targetNodeId?: string; variableEffects?: string; choiceWeight?: 'light' | 'heavy' | 'critical'; consequence?: string }
+type AiChoice = { text: string; targetNodeTitle: string; targetNodeId?: string; variableEffects?: string; choiceWeight?: 'light' | 'heavy' | 'critical'; consequence?: string; conditions?: string }
 type AiNodeChoices = { nodeTitle: string; nodeId?: string; choices: AiChoice[]; exploreReturnNodeId?: string }
 
 type StructProgress = { phase: 'spine' | 'chapters'; done: number; total: number }
@@ -54,7 +54,7 @@ const nodeTypeLabel = (t: string) => NODE_TYPES.find(x => x.value === t)?.label 
 
 export default function StructurePage() {
   const router = useRouter()
-  const { project, updateNode, deleteNode, addNode, addChapter, addAct, updateAct, addVariable, updateVariable, bulkSetStructure, advancePhase, clearDownstream, clearStaleFlag, addEnding, updateEnding, deleteEnding } = useProjectStore()
+  const { project, updateNode, deleteNode, addNode, addChapter, addAct, updateAct, addVariable, updateVariable, bulkSetStructure, advancePhase, goToPhase, clearDownstream, clearStaleFlag, addEnding, updateEnding, deleteEnding } = useProjectStore()
 
   const [stage, setStage] = useState<Stage>(() => {
     if (!project || project.nodes.length === 0) return 'struct_loading'
@@ -183,7 +183,15 @@ export default function StructurePage() {
         return
       }
     } catch {
-      // 流式连接层面失败（网络/代理不透传）：走非流式回退
+      // 流已经开始消费后中途失败（服务器崩溃/连接中断）：不能静默吞掉，
+      // 否则用户会一直停留在加载态转圈，看不到任何反馈（这正是曾导致上一轮真实检查
+      // 会话在等待生成时被误判为"卡死"的体验缺陷）。此时明确报错并回到可操作的编辑态。
+      if (streamStarted) {
+        setAiError(appendRunId('生成过程中连接中断（服务器可能重启或网络波动），请点击"重新生成"重试'))
+        setStage('edit')
+        return
+      }
+      // 流式连接在建立阶段就失败（网络/代理不透传）：走非流式回退
     }
     if (!streamStarted) await generateStructureFallback(payload)
   }
@@ -281,7 +289,10 @@ export default function StructurePage() {
         id: nanoid(8), nodeId,
         text: c.text, order: i,
         targetNodeId: resolveTargetId(c),
-        conditions: '',
+        // AI 在 branches:generate 提示词中被要求为门控节点（如"路线门控"）填写具体变量条件，
+        // 后端 ChoiceDraftSchema 也支持该字段——此前这里硬编码空字符串，等于把 AI 返回的
+        // conditions 值原样丢弃，导致门控条件在所有分支上都形同虚设。
+        conditions: c.conditions ?? '',
         variableEffects: c.variableEffects ?? '',
         choiceWeight: c.choiceWeight,
         consequence: c.consequence,
@@ -522,7 +533,17 @@ export default function StructurePage() {
               <div className="flex items-center gap-2">
                 <span className="text-xs text-amber-600">确认重新设计？</span>
                 <button onClick={() => setConfirmReset(false)} className="text-xs px-2 py-1 border border-gray-300 rounded">取消</button>
-                <button onClick={() => { bulkSetStructure([], [], []); setConfirmReset(false); generateStructure() }} className="text-xs px-2 py-1 bg-amber-600 text-white rounded">确认</button>
+                <button
+                  onClick={() => {
+                    bulkSetStructure([], [], [])
+                    // 清空结构内容后，若阶段已领先到 workshop/validate，必须回退到 structure，
+                    // 否则会出现"阶段显示 workshop 但节点数为 0"的阶段与内容脱节的不一致状态。
+                    if (project!.currentPhase === 'workshop' || project!.currentPhase === 'validate') goToPhase('structure')
+                    setConfirmReset(false)
+                    generateStructure()
+                  }}
+                  className="text-xs px-2 py-1 bg-amber-600 text-white rounded"
+                >确认</button>
               </div>
             ) : (
               <button onClick={() => setConfirmReset(true)} className="text-xs text-gray-400 hover:text-amber-500 underline">重新 AI 设计</button>
@@ -537,7 +558,7 @@ export default function StructurePage() {
           <div className="mb-4 flex items-center gap-3 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3">
             <span className="text-amber-600 text-sm flex-1">世界设定已修改，当前结构基于旧版本，建议重新生成</span>
             <button
-              onClick={() => { clearDownstream(); generateStructure() }}
+              onClick={() => { clearDownstream('structure'); generateStructure() }}
               className="text-xs px-3 py-1.5 bg-amber-600 text-white rounded-lg hover:bg-amber-700"
             >重新生成</button>
             <button
