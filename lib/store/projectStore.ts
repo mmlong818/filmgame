@@ -2,7 +2,7 @@ import { create } from 'zustand'
 import { nanoid } from 'nanoid'
 import type { Project, StoryNode, Choice, Variable, WorldAnchor, ScalePlan, ValidationReport, Chapter, Act, Character, Ending, EndingDesign } from '@/lib/types/project'
 import type { Phase } from '@/lib/types/phase'
-import { loadLocalSnapshot, writeLocalSnapshot, saveProject, saveNode } from '@/lib/persistence'
+import { loadLocalSnapshot, writeLocalSnapshot, saveProject, saveProjectMeta, saveNode, setHydrated, clearConflictLock } from '@/lib/persistence'
 import type { SaveStateDetail } from '@/lib/persistence'
 
 const PHASE_ORDER: Phase[] = ['world', 'scale', 'structure', 'workshop', 'validate']
@@ -49,6 +49,8 @@ interface ProjectStore {
   saveConflict: { currentVersion: number } | null
   /** 收到其他标签页的保存广播且版本更新时置位；UI 提示刷新。 */
   stale: boolean
+  /** GET 对账（DB 权威数据覆盖 localStorage 乐观 paint）是否已完成；false 期间所有保存请求被 persistence 层丢弃。 */
+  hydrated: boolean
 
   /** 同步：仅从 localStorage 快照乐观 paint（不发网络请求）。供极早期渲染兜底使用。 */
   loadProject: (id: string) => boolean
@@ -102,18 +104,29 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
   loadedVersion: null,
   saveConflict: null,
   stale: false,
+  hydrated: false,
 
   loadProject: (id) => {
     const p = loadLocalSnapshot(id)
     if (!p) return false
-    set({ project: p, loadedVersion: null, saveConflict: null, stale: false })
+    setHydrated(id, false)
+    set({ project: p, loadedVersion: null, saveConflict: null, stale: false, hydrated: false })
     return true
   },
 
   hydrateProject: async (id) => {
+    setHydrated(id, false)
     const local = loadLocalSnapshot(id)
     if (local && local.id === id) {
-      set({ project: local, loadedVersion: null, saveConflict: null, stale: false })
+      set({ project: local, loadedVersion: null, saveConflict: null, stale: false, hydrated: false })
+    }
+    // 网络失败/服务端返回异常时，若已有本地快照允许离线继续工作；此时也视为"对账已完成"
+    // （已尽力对账，非无限期悬挂），放行后续保存——真正的离线场景仍由现有重试/排队兜底。
+    const fallbackToLocal = (): HydrateResult => {
+      if (!local) return 'error'
+      setHydrated(id, true)
+      set((s) => ({ ...s, hydrated: true }))
+      return 'ok'
     }
     try {
       const res = await fetch(`/api/projects/${id}`)
@@ -122,20 +135,25 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
         window.location.href = '/login'
         return 'error'
       }
-      if (!res.ok) return local ? 'ok' : 'error'
+      if (!res.ok) return fallbackToLocal()
       const data = await res.json()
-      if (!data.ok || !data.project) return local ? 'ok' : 'not-found'
+      if (!data.ok || !data.project) return local ? fallbackToLocal() : 'not-found'
       // DB 胜出：无论本地快照是否存在/是否更新，均以服务端数据为准。
-      set({ project: data.project, loadedVersion: data.version ?? null, saveConflict: null, stale: false })
+      setHydrated(id, true)
+      clearConflictLock(id)
+      set({ project: data.project, loadedVersion: data.version ?? null, saveConflict: null, stale: false, hydrated: true })
       writeLocalSnapshot(data.project)
       return 'ok'
     } catch {
-      // 网络失败：若已有本地快照，允许离线继续工作；否则视为不可用。
-      return local ? 'ok' : 'error'
+      return fallbackToLocal()
     }
   },
 
-  setProject: (p, version) => set({ project: p, loadedVersion: version ?? null, saveConflict: null, stale: false }),
+  setProject: (p, version) => {
+    // 调用方（新建/导入项目）传入的是服务端刚确认落库的权威数据，等同一次成功对账。
+    setHydrated(p.id, true)
+    set({ project: p, loadedVersion: version ?? null, saveConflict: null, stale: false, hydrated: true })
+  },
 
   clearConflict: () => set({ saveConflict: null }),
   clearStale: () => set({ stale: false }),
@@ -152,7 +170,7 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
       updatedAt: new Date().toISOString(),
       ...(changed && hasDownstream ? { downstreamStale: true } : {}),
     }
-    saveProject(p, s.loadedVersion ?? undefined)
+    saveProjectMeta(p, s.loadedVersion ?? undefined)
     return { project: p }
   }),
 
@@ -160,7 +178,7 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
     if (!s.project) return s
     const c: Character = { id: nanoid(8), name: '新角色', role: 'support', motivation: '', relationship: '' }
     const p = { ...s.project, characters: [...s.project.characters, c], updatedAt: new Date().toISOString() }
-    saveProject(p, s.loadedVersion ?? undefined)
+    saveProjectMeta(p, s.loadedVersion ?? undefined)
     return { project: p }
   }),
 
@@ -168,35 +186,35 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
     if (!s.project) return s
     const characters = s.project.characters.map(c => c.id === id ? { ...c, ...patch } : c)
     const p = { ...s.project, characters, updatedAt: new Date().toISOString() }
-    saveProject(p, s.loadedVersion ?? undefined)
+    saveProjectMeta(p, s.loadedVersion ?? undefined)
     return { project: p }
   }),
 
   deleteCharacter: (id) => set((s) => {
     if (!s.project) return s
     const p = { ...s.project, characters: s.project.characters.filter(c => c.id !== id), updatedAt: new Date().toISOString() }
-    saveProject(p, s.loadedVersion ?? undefined)
+    saveProjectMeta(p, s.loadedVersion ?? undefined)
     return { project: p }
   }),
 
   setCharacters: (characters) => set((s) => {
     if (!s.project) return s
     const p = { ...s.project, characters, updatedAt: new Date().toISOString() }
-    saveProject(p, s.loadedVersion ?? undefined)
+    saveProjectMeta(p, s.loadedVersion ?? undefined)
     return { project: p }
   }),
 
   setScalePlanOptions: (plans) => set((s) => {
     if (!s.project) return s
     const p = { ...s.project, scalePlanOptions: plans, updatedAt: new Date().toISOString() }
-    saveProject(p, s.loadedVersion ?? undefined)
+    saveProjectMeta(p, s.loadedVersion ?? undefined)
     return { project: p }
   }),
 
   selectScalePlan: (planId) => set((s) => {
     if (!s.project) return s
     const p = { ...s.project, selectedScalePlanId: planId, updatedAt: new Date().toISOString() }
-    saveProject(p, s.loadedVersion ?? undefined)
+    saveProjectMeta(p, s.loadedVersion ?? undefined)
     return { project: p }
   }),
 
@@ -209,7 +227,7 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
     progress[s.project.currentPhase] = 'done'
     progress[next] = 'in_progress'
     const p = { ...s.project, currentPhase: next, phaseProgress: progress, updatedAt: new Date().toISOString() }
-    saveProject(p, s.loadedVersion ?? undefined)
+    saveProjectMeta(p, s.loadedVersion ?? undefined)
     return { project: p }
   }),
 
@@ -217,7 +235,7 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
     if (!s.project) return s
     if (s.project.phaseProgress[phase] === 'locked') return s
     const p = { ...s.project, currentPhase: phase, updatedAt: new Date().toISOString() }
-    saveProject(p, s.loadedVersion ?? undefined)
+    saveProjectMeta(p, s.loadedVersion ?? undefined)
     return { project: p }
   }),
 
@@ -249,7 +267,7 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
   clearStaleFlag: () => set((s) => {
     if (!s.project) return s
     const p = { ...s.project, downstreamStale: false, updatedAt: new Date().toISOString() }
-    saveProject(p, s.loadedVersion ?? undefined)
+    saveProjectMeta(p, s.loadedVersion ?? undefined)
     return { project: p }
   }),
 
@@ -257,7 +275,7 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
     if (!s.project) return s
     const chapter = { id: nanoid(8), title, order: s.project.chapters.length }
     const p = { ...s.project, chapters: [...s.project.chapters, chapter], updatedAt: new Date().toISOString() }
-    saveProject(p, s.loadedVersion ?? undefined)
+    saveProjectMeta(p, s.loadedVersion ?? undefined)
     return { project: p }
   }),
 
@@ -266,7 +284,7 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
     const acts = s.project.acts.filter(a => a.chapterId === chapterId)
     const act = { id: nanoid(8), chapterId, title, order: acts.length, nodeIds: [] }
     const p = { ...s.project, acts: [...s.project.acts, act], updatedAt: new Date().toISOString() }
-    saveProject(p, s.loadedVersion ?? undefined)
+    saveProjectMeta(p, s.loadedVersion ?? undefined)
     return { project: p }
   }),
 
@@ -274,7 +292,7 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
     if (!s.project) return s
     const acts = s.project.acts.map(a => a.id === actId ? { ...a, ...patch } : a)
     const p = { ...s.project, acts, updatedAt: new Date().toISOString() }
-    saveProject(p, s.loadedVersion ?? undefined)
+    saveProjectMeta(p, s.loadedVersion ?? undefined)
     return { project: p }
   }),
 
@@ -377,7 +395,7 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
     if (!s.project) return s
     const v: Variable = { id: nanoid(8), name, type: 'flag', defaultValue: '0', description: '' }
     const p = { ...s.project, variables: [...s.project.variables, v], updatedAt: new Date().toISOString() }
-    saveProject(p, s.loadedVersion ?? undefined)
+    saveProjectMeta(p, s.loadedVersion ?? undefined)
     return { project: p }
   }),
 
@@ -385,14 +403,14 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
     if (!s.project) return s
     const variables = s.project.variables.map(v => v.id === id ? { ...v, ...patch } : v)
     const p = { ...s.project, variables, updatedAt: new Date().toISOString() }
-    saveProject(p, s.loadedVersion ?? undefined)
+    saveProjectMeta(p, s.loadedVersion ?? undefined)
     return { project: p }
   }),
 
   setVariables: (variables) => set((s) => {
     if (!s.project) return s
     const p = { ...s.project, variables, updatedAt: new Date().toISOString() }
-    saveProject(p, s.loadedVersion ?? undefined)
+    saveProjectMeta(p, s.loadedVersion ?? undefined)
     return { project: p }
   }),
 
@@ -400,7 +418,7 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
     if (!s.project) return s
     const ending: Ending = { id: nanoid(8), nodeId, title: '新结局', type: 'neutral', conditions: '', description: '', variableConditions: [], requiredChoiceIds: [], reachPath: '' }
     const p = { ...s.project, endings: [...s.project.endings, ending], updatedAt: new Date().toISOString() }
-    saveProject(p, s.loadedVersion ?? undefined)
+    saveProjectMeta(p, s.loadedVersion ?? undefined)
     return { project: p }
   }),
 
@@ -408,14 +426,14 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
     if (!s.project) return s
     const endings = s.project.endings.map(e => e.id === id ? { ...e, ...patch } : e)
     const p = { ...s.project, endings, updatedAt: new Date().toISOString() }
-    saveProject(p, s.loadedVersion ?? undefined)
+    saveProjectMeta(p, s.loadedVersion ?? undefined)
     return { project: p }
   }),
 
   deleteEnding: (id) => set((s) => {
     if (!s.project) return s
     const p = { ...s.project, endings: s.project.endings.filter(e => e.id !== id), updatedAt: new Date().toISOString() }
-    saveProject(p, s.loadedVersion ?? undefined)
+    saveProjectMeta(p, s.loadedVersion ?? undefined)
     return { project: p }
   }),
 
@@ -423,28 +441,28 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
     if (!s.project) return s
     const worldAnchor = s.project.worldAnchor ? { ...s.project.worldAnchor, endingsDesign: endings } : null
     const p = { ...s.project, worldAnchor, updatedAt: new Date().toISOString() }
-    saveProject(p, s.loadedVersion ?? undefined)
+    saveProjectMeta(p, s.loadedVersion ?? undefined)
     return { project: p }
   }),
 
   renameProject: (title) => set((s) => {
     if (!s.project) return s
     const p = { ...s.project, title, updatedAt: new Date().toISOString() }
-    saveProject(p, s.loadedVersion ?? undefined)
+    saveProjectMeta(p, s.loadedVersion ?? undefined)
     return { project: p }
   }),
 
   setValidationReport: (report) => set((s) => {
     if (!s.project) return s
     const p = { ...s.project, lastValidation: report, updatedAt: new Date().toISOString() }
-    saveProject(p, s.loadedVersion ?? undefined)
+    saveProjectMeta(p, s.loadedVersion ?? undefined)
     return { project: p }
   }),
 
   setDirectorReview: (review) => set((s) => {
     if (!s.project) return s
     const p = { ...s.project, directorReview: review, updatedAt: new Date().toISOString() }
-    saveProject(p, s.loadedVersion ?? undefined)
+    saveProjectMeta(p, s.loadedVersion ?? undefined)
     return { project: p }
   }),
 }))

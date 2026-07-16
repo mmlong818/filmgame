@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { withAuth } from '@/lib/server/auth'
-import { getProjectWithVersion, saveProject, deleteProject, ConflictError } from '@/lib/db/projects'
+import { getProjectWithVersion, saveProject, saveProjectMeta, deleteProject, ConflictError } from '@/lib/db/projects'
 import { migrateProject } from '@/lib/schema/migrations'
 import { ProjectSchema } from '@/lib/schema/project'
 import type { Project } from '@/lib/types/project'
@@ -74,6 +74,50 @@ export const POST = withAuth(
 
     try {
       const saved = await saveProject(parsed.data as Project, expectedVersion)
+      return NextResponse.json({ ok: true, project: saved })
+    } catch (err) {
+      if (err instanceof ConflictError) {
+        return NextResponse.json(
+          { ok: false, errorType: 'conflict', currentVersion: err.currentVersion },
+          { status: 409 },
+        )
+      }
+      return NextResponse.json({ ok: false, error: String(err) }, { status: 500 })
+    }
+  },
+)
+
+/** 项目级元数据保存：body 为 project 的非 nodes 字段（+ 可选 version），不触碰 nodes 表。 */
+export const PATCH = withAuth(
+  async (req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
+    const { id } = await params
+    if (!validateId(id)) return NextResponse.json({ ok: false, error: 'invalid id' }, { status: 400 })
+
+    let body: unknown
+    try {
+      body = await req.json()
+    } catch {
+      return NextResponse.json({ ok: false, error: 'invalid JSON body' }, { status: 400 })
+    }
+
+    const bodyId = (body as { id?: unknown })?.id
+    if (typeof bodyId === 'string' && bodyId !== id) {
+      return NextResponse.json({ ok: false, error: 'id mismatch' }, { status: 400 })
+    }
+
+    const migrated = migrateProject({ ...(body as Record<string, unknown>), id })
+    const parsed = ProjectSchema.safeParse(migrated)
+    if (!parsed.success) {
+      return NextResponse.json(
+        { ok: false, error: formatZodError(parsed.error) },
+        { status: 400 },
+      )
+    }
+
+    const expectedVersion = readExpectedVersion(req, body)
+
+    try {
+      const saved = await saveProjectMeta(parsed.data as Project, expectedVersion)
       return NextResponse.json({ ok: true, project: saved })
     } catch (err) {
       if (err instanceof ConflictError) {

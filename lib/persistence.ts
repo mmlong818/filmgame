@@ -32,6 +32,36 @@ function dispatchSaveState(detail: SaveStateDetail): void {
   window.dispatchEvent(new CustomEvent<SaveStateDetail>('filmgame:save-state', { detail }))
 }
 
+// ─── hydration 门禁 + 409 冲突锁 ─────────────────────────────────────────
+// hydrated：GET 对账（DB 权威数据覆盖 localStorage 乐观 paint）完成前，本文件的
+// saveProject/saveNode/saveProjectMeta 一律不发出网络请求——乐观 paint 只用于渲染，
+// 不能触发保存副作用，否则会把尚未被纠正的旧快照写回服务器。
+// conflictLock：整档/元数据/节点保存收到 409 后即锁定该项目 id，此后所有自动保存
+// （含 debounce 触发、离线队列 flush）直接短路拒绝，直到用户主动"加载最新"重新对账成功。
+const hydratedIds = new Set<string>()
+const conflictLockedIds = new Set<string>()
+
+export function setHydrated(id: string, value: boolean): void {
+  if (value) hydratedIds.add(id)
+  else hydratedIds.delete(id)
+}
+
+function isHydrated(id: string): boolean {
+  return hydratedIds.has(id)
+}
+
+export function clearConflictLock(id: string): void {
+  conflictLockedIds.delete(id)
+}
+
+function isConflictLocked(id: string): boolean {
+  return conflictLockedIds.has(id)
+}
+
+function lockConflict(id: string): void {
+  conflictLockedIds.add(id)
+}
+
 /** 401 时统一跳转登录页；其余状态原样透传给调用方处理。 */
 async function authFetch(input: string, init?: RequestInit): Promise<Response> {
   const res = await fetch(input, init)
@@ -88,6 +118,7 @@ export function removeLocalSnapshot(id: string): void {
 
 type PendingOp =
   | { kind: 'project'; project: Project; expectedVersion?: number }
+  | { kind: 'projectMeta'; project: Project; expectedVersion?: number }
   | { kind: 'node'; node: StoryNode; expectedVersion?: number }
 
 function readPending(id: string): PendingOp[] {
@@ -107,20 +138,19 @@ function writePending(id: string, ops: PendingOp[]): void {
   } catch { /* ignore：兜底队列写入失败没有更下游的兜底，只能放弃 */ }
 }
 
+function matchesPendingOp(existing: PendingOp, op: PendingOp): boolean {
+  if (op.kind === 'node') return existing.kind === 'node' && existing.node.id === op.node.id
+  return existing.kind === op.kind
+}
+
 function enqueuePending(id: string, op: PendingOp): void {
-  const ops = readPending(id).filter((existing) => {
-    if (op.kind === 'project') return existing.kind !== 'project'
-    return !(existing.kind === 'node' && existing.node.id === op.node.id)
-  })
+  const ops = readPending(id).filter((existing) => !matchesPendingOp(existing, op))
   ops.push(op)
   writePending(id, ops)
 }
 
 function dequeuePending(id: string, op: PendingOp): void {
-  const ops = readPending(id).filter((existing) => {
-    if (op.kind === 'project') return existing.kind !== 'project'
-    return !(existing.kind === 'node' && op.kind === 'node' && existing.node.id === op.node.id)
-  })
+  const ops = readPending(id).filter((existing) => !matchesPendingOp(existing, op))
   writePending(id, ops)
 }
 
@@ -168,6 +198,11 @@ const DEBOUNCE_MS = 700
 export function saveProject(project: Project, expectedVersion?: number): void {
   if (typeof window === 'undefined') return
   writeLocalSnapshot(project)
+  if (!isHydrated(project.id)) return // 对账未完成：乐观 paint 不能触发保存副作用
+  if (isConflictLocked(project.id)) {
+    dispatchSaveState({ state: 'conflict', id: project.id })
+    return
+  }
 
   const existing = projectSaveTimers.get(project.id)
   if (existing) clearTimeout(existing)
@@ -178,6 +213,10 @@ export function saveProject(project: Project, expectedVersion?: number): void {
 }
 
 async function performProjectSave(project: Project, expectedVersion?: number): Promise<void> {
+  if (isConflictLocked(project.id)) {
+    dispatchSaveState({ state: 'conflict', id: project.id })
+    return
+  }
   dispatchSaveState({ state: 'saving', id: project.id })
   const body = expectedVersion !== undefined ? { ...project, version: expectedVersion } : project
   const result = await sendWithRetry(`/api/projects/${project.id}`, body, 'POST')
@@ -191,6 +230,7 @@ async function performProjectSave(project: Project, expectedVersion?: number): P
     return
   }
   if ('conflict' in result) {
+    lockConflict(project.id)
     dispatchSaveState({ state: 'conflict', id: project.id, currentVersion: result.conflict.currentVersion })
     return
   }
@@ -225,6 +265,58 @@ export async function createProject(
   }
 }
 
+// ─── 项目级元数据保存（防抖，PATCH，不触碰 nodes 表） ────────────────────
+
+const projectMetaSaveTimers = new Map<string, ReturnType<typeof setTimeout>>()
+
+/**
+ * 防抖(700ms) 项目元数据保存：只 PATCH projects 行的非 nodes 字段（角色/变量/结局定义、
+ * worldAnchor、acts、chapters、phase、validationReport、directorReview 等），
+ * 不携带/不触碰 nodes 表，避免调用方内存里的陈旧 nodes 快照覆盖数据库最新节点内容。
+ */
+export function saveProjectMeta(project: Project, expectedVersion?: number): void {
+  if (typeof window === 'undefined') return
+  writeLocalSnapshot(project)
+  if (!isHydrated(project.id)) return
+  if (isConflictLocked(project.id)) {
+    dispatchSaveState({ state: 'conflict', id: project.id })
+    return
+  }
+
+  const existing = projectMetaSaveTimers.get(project.id)
+  if (existing) clearTimeout(existing)
+  projectMetaSaveTimers.set(project.id, setTimeout(() => {
+    projectMetaSaveTimers.delete(project.id)
+    void performProjectMetaSave(project, expectedVersion)
+  }, DEBOUNCE_MS))
+}
+
+async function performProjectMetaSave(project: Project, expectedVersion?: number): Promise<void> {
+  if (isConflictLocked(project.id)) {
+    dispatchSaveState({ state: 'conflict', id: project.id })
+    return
+  }
+  dispatchSaveState({ state: 'saving', id: project.id })
+  const body = expectedVersion !== undefined ? { ...project, version: expectedVersion } : project
+  const result = await sendWithRetry(`/api/projects/${project.id}`, body, 'PATCH')
+
+  if (result.ok) {
+    const version = expectedVersion !== undefined ? expectedVersion + 1 : undefined
+    dispatchSaveState({ state: 'saved', id: project.id, version })
+    dequeuePending(project.id, { kind: 'projectMeta', project, expectedVersion })
+    return
+  }
+  if ('conflict' in result) {
+    lockConflict(project.id)
+    dispatchSaveState({ state: 'conflict', id: project.id, currentVersion: result.conflict.currentVersion })
+    return
+  }
+  if ('fatal' in result) return
+
+  enqueuePending(project.id, { kind: 'projectMeta', project, expectedVersion })
+  dispatchSaveState({ state: 'error', id: project.id })
+}
+
 // ─── 节点级保存（防抖） ──────────────────────────────────────────────
 
 const nodeSaveTimers = new Map<string, ReturnType<typeof setTimeout>>()
@@ -232,6 +324,11 @@ const nodeSaveTimers = new Map<string, ReturnType<typeof setTimeout>>()
 /** 防抖(700ms) 单节点保存，仅写一条小体积 PATCH，避免整档保存的写放大。 */
 export function saveNode(projectId: string, node: StoryNode, expectedVersion?: number): void {
   if (typeof window === 'undefined') return
+  if (!isHydrated(projectId)) return
+  if (isConflictLocked(projectId)) {
+    dispatchSaveState({ state: 'conflict', id: projectId, nodeId: node.id })
+    return
+  }
   const timerKey = `${projectId}:${node.id}`
   const existing = nodeSaveTimers.get(timerKey)
   if (existing) clearTimeout(existing)
@@ -242,6 +339,10 @@ export function saveNode(projectId: string, node: StoryNode, expectedVersion?: n
 }
 
 async function performNodeSave(projectId: string, node: StoryNode, expectedVersion?: number): Promise<void> {
+  if (isConflictLocked(projectId)) {
+    dispatchSaveState({ state: 'conflict', id: projectId, nodeId: node.id })
+    return
+  }
   dispatchSaveState({ state: 'saving', id: projectId, nodeId: node.id })
   const body = expectedVersion !== undefined ? { node, version: expectedVersion } : { node }
   const result = await sendWithRetry(`/api/projects/${projectId}/nodes/${node.id}`, body, 'PATCH')
@@ -252,6 +353,7 @@ async function performNodeSave(projectId: string, node: StoryNode, expectedVersi
     return
   }
   if ('conflict' in result) {
+    lockConflict(projectId)
     dispatchSaveState({ state: 'conflict', id: projectId, nodeId: node.id, currentVersion: result.conflict.currentVersion })
     return
   }
@@ -262,36 +364,66 @@ async function performNodeSave(projectId: string, node: StoryNode, expectedVersi
 }
 
 // ─── 离线 flush（`online` 事件触发） ─────────────────────────────────
+// 三个 flushXOp 分别对应 PendingOp 的三种 kind，返回 false 时 flushPendingForId 停止
+// 继续处理剩余待发送项（409 冲突需用户决策；仍失败/离线则保留队列等待下次 online）。
+
+async function flushProjectOp(id: string, op: Extract<PendingOp, { kind: 'project' }>): Promise<boolean> {
+  const body = op.expectedVersion !== undefined ? { ...op.project, version: op.expectedVersion } : op.project
+  const result = await sendWithRetry(`/api/projects/${id}`, body, 'POST')
+  if (result.ok) {
+    dequeuePending(id, op)
+    const version = op.expectedVersion !== undefined ? op.expectedVersion + 1 : undefined
+    dispatchSaveState({ state: 'saved', id, version })
+    return true
+  }
+  if ('conflict' in result) {
+    lockConflict(id)
+    dispatchSaveState({ state: 'conflict', id, currentVersion: result.conflict.currentVersion })
+  }
+  return false
+}
+
+async function flushProjectMetaOp(id: string, op: Extract<PendingOp, { kind: 'projectMeta' }>): Promise<boolean> {
+  const body = op.expectedVersion !== undefined ? { ...op.project, version: op.expectedVersion } : op.project
+  const result = await sendWithRetry(`/api/projects/${id}`, body, 'PATCH')
+  if (result.ok) {
+    dequeuePending(id, op)
+    const version = op.expectedVersion !== undefined ? op.expectedVersion + 1 : undefined
+    dispatchSaveState({ state: 'saved', id, version })
+    return true
+  }
+  if ('conflict' in result) {
+    lockConflict(id)
+    dispatchSaveState({ state: 'conflict', id, currentVersion: result.conflict.currentVersion })
+  }
+  return false
+}
+
+async function flushNodeOp(id: string, op: Extract<PendingOp, { kind: 'node' }>): Promise<boolean> {
+  const body = op.expectedVersion !== undefined ? { node: op.node, version: op.expectedVersion } : { node: op.node }
+  const result = await sendWithRetry(`/api/projects/${id}/nodes/${op.node.id}`, body, 'PATCH')
+  if (result.ok) {
+    dequeuePending(id, op)
+    dispatchSaveState({ state: 'saved', id, nodeId: op.node.id })
+    return true
+  }
+  if ('conflict' in result) {
+    lockConflict(id)
+    dispatchSaveState({ state: 'conflict', id, nodeId: op.node.id, currentVersion: result.conflict.currentVersion })
+  }
+  return false
+}
 
 async function flushPendingForId(id: string): Promise<void> {
-  const ops = readPending(id)
-  for (const op of ops) {
-    if (op.kind === 'project') {
-      const body = op.expectedVersion !== undefined ? { ...op.project, version: op.expectedVersion } : op.project
-      const result = await sendWithRetry(`/api/projects/${id}`, body, 'POST')
-      if (result.ok) {
-        dequeuePending(id, op)
-        const version = op.expectedVersion !== undefined ? op.expectedVersion + 1 : undefined
-        dispatchSaveState({ state: 'saved', id, version })
-      } else if ('conflict' in result) {
-        dispatchSaveState({ state: 'conflict', id, currentVersion: result.conflict.currentVersion })
-        return // 冲突需要用户决策，停止继续 flush，保留其余待发送项
-      } else {
-        return // 仍然离线/失败：保留队列，等待下次 online
-      }
-    } else {
-      const body = op.expectedVersion !== undefined ? { node: op.node, version: op.expectedVersion } : { node: op.node }
-      const result = await sendWithRetry(`/api/projects/${id}/nodes/${op.node.id}`, body, 'PATCH')
-      if (result.ok) {
-        dequeuePending(id, op)
-        dispatchSaveState({ state: 'saved', id, nodeId: op.node.id })
-      } else if ('conflict' in result) {
-        dispatchSaveState({ state: 'conflict', id, nodeId: op.node.id, currentVersion: result.conflict.currentVersion })
-        return
-      } else {
-        return
-      }
-    }
+  if (isConflictLocked(id)) {
+    dispatchSaveState({ state: 'conflict', id })
+    return
+  }
+  for (const op of readPending(id)) {
+    const ok = op.kind === 'project' ? await flushProjectOp(id, op)
+      : op.kind === 'projectMeta' ? await flushProjectMetaOp(id, op)
+      : await flushNodeOp(id, op)
+    if (!ok) return
   }
 }
 

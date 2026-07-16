@@ -254,6 +254,42 @@ export async function saveProject(project: Project, expectedVersion?: number): P
 }
 
 /**
+ * 项目级元数据保存：只 upsert projectRow（乐观锁校验方式与 saveProject 一致），
+ * 完全不触碰 nodes 表（不做任何 nodes 的 upsert 或差集删除）。供角色/变量/结局定义、
+ * worldAnchor、acts、chapters、phase、validationReport、directorReview 等
+ * 只改 projects 行字段、不改节点内容的操作使用，避免整档保存把调用方内存里的
+ * 陈旧 nodes 快照覆盖回数据库。
+ */
+export async function saveProjectMeta(project: Project, expectedVersion?: number): Promise<Project> {
+  const { projectRow } = toRows(project)
+
+  return db.transaction(async (tx) => {
+    const [existing] = await tx
+      .select({ version: projects.version })
+      .from(projects)
+      .where(eq(projects.id, project.id))
+
+    if (expectedVersion !== undefined) {
+      if (!existing) throw new ConflictError(`project ${project.id} not found`, 0)
+      if (existing.version !== expectedVersion) {
+        throw new ConflictError(`project ${project.id} version conflict`, existing.version)
+      }
+    }
+
+    const newVersion = existing ? existing.version + 1 : 1
+
+    await tx
+      .insert(projects)
+      .values({ ...projectRow, version: newVersion })
+      .onConflictDoUpdate({ target: projects.id, set: { ...projectRow, version: newVersion } })
+
+    const [savedProjectRow] = await tx.select().from(projects).where(eq(projects.id, project.id))
+    const savedNodeRows = await tx.select().from(nodes).where(eq(nodes.projectId, project.id))
+    return fromRows(savedProjectRow, savedNodeRows)
+  })
+}
+
+/**
  * 单节点保存：只 upsert 该 node 行 + bump 该行 version，并 bump projects.updatedAt。
  * 不 bump projects.version —— 避免节点级保存与整档保存互相触发 409（计划 Task 4 明确规避）。
  */

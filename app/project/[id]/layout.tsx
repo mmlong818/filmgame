@@ -13,7 +13,7 @@ export default function ProjectLayout({ children }: { children: React.ReactNode 
   const segment = useSelectedLayoutSegment()
   const params = useParams()
   const id = params.id as string
-  const { project, hydrateProject, renameProject, saveConflict, stale, clearConflict, clearStale } = useProjectStore()
+  const { project, hydrateProject, renameProject, saveConflict, stale, clearConflict, clearStale, hydrated } = useProjectStore()
   const { toast } = useToast()
   const [editingTitle, setEditingTitle] = useState(false)
   const [titleDraft, setTitleDraft] = useState('')
@@ -21,8 +21,12 @@ export default function ProjectLayout({ children }: { children: React.ReactNode 
   const [loadError, setLoadError] = useState(false)
 
   // DB 为准的异步水合：先本地快照乐观 paint（hydrateProject 内部处理），再 GET 对账，DB 胜出。
+  // 用 hydrated（而非仅 project.id===id）判断是否需要重新对账：即使 project 已经是这个
+  // id（例如 /project/[id] 跳转页先用 loadProject 做了本地快照 paint），只要尚未真正
+  // GET 对账过，仍必须调用 hydrateProject，否则 persistence 层的 hydration 门禁会永久
+  // 阻断该项目的保存请求。
   useEffect(() => {
-    if (project && project.id === id) return
+    if (project && project.id === id && hydrated) return
     setNotFound(false)
     setLoadError(false)
     let cancelled = false
@@ -33,7 +37,7 @@ export default function ProjectLayout({ children }: { children: React.ReactNode 
       else if (result === 'error') setLoadError(true)
     })()
     return () => { cancelled = true }
-  }, [id, project, hydrateProject])
+  }, [id, project, hydrated, hydrateProject])
 
   useEffect(() => {
     function handleStorageError(e: Event) {
