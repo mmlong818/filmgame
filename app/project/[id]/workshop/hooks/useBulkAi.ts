@@ -1,0 +1,163 @@
+import { useRef, useState } from 'react'
+import { nanoid } from 'nanoid'
+import { aiFetch } from '@/lib/ai/client'
+import type { Project, StoryNode, DialogueLine } from '@/lib/types/project'
+import type { BulkScope } from '../components/BulkAiControls'
+
+interface Params {
+  project: Project | null
+  selectedId: string | null
+  updateNode: (id: string, patch: Partial<StoryNode>) => void
+  toast: (message: string, type?: 'success' | 'error' | 'info') => void
+}
+
+// 批量 AI 设计的状态机：范围选择（全部/当前章/当前幕）、生成+精修两轮、
+// 取消、失败节点追踪与仅重试失败项。抽成独立 hook 避免 workshop 主页面继续膨胀
+// （该页面在本次改动前已超过 800 行规范）。
+export function useBulkAi({ project, selectedId, updateNode, toast }: Params) {
+  const [bulkLoading, setBulkLoading] = useState(false)
+  const [bulkProgress, setBulkProgress] = useState<{ done: number; total: number; phase: 'generate' | 'refine' } | null>(null)
+  const [bulkScope, setBulkScope] = useState<BulkScope>('act')
+  const [bulkFailedIds, setBulkFailedIds] = useState<string[]>([])
+  const bulkCancelRef = useRef(false)
+
+  // 批量范围解析：全部 / 当前幕（selectedId 所在 act）/ 当前章（该 act 所属 chapter 下所有 act）。
+  // 没有选中节点时退化为全部节点，调用方 UI 会提示这一回退。
+  function getScopedNodes(scope: BulkScope): StoryNode[] {
+    if (!project) return []
+    if (scope === 'all' || !selectedId) return project.nodes
+    const act = project.acts.find(a => a.nodeIds.includes(selectedId))
+    if (!act) return project.nodes
+    if (scope === 'act') {
+      const idSet = new Set(act.nodeIds)
+      return project.nodes.filter(n => idSet.has(n.id))
+    }
+    const chapterActs = project.acts.filter(a => a.chapterId === act.chapterId)
+    const idSet = new Set(chapterActs.flatMap(a => a.nodeIds))
+    return project.nodes.filter(n => idSet.has(n.id))
+  }
+
+  // 批量第一轮（生成）的可复用执行体：初次批量运行、失败重试都走这里。
+  // patches 由调用方持有并原地写入——用于第二轮精修判断"哪些节点仍偏薄"，
+  // 不能依赖 project.nodes（批量耗时可能数分钟，之后 project 引用会随外部重渲染变化）。
+  async function runGeneratePass(nodesToProcess: StoryNode[], patches: Record<string, Partial<StoryNode>>): Promise<string[]> {
+    if (!project) return []
+    const ctx = { worldAnchor: project.worldAnchor, characters: project.characters, variables: project.variables }
+    const failed: string[] = []
+    for (const node of nodesToProcess) {
+      if (bulkCancelRef.current) break
+      let succeeded = false
+      try {
+        const [eRes, dRes] = await Promise.all([
+          aiFetch('workshop', 'fill_emotion', { node, ...ctx }),
+          aiFetch('workshop', 'write_dialogue', { node, ...ctx }),
+        ])
+        const [eData, dData] = await Promise.all([eRes.json(), dRes.json()])
+        const patch: Partial<StoryNode> = {}
+        if (eData.ok && eData.result) patch.emotionFunction = eData.result
+        if (dData.ok && dData.result?.dialogue) {
+          patch.dialogue = dData.result.dialogue.map((d: DialogueLine) => ({ ...d, id: nanoid(6) }))
+          if (dData.result.sceneDesc) patch.sceneDesc = dData.result.sceneDesc as string
+        }
+        if (Object.keys(patch).length > 0) {
+          patches[node.id] = patch
+          updateNode(node.id, patch)
+        }
+        succeeded = !!dData.ok
+      } catch { /* succeeded 保持 false，计入失败清单 */ }
+      if (!succeeded) failed.push(node.id)
+      setBulkProgress(p => p ? { ...p, done: p.done + 1 } : null)
+    }
+    return failed
+  }
+
+  async function retryFailedNodes() {
+    if (!project || bulkFailedIds.length === 0) return
+    const nodesToRetry = project.nodes.filter(n => bulkFailedIds.includes(n.id))
+    bulkCancelRef.current = false
+    setBulkLoading(true)
+    setBulkProgress({ done: 0, total: nodesToRetry.length, phase: 'generate' })
+    const patches: Record<string, Partial<StoryNode>> = {}
+    const failed = await runGeneratePass(nodesToRetry, patches)
+    setBulkFailedIds(failed)
+    setBulkLoading(false)
+    setBulkProgress(null)
+    if (bulkCancelRef.current) {
+      toast('重试已取消', 'error')
+    } else if (failed.length > 0) {
+      toast(`重试完成，仍有 ${failed.length} 个节点失败`, 'error')
+    } else {
+      toast('失败节点已全部重新生成', 'success')
+    }
+  }
+
+  async function runBulkAi() {
+    if (!project) return
+    bulkCancelRef.current = false
+    setBulkLoading(true)
+    setBulkFailedIds([])
+    const nodes = getScopedNodes(bulkScope)
+    const ctx = { worldAnchor: project.worldAnchor, characters: project.characters, variables: project.variables }
+
+    // Pass 1: Generate — fill_emotion + write_dialogue for all nodes in scope
+    setBulkProgress({ done: 0, total: nodes.length, phase: 'generate' })
+    const patches: Record<string, Partial<StoryNode>> = {}
+    const failed = await runGeneratePass(nodes, patches)
+    const failedSet = new Set(failed)
+
+    // Pass 2: Refine — critique thin nodes (<6 lines) and auto-revise, skip nodes that failed generation
+    const thinNodes = nodes.filter(n => {
+      if (failedSet.has(n.id)) return false
+      const dl = (patches[n.id]?.dialogue ?? n.dialogue ?? []).length
+      return n.type !== 'ending' && dl < 6
+    })
+    if (!bulkCancelRef.current && thinNodes.length > 0) {
+      setBulkProgress({ done: 0, total: thinNodes.length, phase: 'refine' })
+      for (const node of thinNodes) {
+        if (bulkCancelRef.current) break
+        try {
+          const updatedNode = { ...node, ...(patches[node.id] ?? {}) }
+          const critiqueRes = await aiFetch('workshop', 'scene_analysis', { node: updatedNode, ...ctx })
+          const critiqueData = await critiqueRes.json()
+          if (!critiqueData.ok) { setBulkProgress(p => p ? { ...p, done: p.done + 1 } : null); continue }
+          const reviseRes = await aiFetch('workshop', 'revise_dialogue', { node: updatedNode, critique: critiqueData.result, ...ctx })
+          const reviseData = await reviseRes.json()
+          if (reviseData.ok && reviseData.result?.dialogue) {
+            const revised: Partial<StoryNode> = { dialogue: reviseData.result.dialogue.map((d: DialogueLine) => ({ ...d, id: nanoid(6) })) }
+            if (reviseData.result.sceneDesc) revised.sceneDesc = reviseData.result.sceneDesc as string
+            updateNode(node.id, revised)
+          }
+        } catch { /* continue */ }
+        setBulkProgress(p => p ? { ...p, done: p.done + 1 } : null)
+      }
+    }
+
+    setBulkFailedIds(failed)
+    setBulkLoading(false)
+    setBulkProgress(null)
+    if (bulkCancelRef.current) {
+      toast('批量生成已取消', 'error')
+    } else {
+      const refined = thinNodes.length > 0 ? `，其中 ${thinNodes.length} 个节点经过精修` : ''
+      const failNote = failed.length > 0 ? `，${failed.length} 个节点失败（可重试）` : ''
+      toast(`批量 AI 设计完成，${nodes.length} 个节点已处理${refined}${failNote}`, failed.length > 0 ? 'error' : 'success')
+    }
+  }
+
+  function cancelBulk() {
+    bulkCancelRef.current = true
+  }
+
+  return {
+    bulkLoading,
+    bulkProgress,
+    bulkScope,
+    setBulkScope,
+    bulkFailedIds,
+    setBulkFailedIds,
+    getScopedNodes,
+    runBulkAi,
+    retryFailedNodes,
+    cancelBulk,
+  }
+}

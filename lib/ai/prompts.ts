@@ -835,6 +835,8 @@ ${dialogueText || '（尚无对白）'}
       const currentDialogue = (node.dialogue as Array<{speaker:string;text:string}> | undefined) ?? []
       const critiqueIssues = (critique.issues as Array<{line:string;problem:string;fix:string}> | undefined) ?? []
       const killerLine = (critique.killer_line as string | undefined) ?? ''
+      // 工坊单节点"AI 修改对白"手动指令（不经过 scene_analysis 批注时使用）
+      const instruction = (c.instruction as string | undefined) ?? ''
 
       return `你是Robert McKee级别的编剧，正在修订一段问题对白。这是第二稿——你已经看过第一稿和批注，现在要写出真正达到标准的版本。
 禁止输出JSON以外的任何内容，禁止Markdown代码块，字段名必须与模板完全一致。
@@ -853,7 +855,7 @@ ${characters.map(ch => `${ch.name}：伤痛="${ch.wound ?? '推断'}"，谎言="
 ${currentDialogue.map((l, i) => `${i+1}. ${l.speaker}："${l.text}"`).join('\n') || '（空）'}
 
 【编辑批注——必须逐条解决】
-${critiqueIssues.map((issue, i) => `${i+1}. 问题台词："${issue.line}" → 问题：${issue.problem} → 修改建议：${issue.fix}`).join('\n') || '（无批注，但对白行数不足，需扩写至6行以上）'}
+${instruction ? `【用户修改指令——最高优先级，必须遵照执行】${instruction}\n` : ''}${critiqueIssues.map((issue, i) => `${i+1}. 问题台词："${issue.line}" → 问题：${issue.problem} → 修改建议：${issue.fix}`).join('\n') || (instruction ? '（无编辑批注，请严格按用户指令修改，同时遵守下方修订铁律）' : '（无批注，但对白行数不足，需扩写至6行以上）')}
 ${killerLine ? `【推荐加入的关键台词】${killerLine}` : ''}
 
 【修订铁律——违者无效】

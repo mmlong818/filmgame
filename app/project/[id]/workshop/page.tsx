@@ -3,7 +3,8 @@ import { useState, useEffect, useRef, useCallback, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useToast } from '@/app/components/toast'
 import { useProjectStore } from '@/lib/store/projectStore'
-import type { StoryNode, DialogueLine, EmotionFunction } from '@/lib/types/project'
+import { aiFetch } from '@/lib/ai/client'
+import type { StoryNode, DialogueLine, EmotionFunction, Character } from '@/lib/types/project'
 import { nanoid } from 'nanoid'
 import {
   inputClass,
@@ -24,6 +25,10 @@ import {
   ChoiceSuggestionsPanel,
 } from './components/AIPanels'
 import { NodeTreeSidebar } from './components/NodeTreeSidebar'
+import { CharacterVoiceEntry } from './components/CharacterVoiceEntry'
+import { ReviseDialogueControl } from './components/ReviseDialogueControl'
+import { BulkAiScopeBar, BulkFailureReport } from './components/BulkAiControls'
+import { useBulkAi } from './hooks/useBulkAi'
 
 type NodeDraft = {
   emotionFunction?: EmotionFunction
@@ -53,14 +58,17 @@ function WorkshopPageInner() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const { toast } = useToast()
-  const { project, updateNode, updateChoice, advancePhase, addNode, addChoice } = useProjectStore()
+  const { project, updateNode, updateChoice, updateCharacter, advancePhase, addNode, addChoice } = useProjectStore()
   const [selectedId, setSelectedId] = useState<string | null>(() => searchParams.get('node'))
   const [loading, setLoading] = useState<string | null>(null)
   const [nodeDrafts, setNodeDrafts] = useState<Record<string, NodeDraft>>({})
-  const [bulkLoading, setBulkLoading] = useState(false)
-  const [bulkProgress, setBulkProgress] = useState<{ done: number; total: number; phase: 'generate' | 'refine' } | null>(null)
-  const bulkCancelRef = useRef(false)
+  const {
+    bulkLoading, bulkProgress, bulkScope, setBulkScope, bulkFailedIds, setBulkFailedIds,
+    getScopedNodes, runBulkAi, retryFailedNodes, cancelBulk,
+  } = useBulkAi({ project, selectedId, updateNode, toast })
   const [aiError, setAiError] = useState<string | null>(null)
+  const [voiceOpenCharId, setVoiceOpenCharId] = useState<string | null>(null)
+  const [voiceLoadingCharId, setVoiceLoadingCharId] = useState<string | null>(null)
   const [choiceSuggestions, setChoiceSuggestions] = useState<Array<{text:string;consequence:string;longterm:string;dramatic_cost?:string;thematic_resonance?:string}> | null>(null)
   const [sceneAnalysis, setSceneAnalysis] = useState<{working:string;issues:Array<{line:string;problem:string;fix:string}>;killer_line:string} | null>(null)
   const [sceneTension, setSceneTension] = useState<{tension_diagnosis:string;missing_element:string;rewrite_suggestion:string;upgraded_line:string;mcguffin:string;dramatic_irony:string} | null>(null)
@@ -93,12 +101,12 @@ function WorkshopPageInner() {
 
       if (e.key === 'j' || e.key === 'ArrowDown') {
         const next = nodes[currentIdx + 1]
-        if (next) { setSelectedId(next.id); setChoiceSuggestions(null); setSceneAnalysis(null); setSceneTension(null); setChoiceConsequence(null); setLoading(null) }
+        if (next) { setSelectedId(next.id); setChoiceSuggestions(null); setSceneAnalysis(null); setSceneTension(null); setChoiceConsequence(null); setLoading(null); setVoiceOpenCharId(null) }
       } else if (e.key === 'k' || e.key === 'ArrowUp') {
         const prev = nodes[currentIdx - 1]
-        if (prev) { setSelectedId(prev.id); setChoiceSuggestions(null); setSceneAnalysis(null); setSceneTension(null); setChoiceConsequence(null); setLoading(null) }
+        if (prev) { setSelectedId(prev.id); setChoiceSuggestions(null); setSceneAnalysis(null); setSceneTension(null); setChoiceConsequence(null); setLoading(null); setVoiceOpenCharId(null) }
       } else if (e.key === 'Escape') {
-        setSelectedId(null); setChoiceSuggestions(null); setSceneAnalysis(null); setSceneTension(null); setChoiceConsequence(null); setLoading(null)
+        setSelectedId(null); setChoiceSuggestions(null); setSceneAnalysis(null); setSceneTension(null); setChoiceConsequence(null); setLoading(null); setVoiceOpenCharId(null)
       }
     }
 
@@ -109,13 +117,13 @@ function WorkshopPageInner() {
   // 稳定引用的回调，配合 NodeTreeSidebar 的 memo() 避免每次渲染都因内联函数导致 sidebar 重渲染
   const handleSelectNode = useCallback((id: string) => {
     setSelectedId(id)
-    setChoiceSuggestions(null); setSceneAnalysis(null); setSceneTension(null); setChoiceConsequence(null); setLoading(null)
+    setChoiceSuggestions(null); setSceneAnalysis(null); setSceneTension(null); setChoiceConsequence(null); setLoading(null); setVoiceOpenCharId(null)
   }, [])
   const handleHasDraft = useCallback((id: string) => !!nodeDrafts[id], [nodeDrafts])
   const handleAddNode = useCallback((actId: string) => {
     const n = addNode(actId)
     setSelectedId(n.id)
-    setChoiceSuggestions(null); setSceneAnalysis(null); setSceneTension(null); setChoiceConsequence(null); setLoading(null)
+    setChoiceSuggestions(null); setSceneAnalysis(null); setSceneTension(null); setChoiceConsequence(null); setLoading(null); setVoiceOpenCharId(null)
   }, [addNode])
 
   if (!project) return (
@@ -152,11 +160,7 @@ function WorkshopPageInner() {
     setLoading(action)
     setAiError(null)
     try {
-      const res = await fetch('/api/ai', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phase: 'workshop', action, context: { node, worldAnchor: project!.worldAnchor, characters: project!.characters, variables: project!.variables } }),
-      })
+      const res = await aiFetch('workshop', action, { node, worldAnchor: project!.worldAnchor, characters: project!.characters, variables: project!.variables })
       const data = await res.json()
       if (!data.ok) { if (selectedIdRef.current === nodeId) setAiError(withRunId(data.error ?? 'AI 请求失败', data.runId)); return }
 
@@ -181,11 +185,7 @@ function WorkshopPageInner() {
     setLoading('suggest_choices')
     setAiError(null)
     try {
-      const res = await fetch('/api/ai', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phase: 'workshop', action: 'suggest_choices', context: { node, worldAnchor: project!.worldAnchor, characters: project!.characters, variables: project!.variables } }),
-      })
+      const res = await aiFetch('workshop', 'suggest_choices', { node, worldAnchor: project!.worldAnchor, characters: project!.characters, variables: project!.variables })
       const data = await res.json()
       if (selectedIdRef.current !== nodeId) return
       if (!data.ok) { setAiError(withRunId(data.error ?? 'AI 请求失败', data.runId)); return }
@@ -205,11 +205,7 @@ function WorkshopPageInner() {
     setAiError(null)
     setSceneAnalysis(null)
     try {
-      const res = await fetch('/api/ai', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phase: 'workshop', action: 'scene_analysis', context: { node, worldAnchor: project!.worldAnchor, characters: project!.characters, variables: project!.variables } }),
-      })
+      const res = await aiFetch('workshop', 'scene_analysis', { node, worldAnchor: project!.worldAnchor, characters: project!.characters, variables: project!.variables })
       const data = await res.json()
       if (selectedIdRef.current !== nodeId) return
       if (!data.ok) { setAiError(withRunId(data.error ?? 'AI 请求失败', data.runId)); return }
@@ -229,11 +225,7 @@ function WorkshopPageInner() {
     setAiError(null)
     setSceneTension(null)
     try {
-      const res = await fetch('/api/ai', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phase: 'workshop', action: 'scene_tension', context: { node, worldAnchor: project!.worldAnchor, characters: project!.characters } }),
-      })
+      const res = await aiFetch('workshop', 'scene_tension', { node, worldAnchor: project!.worldAnchor, characters: project!.characters })
       const data = await res.json()
       if (selectedIdRef.current !== nodeId) return
       if (!data.ok) { setAiError(withRunId(data.error ?? 'AI 请求失败', data.runId)); return }
@@ -254,11 +246,7 @@ function WorkshopPageInner() {
     setAiError(null)
     setChoiceConsequence(null)
     try {
-      const res = await fetch('/api/ai', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phase: 'workshop', action: 'choice_consequence', context: { choice: node.choices[choiceIndex] ?? null, currentNode: node, worldAnchor: project!.worldAnchor, characters: project!.characters, nodes: project!.nodes.slice(0, 20) } }),
-      })
+      const res = await aiFetch('workshop', 'choice_consequence', { choice: node.choices[choiceIndex] ?? null, currentNode: node, worldAnchor: project!.worldAnchor, characters: project!.characters, nodes: project!.nodes.slice(0, 20) })
       const data = await res.json()
       if (selectedIdRef.current !== nodeId) return
       if (!data.ok) { setAiError(withRunId(data.error ?? 'AI 请求失败', data.runId)); return }
@@ -278,16 +266,8 @@ function WorkshopPageInner() {
     setAiError(null)
     try {
       const [emotionRes, dialogueRes] = await Promise.all([
-        fetch('/api/ai', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ phase: 'workshop', action: 'fill_emotion', context: { node, worldAnchor: project!.worldAnchor, characters: project!.characters, variables: project!.variables } }),
-        }),
-        fetch('/api/ai', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ phase: 'workshop', action: 'write_dialogue', context: { node, worldAnchor: project!.worldAnchor, characters: project!.characters, variables: project!.variables } }),
-        }),
+        aiFetch('workshop', 'fill_emotion', { node, worldAnchor: project!.worldAnchor, characters: project!.characters, variables: project!.variables }),
+        aiFetch('workshop', 'write_dialogue', { node, worldAnchor: project!.worldAnchor, characters: project!.characters, variables: project!.variables }),
       ])
       const [eData, dData] = await Promise.all([emotionRes.json(), dialogueRes.json()])
       const draft: NodeDraft = {}
@@ -308,76 +288,55 @@ function WorkshopPageInner() {
     }
   }
 
-  async function runBulkAi() {
-    bulkCancelRef.current = false
-    setBulkLoading(true)
-    const nodes = project!.nodes
-    const ctx = { worldAnchor: project!.worldAnchor, characters: project!.characters, variables: project!.variables }
-
-    // Pass 1: Generate — fill_emotion + write_dialogue for all nodes
-    setBulkProgress({ done: 0, total: nodes.length, phase: 'generate' })
-    const patches: Record<string, Partial<StoryNode>> = {}
-    for (const node of nodes) {
-      if (bulkCancelRef.current) break
-      try {
-        const [eRes, dRes] = await Promise.all([
-          fetch('/api/ai', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ phase: 'workshop', action: 'fill_emotion', context: { node, ...ctx } }) }),
-          fetch('/api/ai', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ phase: 'workshop', action: 'write_dialogue', context: { node, ...ctx } }) }),
-        ])
-        const [eData, dData] = await Promise.all([eRes.json(), dRes.json()])
-        const patch: Partial<StoryNode> = {}
-        if (eData.ok && eData.result) patch.emotionFunction = eData.result
-        if (dData.ok && dData.result?.dialogue) {
-          patch.dialogue = dData.result.dialogue.map((d: DialogueLine) => ({ ...d, id: nanoid(6) }))
-          if (dData.result.sceneDesc) patch.sceneDesc = dData.result.sceneDesc as string
-        }
-        if (Object.keys(patch).length > 0) {
-          patches[node.id] = patch
-          updateNode(node.id, patch)
-        }
-      } catch { /* continue */ }
-      setBulkProgress(p => p ? { ...p, done: p.done + 1 } : null)
-    }
-
-    // Pass 2: Refine — critique thin nodes (<6 lines) and auto-revise
-    const thinNodes = nodes.filter(n => {
-      const dl = (patches[n.id]?.dialogue ?? n.dialogue ?? []).length
-      return n.type !== 'ending' && dl < 6
-    })
-    if (!bulkCancelRef.current && thinNodes.length > 0) {
-      setBulkProgress({ done: 0, total: thinNodes.length, phase: 'refine' })
-      for (const node of thinNodes) {
-        if (bulkCancelRef.current) break
-        try {
-          const updatedNode = { ...node, ...(patches[node.id] ?? {}) }
-          const critiqueRes = await fetch('/api/ai', {
-            method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ phase: 'workshop', action: 'scene_analysis', context: { node: updatedNode, ...ctx } }),
-          })
-          const critiqueData = await critiqueRes.json()
-          if (!critiqueData.ok) { setBulkProgress(p => p ? { ...p, done: p.done + 1 } : null); continue }
-          const reviseRes = await fetch('/api/ai', {
-            method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ phase: 'workshop', action: 'revise_dialogue', context: { node: updatedNode, critique: critiqueData.result, ...ctx } }),
-          })
-          const reviseData = await reviseRes.json()
-          if (reviseData.ok && reviseData.result?.dialogue) {
-            const revised: Partial<StoryNode> = { dialogue: reviseData.result.dialogue.map((d: DialogueLine) => ({ ...d, id: nanoid(6) })) }
-            if (reviseData.result.sceneDesc) revised.sceneDesc = reviseData.result.sceneDesc as string
-            updateNode(node.id, revised)
-          }
-        } catch { /* continue */ }
-        setBulkProgress(p => p ? { ...p, done: p.done + 1 } : null)
+  // 单节点"AI 修改对白"：一句话指令走 revise_dialogue，结果复用 write_dialogue 的
+  // draft 预览/采纳流程（nodeDrafts），selectedIdRef 防串号写法与其余 callAi* 一致。
+  async function callAiReviseDialogue(node: StoryNode, instruction: string) {
+    const nodeId = node.id
+    setLoading('revise_dialogue')
+    setAiError(null)
+    try {
+      const res = await aiFetch('workshop', 'revise_dialogue', {
+        node,
+        critique: { issues: [], killer_line: '' },
+        instruction,
+        worldAnchor: project!.worldAnchor,
+        characters: project!.characters,
+        variables: project!.variables,
+      })
+      const data = await res.json()
+      if (selectedIdRef.current !== nodeId) return
+      if (!data.ok) { setAiError(withRunId(data.error ?? 'AI 请求失败', data.runId)); return }
+      if (data.result?.dialogue) {
+        const dialogue = data.result.dialogue.map((d: DialogueLine) => ({ ...d, id: nanoid(6) }))
+        const sceneDesc = data.result.sceneDesc as string | undefined
+        const prev = nodeDrafts[node.id] || {}
+        setNodeDrafts(d => ({ ...d, [node.id]: { ...prev, dialogue, ...(sceneDesc ? { sceneDesc } : {}) } }))
+        toast('AI 修改后的对白草稿已生成，请确认', 'info')
       }
+    } catch (err) {
+      if (selectedIdRef.current === nodeId) setAiError(err instanceof Error ? err.message : 'AI 请求失败')
+    } finally {
+      if (selectedIdRef.current === nodeId) setLoading(null)
     }
+  }
 
-    setBulkLoading(false)
-    setBulkProgress(null)
-    if (bulkCancelRef.current) {
-      toast('批量生成已取消', 'error')
-    } else {
-      const refined = thinNodes.length > 0 ? `，其中 ${thinNodes.length} 个节点经过精修` : ''
-      toast(`批量 AI 设计完成，${nodes.length} 个节点已生成${refined}`, 'success')
+  // 角色声纹（与 world 页角色卡相同的 character_voice 动作）。写回走 updateCharacter
+  // -> saveProjectMeta 保存路径，与 world 页一致。生成成功后自动弹出声纹卡。
+  async function callAiCharacterVoice(character: Character) {
+    setVoiceLoadingCharId(character.id)
+    setAiError(null)
+    try {
+      const res = await aiFetch('workshop', 'character_voice', { character, worldAnchor: project!.worldAnchor })
+      const data = await res.json()
+      if (!data.ok) { setAiError(withRunId(data.error ?? 'AI 请求失败', data.runId)); return }
+      if (data.result) {
+        updateCharacter(character.id, { voiceProfile: data.result })
+        setVoiceOpenCharId(character.id)
+      }
+    } catch (err) {
+      setAiError(err instanceof Error ? err.message : 'AI 请求失败')
+    } finally {
+      setVoiceLoadingCharId(null)
     }
   }
 
@@ -399,18 +358,18 @@ function WorkshopPageInner() {
   return (
     <div className="flex flex-col h-[calc(100vh-112px)] relative">
       {bulkLoading && bulkProgress && (
-        <BulkProgressOverlay progress={bulkProgress} onCancel={() => { bulkCancelRef.current = true }} />
+        <BulkProgressOverlay progress={bulkProgress} onCancel={cancelBulk} />
       )}
       <div className="flex-shrink-0 px-6 py-3 border-b border-gray-200 bg-white flex items-center gap-3">
-        <button
-          onClick={runBulkAi}
-          disabled={bulkLoading}
-          className="text-sm text-amber-600 hover:text-amber-700 border border-amber-200 rounded-lg px-3 py-1.5 disabled:opacity-40 flex items-center gap-1.5"
-        >
-          {bulkLoading && <span className="w-3 h-3 border border-amber-400 border-t-transparent rounded-full animate-spin" />}
-          批量 AI 设计全部节点
-        </button>
-        <span className="text-xs text-gray-400">生成后仍可逐节点审核修改</span>
+        <BulkAiScopeBar
+          scope={bulkScope}
+          onScopeChange={setBulkScope}
+          scopeDisabled={!selectedId}
+          scopeFallback={bulkScope !== 'all' && !selectedId}
+          nodeCount={getScopedNodes(bulkScope).length}
+          bulkLoading={bulkLoading}
+          onStart={runBulkAi}
+        />
         {project.variables.length > 0 && (
           <div className="ml-auto flex items-center gap-1.5 text-xs text-gray-400">
             {project.variables.slice(0, 4).map(v => (
@@ -422,6 +381,13 @@ function WorkshopPageInner() {
           </div>
         )}
       </div>
+
+      <BulkFailureReport
+        nodes={bulkFailedIds.map(id => ({ id, title: project.nodes.find(n => n.id === id)?.title ?? '' }))}
+        retrying={bulkLoading}
+        onRetry={retryFailedNodes}
+        onDismiss={() => setBulkFailedIds([])}
+      />
 
       <div className="flex flex-1 overflow-hidden">
         <NodeTreeSidebar
@@ -652,6 +618,41 @@ function WorkshopPageInner() {
               })()}
 
               <Section title="对白" action={{ label: 'AI 生成', loading: loading === 'write_dialogue', onClick: () => callAiForNode('write_dialogue', selected) }}>
+                {(() => {
+                  // 声纹入口只对"出场角色"（对白 speaker 精确匹配到 characters 列表）显示，
+                  // speaker 是自由文本时匹配不到角色，不出按钮。
+                  const speakersInNode = [...new Set(selected.dialogue.map(d => d.speaker).filter(Boolean))]
+                  const voiceChars = project.characters.filter(c => speakersInNode.includes(c.name))
+                  if (voiceChars.length === 0) return null
+                  return (
+                    <div className="flex items-center flex-wrap gap-x-3 gap-y-1 mb-3 pb-2 border-b border-dashed border-gray-100">
+                      <span className="text-[10px] text-gray-300 uppercase tracking-wide">声纹</span>
+                      {voiceChars.map(ch => (
+                        <span key={ch.id} className="inline-flex items-center text-xs">
+                          <span className={`font-medium ${speakerColor(ch.name)}`}>{ch.name}</span>
+                          <CharacterVoiceEntry
+                            character={ch}
+                            open={voiceOpenCharId === ch.id}
+                            loading={voiceLoadingCharId === ch.id}
+                            onToggle={() => setVoiceOpenCharId(id => id === ch.id ? null : ch.id)}
+                            onGenerate={() => callAiCharacterVoice(ch)}
+                            onClose={() => setVoiceOpenCharId(null)}
+                          />
+                        </span>
+                      ))}
+                    </div>
+                  )
+                })()}
+
+                {selected.dialogue.length > 0 && (
+                  <div className="mb-3">
+                    <ReviseDialogueControl
+                      loading={loading === 'revise_dialogue'}
+                      onSubmit={instruction => callAiReviseDialogue(selected, instruction)}
+                    />
+                  </div>
+                )}
+
                 <div className="space-y-2">
                   {selected.dialogue.map((line, i) => (
                     <div key={line.id} className="group relative py-3 border-b border-gray-50 last:border-0">
