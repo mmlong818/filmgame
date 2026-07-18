@@ -42,6 +42,49 @@ export function createEmptyProject(title: string, mode: AiMode = 'thinking'): Pr
 
 type HydrateResult = 'ok' | 'not-found' | 'error'
 
+// hydrateProject 对账窗口内（乐观 paint 之后、GET 返回之前）以及离线兜底期间，用户可能
+// 已经开始编辑，而 persistence 层此时门禁着所有网络保存——不能让 DB 副本无条件覆盖 store，
+// 否则这些输入会无声消失且无处可恢复。这里做字段级合并：以乐观 paint 的原始快照为基线，
+// 找出 current 相对基线真正被用户改过的顶层字段（nodes 精确到单个节点的改/增/删），
+// 只把这些字段叠加到 DB 副本上；其余字段一律以 DB 为准，避免陈旧快照整体回流。
+const MERGE_SKIP_KEYS = new Set<string>(['id', 'createdAt', 'updatedAt', 'schemaVersion'])
+
+function mergeWindowEdits(
+  dbProject: Project,
+  base: Project | null,
+  current: Project | null,
+): { project: Project; changed: boolean } {
+  if (!base || !current || current === base || current.id !== dbProject.id || base.id !== dbProject.id) {
+    return { project: dbProject, changed: false }
+  }
+  const merged: Project = { ...dbProject }
+  let changed = false
+  for (const key of Object.keys(current) as (keyof Project)[]) {
+    if (MERGE_SKIP_KEYS.has(key) || key === 'nodes') continue
+    if (JSON.stringify(current[key]) !== JSON.stringify(base[key])) {
+      ;(merged as unknown as Record<string, unknown>)[key] = current[key]
+      changed = true
+    }
+  }
+  const baseNodes = new Map(base.nodes.map(n => [n.id, n]))
+  const currentIds = new Set(current.nodes.map(n => n.id))
+  const editedNodes = new Map<string, StoryNode>()
+  for (const node of current.nodes) {
+    const baseNode = baseNodes.get(node.id)
+    if (!baseNode || JSON.stringify(node) !== JSON.stringify(baseNode)) editedNodes.set(node.id, node)
+  }
+  const deleted = new Set([...baseNodes.keys()].filter(nid => !currentIds.has(nid)))
+  if (editedNodes.size > 0 || deleted.size > 0) {
+    const dbIds = new Set(dbProject.nodes.map(n => n.id))
+    merged.nodes = [
+      ...dbProject.nodes.filter(n => !deleted.has(n.id)).map(n => editedNodes.get(n.id) ?? n),
+      ...[...editedNodes.values()].filter(n => !dbIds.has(n.id)), // 窗口内本地新增的节点
+    ]
+    changed = true
+  }
+  return { project: merged, changed }
+}
+
 interface ProjectStore {
   project: Project | null
   /** 最近一次从服务端确认的整档 version（乐观锁基线）；null 表示未知（未 hydrate 过或离线兜底）。 */
@@ -52,6 +95,10 @@ interface ProjectStore {
   stale: boolean
   /** GET 对账（DB 权威数据覆盖 localStorage 乐观 paint）是否已完成；false 期间所有保存请求被 persistence 层丢弃。 */
   hydrated: boolean
+  /** 乐观 paint 的原始快照，未水合期间保留，对账成功时作为字段级合并（mergeWindowEdits）的基线；水合完成后清空。 */
+  paintBase: Project | null
+  /** GET 对账失败、正以本地快照离线工作：网络保存被门禁挡下（version 基线未知不发绕过乐观锁的写入），等待重连后重新对账并合并本地编辑。 */
+  offline: boolean
 
   /** 同步：仅从 localStorage 快照乐观 paint（不发网络请求）。供极早期渲染兜底使用。 */
   loadProject: (id: string) => boolean
@@ -67,6 +114,7 @@ interface ProjectStore {
   advancePhase: () => void
   goToPhase: (phase: Phase) => void
   clearDownstream: (targetPhase?: Phase) => void
+  resetStructure: () => void
   clearStaleFlag: () => void
 
   addCharacter: () => void
@@ -107,27 +155,39 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
   saveConflict: null,
   stale: false,
   hydrated: false,
+  paintBase: null,
+  offline: false,
 
   loadProject: (id) => {
     const p = loadLocalSnapshot(id)
     if (!p) return false
     setHydrated(id, false)
-    set({ project: p, loadedVersion: null, saveConflict: null, stale: false, hydrated: false })
+    set({ project: p, paintBase: p, loadedVersion: null, saveConflict: null, stale: false, hydrated: false, offline: false })
     return true
   },
 
   hydrateProject: async (id) => {
     setHydrated(id, false)
-    const local = loadLocalSnapshot(id)
-    if (local && local.id === id) {
-      set({ project: local, loadedVersion: null, saveConflict: null, stale: false, hydrated: false })
+    const prior = get()
+    let base: Project | null = null
+    if (prior.project?.id === id && prior.paintBase?.id === id) {
+      // 对账重试（离线兜底后 online / 手动重连）：沿用首次乐观 paint 的基线并保留 store 里
+      // 期间累积的本地编辑；不能重新用 localStorage 快照当基线——它已含这些编辑，会让合并误判"无改动"。
+      base = prior.paintBase
+    } else {
+      const local = loadLocalSnapshot(id)
+      if (local && local.id === id) {
+        base = local
+        set({ project: local, paintBase: local, loadedVersion: null, saveConflict: null, stale: false, hydrated: false, offline: false })
+      }
     }
-    // 网络失败/服务端返回异常时，若已有本地快照允许离线继续工作；此时也视为"对账已完成"
-    // （已尽力对账，非无限期悬挂），放行后续保存——真正的离线场景仍由现有重试/排队兜底。
+    // 网络失败/服务端返回异常：若已有本地数据，允许离线继续编辑（写入 localStorage），但保持
+    // 未水合——persistence 门禁挡下所有网络保存，绝不在 version 基线未知时发出绕过乐观锁的
+    // 写入（否则陈旧快照会无条件覆盖其他设备已落库的新数据）。offline 置位供 UI 提示与重连。
     const fallbackToLocal = (): HydrateResult => {
-      if (!local) return 'error'
-      setHydrated(id, true)
-      set((s) => ({ ...s, hydrated: true }))
+      const s = get()
+      if (!s.project || s.project.id !== id) return 'error'
+      set({ offline: true })
       return 'ok'
     }
     try {
@@ -139,12 +199,16 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
       }
       if (!res.ok) return fallbackToLocal()
       const data = await res.json()
-      if (!data.ok || !data.project) return local ? fallbackToLocal() : 'not-found'
-      // DB 胜出：无论本地快照是否存在/是否更新，均以服务端数据为准。
+      if (!data.ok || !data.project) return base ? fallbackToLocal() : 'not-found'
+      // DB 胜出，但对账窗口/离线期间的本地编辑按字段级合并到 DB 副本，不静默丢弃。
+      const current = get().project
+      const { project: merged, changed } = mergeWindowEdits(data.project, base, current?.id === id ? current : null)
       setHydrated(id, true)
       clearConflictLock(id)
-      set({ project: data.project, loadedVersion: data.version ?? null, saveConflict: null, stale: false, hydrated: true })
-      writeLocalSnapshot(data.project)
+      set({ project: merged, paintBase: null, loadedVersion: data.version ?? null, saveConflict: null, stale: false, hydrated: true, offline: false })
+      writeLocalSnapshot(merged)
+      // 合并出的本地编辑以刚确认的 DB version 为基线落库；期间再有并发写入会 409 走冲突流程。
+      if (changed) saveProject(merged, data.version ?? undefined)
       return 'ok'
     } catch {
       return fallbackToLocal()
@@ -154,7 +218,7 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
   setProject: (p, version) => {
     // 调用方（新建/导入项目）传入的是服务端刚确认落库的权威数据，等同一次成功对账。
     setHydrated(p.id, true)
-    set({ project: p, loadedVersion: version ?? null, saveConflict: null, stale: false, hydrated: true })
+    set({ project: p, paintBase: null, loadedVersion: version ?? null, saveConflict: null, stale: false, hydrated: true, offline: false })
   },
 
   clearConflict: () => set({ saveConflict: null }),
@@ -262,6 +326,21 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
       }
     }
     const p = { ...s.project, scalePlanOptions: [], selectedScalePlanId: null, chapters: [], acts: [], nodes: [], downstreamStale: false, currentPhase: nextPhase, phaseProgress: nextProgress, updatedAt: new Date().toISOString() }
+    saveProject(p, s.loadedVersion ?? undefined)
+    return { project: p }
+  }),
+
+  // 「重新 AI 设计」：清空结构内容（保留规模方案）并把阶段回退到 structure。必须同时把
+  // workshop/validate 重新锁定，不能只改 currentPhase——否则后续阶段标签仍可点击，会进入
+  // "0 节点的工坊"这种阶段与内容脱节的状态。单个 action 一次保存，避免拆成"清空 + 回退阶段"
+  // 两个 action 产生两条并发的项目级保存。
+  resetStructure: () => set((s) => {
+    if (!s.project) return s
+    const structIdx = PHASE_ORDER.indexOf('structure')
+    const progress = { ...s.project.phaseProgress }
+    PHASE_ORDER.forEach((ph, i) => { if (i > structIdx) progress[ph] = 'locked' })
+    progress.structure = 'in_progress'
+    const p: Project = { ...s.project, chapters: [], acts: [], nodes: [], currentPhase: 'structure', phaseProgress: progress, updatedAt: new Date().toISOString() }
     saveProject(p, s.loadedVersion ?? undefined)
     return { project: p }
   }),

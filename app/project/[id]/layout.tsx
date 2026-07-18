@@ -14,7 +14,7 @@ export default function ProjectLayout({ children }: { children: React.ReactNode 
   const segment = useSelectedLayoutSegment()
   const params = useParams()
   const id = params.id as string
-  const { project, hydrateProject, renameProject, setAiMode, saveConflict, stale, clearConflict, clearStale, hydrated } = useProjectStore()
+  const { project, hydrateProject, renameProject, setAiMode, saveConflict, stale, clearConflict, clearStale, hydrated, offline } = useProjectStore()
   const { toast } = useToast()
   const [editingTitle, setEditingTitle] = useState(false)
   const [titleDraft, setTitleDraft] = useState('')
@@ -27,7 +27,9 @@ export default function ProjectLayout({ children }: { children: React.ReactNode 
   // GET 对账过，仍必须调用 hydrateProject，否则 persistence 层的 hydration 门禁会永久
   // 阻断该项目的保存请求。
   useEffect(() => {
-    if (project && project.id === id && hydrated) return
+    // offline（对账失败、以本地快照离线工作）也视为"本轮对账已结束"，否则每次编辑
+    // 换新 project 引用都会重新触发 hydrateProject，形成失败请求的无限重试循环。
+    if (project && project.id === id && (hydrated || offline)) return
     setNotFound(false)
     setLoadError(false)
     let cancelled = false
@@ -38,7 +40,18 @@ export default function ProjectLayout({ children }: { children: React.ReactNode 
       else if (result === 'error') setLoadError(true)
     })()
     return () => { cancelled = true }
-  }, [id, project, hydrated, hydrateProject])
+  }, [id, project, hydrated, offline, hydrateProject])
+
+  // 离线兜底后网络恢复：自动重新对账。hydrateProject 会以首次乐观 paint 的基线做
+  // 字段级合并，把离线期间的编辑带回服务端（乐观锁生效）。
+  useEffect(() => {
+    function handleOnline() {
+      const st = useProjectStore.getState()
+      if (st.project?.id === id && !st.hydrated) void hydrateProject(id)
+    }
+    window.addEventListener('online', handleOnline)
+    return () => window.removeEventListener('online', handleOnline)
+  }, [id, hydrateProject])
 
   useEffect(() => {
     function handleStorageError(e: Event) {
@@ -53,7 +66,11 @@ export default function ProjectLayout({ children }: { children: React.ReactNode 
   // 关页后仍可送达）并弹浏览器确认框，双保险防止最后 ~1 秒的输入丢失。
   useEffect(() => {
     function handleBeforeUnload(e: BeforeUnloadEvent) {
-      if (!hasPendingWrites(id)) return
+      // 离线/未对账期间的编辑不在任何保存计时器或队列里（网络保存被门禁挡下），
+      // 只能靠 paintBase 与当前 project 的引用差异识别，单独判定
+      const st = useProjectStore.getState()
+      const unsyncedOffline = !st.hydrated && st.project?.id === id && !!st.paintBase && st.project !== st.paintBase
+      if (!hasPendingWrites(id) && !unsyncedOffline) return
       flushPendingWrites(id)
       e.preventDefault()
     }
@@ -255,14 +272,16 @@ export default function ProjectLayout({ children }: { children: React.ReactNode 
 
         {/* Save status + conflict/stale banner */}
         <div className="ml-auto flex items-center gap-3">
-          {(saveConflict || stale) && (
+          {(saveConflict || stale || offline) && (
             <div
               className="flex items-center gap-2 text-xs px-3 py-1.5"
-              style={{ background: 'rgba(220,38,38,0.1)', border: '1px solid rgba(220,38,38,0.35)', color: 'rgb(220,38,38)' }}
+              style={saveConflict || stale
+                ? { background: 'rgba(220,38,38,0.1)', border: '1px solid rgba(220,38,38,0.35)', color: 'rgb(220,38,38)' }
+                : { background: 'rgba(217,119,6,0.1)', border: '1px solid rgba(217,119,6,0.35)', color: 'rgb(217,119,6)' }}
             >
-              <span>{saveConflict ? '保存冲突：已在别处修改' : '其他标签页有更新'}</span>
+              <span>{saveConflict ? '保存冲突：已在别处修改' : stale ? '其他标签页有更新' : '离线模式：改动暂存本地，恢复连接后自动同步'}</span>
               <button onClick={handleReloadLatest} className="underline font-medium shrink-0">
-                点击加载最新
+                {saveConflict || stale ? '点击加载最新' : '点击重连'}
               </button>
             </div>
           )}

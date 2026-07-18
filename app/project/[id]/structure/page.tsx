@@ -55,7 +55,7 @@ const nodeTypeLabel = (t: string) => NODE_TYPES.find(x => x.value === t)?.label 
 
 export default function StructurePage() {
   const router = useRouter()
-  const { project, updateNode, deleteNode, addNode, addChapter, addAct, updateAct, addVariable, updateVariable, bulkSetStructure, advancePhase, goToPhase, clearDownstream, clearStaleFlag, addEnding, updateEnding, deleteEnding } = useProjectStore()
+  const { project, updateNode, deleteNode, addNode, addChapter, addAct, updateAct, addVariable, updateVariable, bulkSetStructure, advancePhase, resetStructure, clearDownstream, clearStaleFlag, addEnding, updateEnding, deleteEnding } = useProjectStore()
 
   const [stage, setStage] = useState<Stage>(() => {
     if (!project || project.nodes.length === 0) return 'struct_loading'
@@ -535,10 +535,10 @@ export default function StructurePage() {
                 <button onClick={() => setConfirmReset(false)} className="text-xs px-2 py-1 border border-gray-300 rounded">取消</button>
                 <button
                   onClick={() => {
-                    bulkSetStructure([], [], [])
-                    // 清空结构内容后，若阶段已领先到 workshop/validate，必须回退到 structure，
-                    // 否则会出现"阶段显示 workshop 但节点数为 0"的阶段与内容脱节的不一致状态。
-                    if (project!.currentPhase === 'workshop' || project!.currentPhase === 'validate') goToPhase('structure')
+                    // 清空结构 + 阶段回退 + 重锁后续阶段收敛在单个 store action（一次保存）里：
+                    // 拆成"清空 + goToPhase"两个 action 会各自武装一条带同一 expectedVersion
+                    // 的项目级保存，且 goToPhase 不会重新锁定 workshop/validate。
+                    resetStructure()
                     setConfirmReset(false)
                     generateStructure()
                   }}

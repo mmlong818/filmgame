@@ -167,8 +167,10 @@ type SendResult =
 
 const RETRY_DELAYS_MS = [1000, 2000, 4000]
 
-// keepalive 请求在页面卸载后仍会被浏览器送达，但 body 上限约 64KB——
-// 仅在关闭前冲刷（flushPendingWrites）的首次尝试且 body 足够小时启用。
+// keepalive 请求在页面卸载后仍会被浏览器送达，但 body 配额约 64KiB 且按 UTF-8 字节计——
+// 中文每字符约 3 字节，用 payload.length（UTF-16 码元数）判断会放行超配额的 body，
+// 导致 fetch 在卸载时同步 reject。仅在关闭前冲刷（flushPendingWrites）的首次尝试
+// 且字节数足够小时启用。
 const KEEPALIVE_BODY_LIMIT = 60_000
 
 async function sendWithRetry(
@@ -178,13 +180,14 @@ async function sendWithRetry(
   opts: { keepaliveFirst?: boolean } = {},
 ): Promise<SendResult> {
   const payload = JSON.stringify(body)
+  const payloadBytes = new TextEncoder().encode(payload).byteLength
   for (let attempt = 0; attempt <= RETRY_DELAYS_MS.length; attempt++) {
     try {
       const res = await authFetch(url, {
         method,
         headers: { 'Content-Type': 'application/json' },
         body: payload,
-        keepalive: !!opts.keepaliveFirst && attempt === 0 && payload.length < KEEPALIVE_BODY_LIMIT,
+        keepalive: !!opts.keepaliveFirst && attempt === 0 && payloadBytes < KEEPALIVE_BODY_LIMIT,
       })
       if (res.status === 401) return { ok: false, fatal: true }
       if (res.status === 409) {
@@ -213,20 +216,42 @@ function trackInFlight(id: string, delta: 1 | -1): void {
   else inFlightSaves.set(id, next)
 }
 
-// ─── 整档保存（防抖） ────────────────────────────────────────────────
-// 三个防抖 Map 统一存 { timer, exec }：exec 是"清掉自己并立即执行保存"的闭包，
-// 供 flushPendingWrites（页面关闭前兜底）绕过防抖窗口直接触发。
+// ─── 项目级保存（防抖，整档 POST 与元数据 PATCH 共用单通道） ─────────────
+// 防抖 Map 统一存 { timer, exec, op }：exec 是"清掉自己并立即执行保存"的闭包，
+// 供 flushPendingWrites（页面关闭前兜底）绕过防抖窗口直接触发；op 是等价的离线
+// 队列条目，冲刷时先同步入队兜底。
+// 整档(POST)与元数据(PATCH)必须共用同一个防抖槽位：两者都会使服务端 version +1，
+// 若各自独立防抖，同一 tick 内先后触发的两类保存会带着同一个 expectedVersion 并发
+// 提交，后落库的必然 409——单标签页自己跟自己冲突并触发 conflictLock。合并规则：
+// 整档是元数据的超集（多写 nodes），槽位里只要出现过整档保存，合并结果保持整档；
+// 项目对象取最新一次调用的（store 每次传入完整的当前项目，后者已包含前者的字段变更）。
 
-type ArmedSave = { timer: ReturnType<typeof setTimeout>; exec: (keepaliveFirst?: boolean) => void }
+type ArmedSave = { timer: ReturnType<typeof setTimeout>; exec: (keepaliveFirst?: boolean) => void; op: PendingOp }
+type ProjectLevelOp = Extract<PendingOp, { kind: 'project' | 'projectMeta' }>
 
 const projectSaveTimers = new Map<string, ArmedSave>()
 const DEBOUNCE_MS = 700
 
 /** 防抖(700ms) 整档保存。expectedVersion 传入即启用乐观锁（409 冲突检测）。 */
 export function saveProject(project: Project, expectedVersion?: number): void {
+  armProjectLevelSave(project, expectedVersion, 'project')
+}
+
+/**
+ * 防抖(700ms) 项目元数据保存：只 PATCH projects 行的非 nodes 字段（角色/变量/结局定义、
+ * worldAnchor、acts、chapters、phase、validationReport、directorReview 等），
+ * 不触碰 nodes 表，避免调用方内存里的陈旧 nodes 快照覆盖数据库最新节点内容。
+ */
+export function saveProjectMeta(project: Project, expectedVersion?: number): void {
+  armProjectLevelSave(project, expectedVersion, 'projectMeta')
+}
+
+function armProjectLevelSave(project: Project, expectedVersion: number | undefined, kind: ProjectLevelOp['kind']): void {
   if (typeof window === 'undefined') return
   writeLocalSnapshot(project)
-  if (!isHydrated(project.id)) return // 对账未完成：乐观 paint 不能触发保存副作用
+  // 对账未完成：乐观 paint 不能触发保存副作用；窗口内的编辑由 hydrateProject
+  // 对账成功后做字段级合并补救（见 lib/store/projectStore.ts）
+  if (!isHydrated(project.id)) return
   if (isConflictLocked(project.id)) {
     dispatchSaveState({ state: 'conflict', id: project.id })
     return
@@ -234,18 +259,17 @@ export function saveProject(project: Project, expectedVersion?: number): void {
 
   const existing = projectSaveTimers.get(project.id)
   if (existing) clearTimeout(existing.timer)
+  const mergedKind: ProjectLevelOp['kind'] = existing?.op.kind === 'project' ? 'project' : kind
+  const op: ProjectLevelOp = { kind: mergedKind, project, expectedVersion }
   const exec = (keepaliveFirst?: boolean) => {
     projectSaveTimers.delete(project.id)
-    void performProjectSave(project, expectedVersion, { keepaliveFirst })
+    void performProjectLevelSave(op, { keepaliveFirst })
   }
-  projectSaveTimers.set(project.id, { exec, timer: setTimeout(exec, DEBOUNCE_MS) })
+  projectSaveTimers.set(project.id, { op, exec, timer: setTimeout(exec, DEBOUNCE_MS) })
 }
 
-async function performProjectSave(
-  project: Project,
-  expectedVersion?: number,
-  opts: { keepaliveFirst?: boolean } = {},
-): Promise<void> {
+async function performProjectLevelSave(op: ProjectLevelOp, opts: { keepaliveFirst?: boolean } = {}): Promise<void> {
+  const { project, expectedVersion } = op
   if (isConflictLocked(project.id)) {
     dispatchSaveState({ state: 'conflict', id: project.id })
     return
@@ -254,14 +278,16 @@ async function performProjectSave(
   trackInFlight(project.id, 1)
   try {
     const body = expectedVersion !== undefined ? { ...project, version: expectedVersion } : project
-    const result = await sendWithRetry(`/api/projects/${project.id}`, body, 'POST', opts)
+    const result = await sendWithRetry(`/api/projects/${project.id}`, body, op.kind === 'project' ? 'POST' : 'PATCH', opts)
 
     if (result.ok) {
-      // saveProject 仓储层是 project.version 的唯一 mutator：expectedVersion 校验通过后
-      // 服务端必为 expectedVersion+1（见 lib/db/projects.ts saveProject）；未知基线时无法推算，version 留空。
+      // 仓储层 saveProject/saveProjectMeta 都是 version 的顺序 mutator：expectedVersion
+      // 校验通过后服务端必为 expectedVersion+1（见 lib/db/projects.ts）；未知基线时无法推算，version 留空。
       const version = expectedVersion !== undefined ? expectedVersion + 1 : undefined
       dispatchSaveState({ state: 'saved', id: project.id, version })
-      dequeuePending(project.id, { kind: 'project', project, expectedVersion })
+      dequeuePending(project.id, op)
+      // 整档写入已覆盖元数据的全部字段，排队中的元数据条目一并出队，避免旧快照回流
+      if (op.kind === 'project') dequeuePending(project.id, { kind: 'projectMeta', project, expectedVersion })
       return
     }
     if ('conflict' in result) {
@@ -271,7 +297,7 @@ async function performProjectSave(
     }
     if ('fatal' in result) return // 401 已跳转登录
 
-    enqueuePending(project.id, { kind: 'project', project, expectedVersion })
+    enqueuePending(project.id, op)
     dispatchSaveState({ state: 'error', id: project.id })
   } finally {
     trackInFlight(project.id, -1)
@@ -303,68 +329,6 @@ export async function createProject(
   }
 }
 
-// ─── 项目级元数据保存（防抖，PATCH，不触碰 nodes 表） ────────────────────
-
-const projectMetaSaveTimers = new Map<string, ArmedSave>()
-
-/**
- * 防抖(700ms) 项目元数据保存：只 PATCH projects 行的非 nodes 字段（角色/变量/结局定义、
- * worldAnchor、acts、chapters、phase、validationReport、directorReview 等），
- * 不携带/不触碰 nodes 表，避免调用方内存里的陈旧 nodes 快照覆盖数据库最新节点内容。
- */
-export function saveProjectMeta(project: Project, expectedVersion?: number): void {
-  if (typeof window === 'undefined') return
-  writeLocalSnapshot(project)
-  if (!isHydrated(project.id)) return
-  if (isConflictLocked(project.id)) {
-    dispatchSaveState({ state: 'conflict', id: project.id })
-    return
-  }
-
-  const existing = projectMetaSaveTimers.get(project.id)
-  if (existing) clearTimeout(existing.timer)
-  const exec = (keepaliveFirst?: boolean) => {
-    projectMetaSaveTimers.delete(project.id)
-    void performProjectMetaSave(project, expectedVersion, { keepaliveFirst })
-  }
-  projectMetaSaveTimers.set(project.id, { exec, timer: setTimeout(exec, DEBOUNCE_MS) })
-}
-
-async function performProjectMetaSave(
-  project: Project,
-  expectedVersion?: number,
-  opts: { keepaliveFirst?: boolean } = {},
-): Promise<void> {
-  if (isConflictLocked(project.id)) {
-    dispatchSaveState({ state: 'conflict', id: project.id })
-    return
-  }
-  dispatchSaveState({ state: 'saving', id: project.id })
-  trackInFlight(project.id, 1)
-  try {
-    const body = expectedVersion !== undefined ? { ...project, version: expectedVersion } : project
-    const result = await sendWithRetry(`/api/projects/${project.id}`, body, 'PATCH', opts)
-
-    if (result.ok) {
-      const version = expectedVersion !== undefined ? expectedVersion + 1 : undefined
-      dispatchSaveState({ state: 'saved', id: project.id, version })
-      dequeuePending(project.id, { kind: 'projectMeta', project, expectedVersion })
-      return
-    }
-    if ('conflict' in result) {
-      lockConflict(project.id)
-      dispatchSaveState({ state: 'conflict', id: project.id, currentVersion: result.conflict.currentVersion })
-      return
-    }
-    if ('fatal' in result) return
-
-    enqueuePending(project.id, { kind: 'projectMeta', project, expectedVersion })
-    dispatchSaveState({ state: 'error', id: project.id })
-  } finally {
-    trackInFlight(project.id, -1)
-  }
-}
-
 // ─── 节点级保存（防抖） ──────────────────────────────────────────────
 
 const nodeSaveTimers = new Map<string, ArmedSave>()
@@ -372,6 +336,7 @@ const nodeSaveTimers = new Map<string, ArmedSave>()
 /** 防抖(700ms) 单节点保存，仅写一条小体积 PATCH，避免整档保存的写放大。 */
 export function saveNode(projectId: string, node: StoryNode, expectedVersion?: number): void {
   if (typeof window === 'undefined') return
+  // 对账未完成：不发网络请求；窗口内的节点编辑由 hydrateProject 对账后按节点合并补救
   if (!isHydrated(projectId)) return
   if (isConflictLocked(projectId)) {
     dispatchSaveState({ state: 'conflict', id: projectId, nodeId: node.id })
@@ -384,7 +349,7 @@ export function saveNode(projectId: string, node: StoryNode, expectedVersion?: n
     nodeSaveTimers.delete(timerKey)
     void performNodeSave(projectId, node, expectedVersion, { keepaliveFirst })
   }
-  nodeSaveTimers.set(timerKey, { exec, timer: setTimeout(exec, DEBOUNCE_MS) })
+  nodeSaveTimers.set(timerKey, { exec, op: { kind: 'node', node, expectedVersion }, timer: setTimeout(exec, DEBOUNCE_MS) })
 }
 
 async function performNodeSave(
@@ -426,25 +391,9 @@ async function performNodeSave(
 // 三个 flushXOp 分别对应 PendingOp 的三种 kind，返回 false 时 flushPendingForId 停止
 // 继续处理剩余待发送项（409 冲突需用户决策；仍失败/离线则保留队列等待下次 online）。
 
-async function flushProjectOp(id: string, op: Extract<PendingOp, { kind: 'project' }>): Promise<boolean> {
+async function flushProjectLevelOp(id: string, op: ProjectLevelOp): Promise<boolean> {
   const body = op.expectedVersion !== undefined ? { ...op.project, version: op.expectedVersion } : op.project
-  const result = await sendWithRetry(`/api/projects/${id}`, body, 'POST')
-  if (result.ok) {
-    dequeuePending(id, op)
-    const version = op.expectedVersion !== undefined ? op.expectedVersion + 1 : undefined
-    dispatchSaveState({ state: 'saved', id, version })
-    return true
-  }
-  if ('conflict' in result) {
-    lockConflict(id)
-    dispatchSaveState({ state: 'conflict', id, currentVersion: result.conflict.currentVersion })
-  }
-  return false
-}
-
-async function flushProjectMetaOp(id: string, op: Extract<PendingOp, { kind: 'projectMeta' }>): Promise<boolean> {
-  const body = op.expectedVersion !== undefined ? { ...op.project, version: op.expectedVersion } : op.project
-  const result = await sendWithRetry(`/api/projects/${id}`, body, 'PATCH')
+  const result = await sendWithRetry(`/api/projects/${id}`, body, op.kind === 'project' ? 'POST' : 'PATCH')
   if (result.ok) {
     dequeuePending(id, op)
     const version = op.expectedVersion !== undefined ? op.expectedVersion + 1 : undefined
@@ -479,9 +428,7 @@ async function flushPendingForId(id: string): Promise<void> {
     return
   }
   for (const op of readPending(id)) {
-    const ok = op.kind === 'project' ? await flushProjectOp(id, op)
-      : op.kind === 'projectMeta' ? await flushProjectMetaOp(id, op)
-      : await flushNodeOp(id, op)
+    const ok = op.kind === 'node' ? await flushNodeOp(id, op) : await flushProjectLevelOp(id, op)
     if (!ok) return
   }
 }
@@ -499,13 +446,20 @@ export function flushPending(): void {
 
 if (typeof window !== 'undefined') {
   window.addEventListener('online', () => flushPending())
+  // 启动时续传上次会话遗留的待发送项（例如关页冲刷时 body 超出 keepalive 字节配额、
+  // 发送在卸载途中被杀而只留在队列里的保存）
+  flushPending()
 }
 
 // ─── 页面关闭前兜底（全局 beforeunload 守卫用） ─────────────────────────
 
-/** 该项目是否还有未落库的写入：防抖窗口内的保存、正在发送中的请求、或离线兜底队列。 */
+/**
+ * 该项目是否还有未落库的写入：防抖窗口内的保存、正在发送中的请求、或离线兜底队列。
+ * 不含 lsTimers：本地快照防抖只是缓存写入，hydrate 对账成功后自己也会布防一次——
+ * 把它算作"未保存"会让纯读打开的页面在关闭时误弹浏览器挽留框。
+ */
 export function hasPendingWrites(id: string): boolean {
-  if (projectSaveTimers.has(id) || projectMetaSaveTimers.has(id) || lsTimers.has(id)) return true
+  if (projectSaveTimers.has(id)) return true
   for (const key of nodeSaveTimers.keys()) {
     if (key.startsWith(`${id}:`)) return true
   }
@@ -515,7 +469,9 @@ export function hasPendingWrites(id: string): boolean {
 
 /**
  * 立即冲刷该项目所有防抖窗口内的保存（绕过 700ms 等待），首次尝试带 keepalive
- * （页面卸载后浏览器仍会送达，body ≤ ~64KB 的节点/小项目保存可无损落库）。
+ * （页面卸载后浏览器仍会送达，body ≤ ~64KiB(UTF-8) 的节点/小项目保存可无损落库）。
+ * 发送前先把每个待发送项同步写入离线兜底队列：大 body 超出 keepalive 配额时发送会在
+ * 卸载途中失败且来不及重试，队列里有底，下次启动 flushPending 续传（成功发送方出队）。
  * localStorage 快照同步落盘，保证最坏情况下离线兜底里也有最新内容。
  */
 export function flushPendingWrites(id: string): void {
@@ -529,11 +485,10 @@ export function flushPendingWrites(id: string): void {
   const armed: ArmedSave[] = []
   const project = projectSaveTimers.get(id)
   if (project) { clearTimeout(project.timer); armed.push(project) }
-  const meta = projectMetaSaveTimers.get(id)
-  if (meta) { clearTimeout(meta.timer); armed.push(meta) }
   for (const [key, entry] of nodeSaveTimers) {
     if (key.startsWith(`${id}:`)) { clearTimeout(entry.timer); armed.push(entry) }
   }
+  for (const entry of armed) enqueuePending(id, entry.op)
   for (const entry of armed) entry.exec(true)
 }
 
