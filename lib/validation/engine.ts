@@ -307,6 +307,110 @@ export function runValidation(project: Project): ValidationReport {
     }
   }
 
+  // 条件可满足性检测：上面的可达性/死路检测把所有边都当作可走，但预览运行时会按 conditions
+  // 过滤选项——AI 生成的数值门槛可能超过变量在全图的理论上界（把所有正向效果全部加总也达
+  // 不到），这类条件在任何路线上都永假：轻则选项永不可见，重则节点全部出口被封死、玩家软锁。
+  // 上界用保守的过近似 max(默认值, 最大赋值) + 全部正向增量之和（忽略路径互斥与顺序，只会
+  // 高估不会低估，因此报出的"永不可满足"都是确凿的）；下界对称。
+  const numericBounds = new Map<string, { max: number; min: number }>()
+  for (const v of project.variables ?? []) {
+    const def = Number(v.defaultValue)
+    if (!isNaN(def)) numericBounds.set(v.name, { max: def, min: def })
+  }
+  {
+    const incSum = new Map<string, number>()
+    const decSum = new Map<string, number>()
+    const setMax = new Map<string, number>()
+    const setMin = new Map<string, number>()
+    for (const node of safeNodes) {
+      for (const choice of node.choices) {
+        for (const part of (choice.variableEffects ?? '').split(',')) {
+          const parsed = parseEffectPart(part)
+          if (!parsed || !numericBounds.has(parsed.name)) continue
+          const val = Number(parsed.value)
+          if (isNaN(val)) continue
+          if (parsed.kind === 'inc') incSum.set(parsed.name, (incSum.get(parsed.name) ?? 0) + val)
+          else if (parsed.kind === 'dec') decSum.set(parsed.name, (decSum.get(parsed.name) ?? 0) + val)
+          else {
+            setMax.set(parsed.name, Math.max(setMax.get(parsed.name) ?? -Infinity, val))
+            setMin.set(parsed.name, Math.min(setMin.get(parsed.name) ?? Infinity, val))
+          }
+        }
+      }
+    }
+    for (const [name, b] of numericBounds) {
+      b.max = Math.max(b.max, setMax.get(name) ?? -Infinity) + (incSum.get(name) ?? 0)
+      b.min = Math.min(b.min, setMin.get(name) ?? Infinity) - (decSum.get(name) ?? 0)
+    }
+  }
+
+  // || 连接时只有全部子条件都永假才判死；&&（或单条件）任一子条件永假即判死
+  function findUnsatisfiable(expr: string | undefined): string[] {
+    if (!expr || !expr.trim()) return []
+    const isOr = expr.includes('||')
+    const parts = expr.includes('&&') ? expr.split('&&') : isOr ? expr.split('||') : [expr]
+    const bad: string[] = []
+    let parsedCount = 0
+    for (const raw of parts) {
+      const m = raw.trim().match(/^([a-zA-Z_][a-zA-Z0-9_]*)\s*(>=|<=|>|<|==|!=)\s*(.+)$/)
+      if (!m) continue
+      const [, name, op, rhsRaw] = m
+      const bounds = numericBounds.get(name)
+      const rhs = Number(rhsRaw)
+      if (!bounds || isNaN(rhs)) continue
+      parsedCount++
+      const impossible =
+        (op === '>=' && rhs > bounds.max) ||
+        (op === '>' && rhs >= bounds.max) ||
+        (op === '<=' && rhs < bounds.min) ||
+        (op === '<' && rhs <= bounds.min) ||
+        (op === '==' && (rhs > bounds.max || rhs < bounds.min))
+      if (impossible) bad.push(raw.trim())
+    }
+    if (isOr) return parsedCount > 0 && bad.length === parsedCount ? bad : []
+    return bad
+  }
+
+  for (const node of safeNodes) {
+    for (const choice of node.choices) {
+      const bad = findUnsatisfiable(choice.conditions)
+      if (bad.length > 0) {
+        issues.push({
+          id: nanoid(4),
+          level: 'error',
+          code: 'UNSATISFIABLE_CONDITION',
+          message: `节点「${node.title}」的选项「${choice.text}」条件永不可满足：${bad.join('、')}（即使集齐全图所有变量效果也达不到该阈值），该选项在预览中永远不可见`,
+          relatedIds: [node.id],
+        })
+      }
+    }
+    // 无保底出口：全部选项都带条件时，一旦到达时机不对，玩家会被封死在该节点
+    const isAutoReturnExplore = node.type === 'explore' && !!node.exploreReturnNodeId
+    if (node.type !== 'ending' && !isAutoReturnExplore && node.choices.length > 0
+      && node.choices.every(c => (c.conditions ?? '').trim() !== '')) {
+      issues.push({
+        id: nanoid(4),
+        level: 'warning',
+        code: 'ALL_CHOICES_GATED',
+        message: `节点「${node.title}」的所有选项都设有条件、没有无条件的保底出口：玩家到达时若全部条件不满足会卡死在该节点。建议保留至少一个无条件选项，或确保条件组合覆盖所有可能状态`,
+        relatedIds: [node.id],
+      })
+    }
+  }
+
+  for (const e of endingDefs) {
+    const bad = findUnsatisfiable(e.conditions)
+    if (bad.length > 0) {
+      issues.push({
+        id: nanoid(4),
+        level: 'error',
+        code: 'UNSATISFIABLE_CONDITION',
+        message: `结局「${e.title}」的触发条件永不可满足：${bad.join('、')}（即使集齐全图所有变量效果也达不到该阈值），该结局永远无法触发`,
+        relatedIds: [],
+      })
+    }
+  }
+
   // 结局差异度检测
   if (endingDefs.length >= 2) {
     const types = new Set(endingDefs.map(e => e.type))
