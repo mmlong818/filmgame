@@ -164,14 +164,14 @@ function WorkshopPageInner() {
       const data = await res.json()
       if (!data.ok) { if (selectedIdRef.current === nodeId) setAiError(withRunId(data.error ?? 'AI 请求失败', data.runId)); return }
 
-      // nodeDrafts 按 nodeId 索引，切换节点后写入仍安全，不会串号
-      const prev = nodeDrafts[node.id] || {}
+      // nodeDrafts 按 nodeId 索引，切换节点后写入仍安全，不会串号；
+      // updater 内直接读最新草稿而非请求前捕获的快照，避免覆盖等待期间产生的其他草稿字段
       if (action === 'fill_emotion' && data.result) {
-        setNodeDrafts(d => ({ ...d, [node.id]: { ...prev, emotionFunction: data.result } }))
+        setNodeDrafts(d => ({ ...d, [node.id]: { ...(d[node.id] || {}), emotionFunction: data.result } }))
       } else if (action === 'write_dialogue' && data.result?.dialogue) {
         const dialogue = data.result.dialogue.map((d: DialogueLine) => ({ ...d, id: nanoid(6) }))
         const sceneDesc = data.result.sceneDesc as string | undefined
-        setNodeDrafts(d => ({ ...d, [node.id]: { ...prev, dialogue, ...(sceneDesc ? { sceneDesc } : {}) } }))
+        setNodeDrafts(d => ({ ...d, [node.id]: { ...(d[node.id] || {}), dialogue, ...(sceneDesc ? { sceneDesc } : {}) } }))
       }
     } catch (err) {
       if (selectedIdRef.current === nodeId) setAiError(err instanceof Error ? err.message : 'AI 请求失败')
@@ -309,8 +309,7 @@ function WorkshopPageInner() {
       if (data.result?.dialogue) {
         const dialogue = data.result.dialogue.map((d: DialogueLine) => ({ ...d, id: nanoid(6) }))
         const sceneDesc = data.result.sceneDesc as string | undefined
-        const prev = nodeDrafts[node.id] || {}
-        setNodeDrafts(d => ({ ...d, [node.id]: { ...prev, dialogue, ...(sceneDesc ? { sceneDesc } : {}) } }))
+        setNodeDrafts(d => ({ ...d, [node.id]: { ...(d[node.id] || {}), dialogue, ...(sceneDesc ? { sceneDesc } : {}) } }))
         toast('AI 修改后的对白草稿已生成，请确认', 'info')
       }
     } catch (err) {
