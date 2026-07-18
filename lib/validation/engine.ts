@@ -62,6 +62,10 @@ export function runValidation(project: Project): ValidationReport {
           queue.push(choice.targetNodeId)
         }
       }
+      // explore 节点 choices 恒为空，靠 exploreReturnNodeId 自动返回主线，这条边也要算作出边
+      if (node.type === 'explore' && node.exploreReturnNodeId && !reachable.has(node.exploreReturnNodeId)) {
+        queue.push(node.exploreReturnNodeId)
+      }
     }
   }
 
@@ -145,6 +149,10 @@ export function runValidation(project: Project): ValidationReport {
         if (choice.targetNodeId && !visited.has(choice.targetNodeId)) {
           queue.push(choice.targetNodeId)
         }
+      }
+      // explore 节点 choices 恒为空，靠 exploreReturnNodeId 自动返回主线，这条边也要算作出边
+      if (node.type === 'explore' && node.exploreReturnNodeId && !visited.has(node.exploreReturnNodeId)) {
+        queue.push(node.exploreReturnNodeId)
       }
     }
     return false
@@ -261,6 +269,25 @@ export function runValidation(project: Project): ValidationReport {
           level: 'warning',
           code: 'UNKNOWN_VARIABLE_REF',
           message: `节点「${node.title}」的选项「${choice.text}」引用了不存在的变量：${unknown.join('、')}，变量若已改名或删除，此处会静默失效（视为0）`,
+          relatedIds: [node.id],
+        })
+      }
+
+      // parseEffectPart 解析失败时 extractEffectVars 直接 filter 掉，等同于"没有这个效果"，
+      // 不会落进上面的 unknown 变量检查——但预览（applyVariableEffect）和 ink 导出（applyInkEffects）
+      // 同样解析失败会跳过该片段，于是作者拿到绿色报告，效果却在运行时静默不执行。这里单独收集
+      // 非空但解析失败的片段并报 warning（与 unknown 变量检查互斥，一个片段只会落进其中一个）。
+      const unparseable = (choice.variableEffects ?? '')
+        .split(',')
+        .map(p => p.trim())
+        .filter(Boolean)
+        .filter(p => parseEffectPart(p) === null)
+      if (unparseable.length > 0) {
+        issues.push({
+          id: nanoid(4),
+          level: 'warning',
+          code: 'UNPARSEABLE_EFFECT',
+          message: `节点「${node.title}」的选项「${choice.text}」含无法解析的变量效果：${unparseable.join('、')}，该效果在预览和导出中不会执行。支持的写法：+名称 / -名称 / 名称+1 / 名称=值（变量名仅限英文字母、数字、下划线）`,
           relatedIds: [node.id],
         })
       }
