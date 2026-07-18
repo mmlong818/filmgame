@@ -31,10 +31,16 @@ export const POST = withAuth(async (req: NextRequest) => {
         controller.enqueue(encoder.encode(JSON.stringify(evt) + '\n'))
       }
 
+      // RunCollectorCallbackHandler 只在 root run 结束时才写入 tracedRuns，流式期间读它
+      // 恒为 null；root runId 改由 handleChainStart 在图启动瞬间捕获（见下方 callbacks），
+      // collector 仅作兜底。拿不到就先不发 run 帧，留到后续时机（每个 update / done / error）重试。
+      let rootRunId: string | null = null
       let runIdSent = false
       const sendRunId = () => {
         if (runIdSent) return
-        send({ type: 'run', runId: getRunId(collector) })
+        const runId = getRunId(collector) ?? rootRunId
+        if (!runId) return
+        send({ type: 'run', runId })
         runIdSent = true
       }
 
@@ -46,7 +52,14 @@ export const POST = withAuth(async (req: NextRequest) => {
       try {
         const iterator = await structureGraph.stream(
           { worldAnchor, scalePlan, characters, chapterCount, chapterIndex: 0, spine: null, chapters: [], errors: [], warnings: [], mode },
-          { streamMode: 'updates', callbacks: [collector] }
+          {
+            streamMode: 'updates',
+            callbacks: [collector, {
+              handleChainStart: (_chain: unknown, _inputs: unknown, runId: string, parentRunId?: string) => {
+                if (!parentRunId && !rootRunId) rootRunId = runId
+              },
+            }],
+          }
         )
 
         for await (const update of iterator as AsyncIterable<NodeUpdate>) {
