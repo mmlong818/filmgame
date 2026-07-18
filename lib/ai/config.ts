@@ -13,9 +13,9 @@ export interface AIConfig {
 
 export const DEFAULT_MODELS: Record<AIProvider, string> = {
   claude_cli: '',
-  anthropic: 'claude-opus-4-5',
-  openai: 'gpt-4o',
-  gemini: 'gemini-2.0-flash',
+  anthropic: 'claude-opus-4-8',
+  openai: 'gpt-5.4',
+  gemini: 'gemini-3.5-flash',
   custom: 'llama3',
 }
 

@@ -47,7 +47,7 @@ export function createModel(config: AIConfig, opts: ProviderOptions = {}): BaseC
 
     case 'anthropic':
       return new ChatAnthropic({
-        model: model ?? 'claude-opus-4-5',
+        model: model ?? 'claude-opus-4-8',
         apiKey: config.apiKey,
         maxTokens: 8192,
         clientOptions: { timeout },
@@ -55,7 +55,7 @@ export function createModel(config: AIConfig, opts: ProviderOptions = {}): BaseC
 
     case 'openai':
       return new ChatOpenAI({
-        model: model ?? 'gpt-4o',
+        model: model ?? 'gpt-5.4',
         apiKey: config.apiKey,
         temperature: 0.7,
         timeout: timeout,
@@ -66,7 +66,7 @@ export function createModel(config: AIConfig, opts: ProviderOptions = {}): BaseC
       // 调用方（lc-chains.ts/lg-structure.ts）通过 invoke(..., { timeout }) 借助
       // LangChain 通用的 RunnableConfig.timeout 机制施加超时
       return new ChatGoogleGenerativeAI({
-        model: model ?? 'gemini-2.0-flash',
+        model: model ?? 'gemini-3.5-flash',
         apiKey: config.apiKey,
         maxOutputTokens: 8192,
         temperature: 0.7,
