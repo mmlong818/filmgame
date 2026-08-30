@@ -5,18 +5,27 @@ import { useProjectStore } from '@/lib/store/projectStore'
 import { runValidation } from '@/lib/validation/engine'
 import { exportProjectJson, exportInk } from '@/lib/persistence'
 import { useToast } from '@/app/components/toast'
-import { aiFetch } from '@/lib/ai/client'
+import { aiJson } from '@/lib/ai/client'
+import { useAiAction, type AiActionState } from '@/lib/hooks/useAiAction'
 import { enumeratePaths } from '@/lib/graph'
-import type { ValidationReport, DirectorReview, Project, StoryNode } from '@/lib/types/project'
+import { NODE_TYPES, nodeTypeStyle } from '@/lib/ui/nodeTypes'
+import { Button } from '@/app/components/ui/button'
+import { StickyNote } from '@/app/components/ui/sticky-note'
+import { Tag } from '@/app/components/ui/tag'
+import { SkeletonPage } from '@/app/components/ui/skeleton'
+import type { ValidationReport, ValidationIssue, IssueLevel, DirectorReview, Project, StoryNode, NodeType } from '@/lib/types/project'
+
+interface AiReportResult { summary: string; priority_issues: string[]; suggestions: string[] }
+
+const NOTE_TILT = [-1.5, 1.2, -0.8, 1.8, -1.2]
 
 export default function ValidatePage() {
   const router = useRouter()
   const { project, setValidationReport, clearStaleFlag, setDirectorReview } = useProjectStore()
-  const [loading, setLoading] = useState(false)
-  const [directorLoading, setDirectorLoading] = useState(false)
-  const [aiSuggestions, setAiSuggestions] = useState<{ summary: string; priority_issues: string[]; suggestions: string[] } | null>(null)
-  const [aiError, setAiError] = useState<string | null>(null)
+  const [aiSuggestions, setAiSuggestions] = useState<AiReportResult | null>(null)
   const [directorReview, setLocalDirectorReview] = useState<DirectorReview | null>(() => project?.directorReview ?? null)
+  const aiReport = useAiAction()
+  const aiDirector = useAiAction()
   const { toast } = useToast()
 
   useEffect(() => {
@@ -26,11 +35,7 @@ export default function ValidatePage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  if (!project) return (
-    <div className="flex items-center justify-center h-64 text-gray-400 text-sm">
-      加载中...
-    </div>
-  )
+  if (!project) return <SkeletonPage />
 
   const report = project.lastValidation
 
@@ -48,28 +53,16 @@ export default function ValidatePage() {
 
   async function handleAiReport() {
     if (!report) return
-    setLoading(true)
-    setAiError(null)
-    try {
-      const res = await aiFetch('validate', 'report', report as unknown as Record<string, unknown>)
-      const data = await res.json()
-      if (data.ok && data.result) {
-        setAiSuggestions(data.result)
-      } else {
-        setAiError(data.runId ? `${data.error ?? 'AI 请求失败'}（trace: ${data.runId}）` : (data.error ?? 'AI 请求失败'))
-      }
-    } catch (err) {
-      setAiError(err instanceof Error ? err.message : 'AI 请求失败')
-    } finally {
-      setLoading(false)
-    }
+    const data = await aiReport.run('生成改进建议', signal =>
+      aiJson<{ result: AiReportResult }>('validate', 'report', report as unknown as Record<string, unknown>, signal),
+    )
+    if (data) setAiSuggestions(data.result)
   }
 
   async function handleDirectorReview() {
     if (!project) return
-    setDirectorLoading(true)
-    try {
-      const res = await aiFetch('validate', 'director_review', {
+    const data = await aiDirector.run('五位导演终审', signal =>
+      aiJson<{ result: Omit<DirectorReview, 'generatedAt'> }>('validate', 'director_review', {
         worldAnchor: project.worldAnchor,
         characters: project.characters,
         endings: project.endings,
@@ -79,227 +72,192 @@ export default function ValidatePage() {
           fakeBranch: n.type === 'branch' && n.choices.length > 0 &&
             new Set(n.choices.map(c => c.targetNodeId).filter(Boolean)).size === 1,
         })),
-      })
-      const data = await res.json()
-      if (data.ok && data.result) {
-        const review: DirectorReview = { ...data.result, generatedAt: new Date().toISOString() }
-        setLocalDirectorReview(review)
-        setDirectorReview(review)
-      }
-    } finally {
-      setDirectorLoading(false)
+      }, signal),
+    )
+    if (data) {
+      const review: DirectorReview = { ...data.result, generatedAt: new Date().toISOString() }
+      setLocalDirectorReview(review)
+      setDirectorReview(review)
     }
   }
-
-  const levelColor = {
-    error: 'text-red-600 bg-red-50 border-red-100',
-    warning: 'text-amber-600 bg-amber-50 border-amber-100',
-    info: 'text-blue-600 bg-blue-50 border-blue-100',
-  }
-  const levelLabel = { error: '错误', warning: '警告', info: '提示' }
 
   return (
     <div className="max-w-3xl mx-auto px-6 py-8">
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h2 className="text-xl font-semibold text-gray-900">全局校验</h2>
-          <p className="text-sm text-gray-500 mt-1">检测结构问题，生成可执行报告</p>
+          <h2 className="text-xl font-semibold text-ink">全局校验</h2>
+          <p className="text-sm text-pencil mt-1">检测结构问题，生成可执行报告</p>
         </div>
         <div className="flex gap-2">
-          <button
-            onClick={handleValidate}
-            className="px-4 py-2 bg-amber-600 text-white text-sm font-medium rounded-lg hover:bg-amber-700 transition-colors"
-          >
-            运行校验
-          </button>
+          <Button variant="primary" onClick={handleValidate}>运行校验</Button>
           {report && (
             <>
-              <button
-                onClick={() => { exportProjectJson(project); toast('JSON 已导出', 'info') }}
-                className="px-4 py-2 bg-white border border-gray-200 text-sm text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
-              >
+              <Button variant="secondary" onClick={() => { exportProjectJson(project); toast('JSON 已导出', 'info') }}>
                 导出 JSON
-              </button>
-              <button
-                onClick={() => { exportInk(project); toast('.ink 文件已导出', 'info') }}
-                className="px-4 py-2 bg-white border border-gray-200 text-sm text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
-              >
+              </Button>
+              <Button variant="secondary" onClick={() => { exportInk(project); toast('.ink 文件已导出', 'info') }}>
                 导出 .ink
-              </button>
+              </Button>
             </>
           )}
         </div>
       </div>
 
       {!report ? (
-        <div className="text-center py-16 border-2 border-dashed border-gray-200 rounded-xl text-gray-400">
-          <p className="text-2xl mb-2">🔍</p>
+        <div className="paper-sheet border border-dashed border-line text-center py-16 text-pencil">
           <p className="text-sm">点击「运行校验」开始检测</p>
         </div>
       ) : (
         <>
-          <div className="bg-white border border-gray-200 rounded-xl p-5 mb-4">
-            <div className="grid grid-cols-4 gap-4">
-              {[
-                { label: '通过率', value: `${report.passRate}%`, color: report.passRate >= 80 ? 'text-green-600' : report.passRate >= 60 ? 'text-amber-600' : 'text-red-600' },
-                { label: '总节点', value: report.totalNodes, color: 'text-gray-900' },
-                { label: '总分支', value: report.totalBranches, color: 'text-gray-900' },
-                { label: '问题数', value: report.issues?.length ?? 0, color: (report.issues?.length ?? 0) === 0 ? 'text-green-600' : 'text-red-600' },
-              ].map(s => (
-                <div key={s.label} className="text-center">
-                  <div className={`text-2xl font-bold ${s.color}`}>{s.value}</div>
-                  <div className="text-xs text-gray-500 mt-0.5">{s.label}</div>
-                </div>
-              ))}
-            </div>
-          </div>
+          <ScorePanel report={report} />
 
           {(report.issues?.length ?? 0) === 0 ? (
-            <div className="bg-green-50 border border-green-100 rounded-xl p-5 text-center">
-              <p className="text-green-700 font-medium text-sm">✓ 校验通过，没有发现结构问题</p>
+            <div className="bg-paper border-l-4 border-leaf px-5 py-4 mb-4" style={{ boxShadow: 'var(--shadow-card)' }}>
+              <p className="text-leaf font-medium text-sm">✓ 校验通过，没有发现结构问题</p>
             </div>
           ) : (
-            <div className="space-y-2 mb-4">
+            <div className="mb-4">
               {(['error', 'warning', 'info'] as const).map(level => {
                 const items = (report.issues ?? []).filter(i => i.level === level)
                 if (items.length === 0) return null
                 return (
-                  <div key={level}>
-                    <p className="text-xs font-medium text-gray-500 mb-1.5">{levelLabel[level]} ({items.length})</p>
-                    {items.map(issue => (
-                      <div key={issue.id} className={`border rounded-lg p-3 mb-1.5 text-sm ${levelColor[issue.level]}`}>
-                        <div className="flex items-start justify-between gap-2">
-                          <span><span className="font-medium">[{issue.code}]</span> {issue.message}</span>
-                          {issue.relatedIds?.length > 0 && (
-                            <button
-                              onClick={() => router.push(`/project/${project!.id}/workshop?node=${issue.relatedIds[0]}`)}
-                              className="text-xs underline opacity-70 hover:opacity-100 shrink-0"
-                            >
-                              去修复 →
-                            </button>
-                          )}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
+                  <IssueGroup key={level} level={level} items={items} projectId={project.id} />
                 )
               })}
             </div>
           )}
 
-          <div className="mb-4">
-            <EmotionArcChart project={project} />
-          </div>
+          <EmotionArcChart project={project} />
+          <PathDurationTable project={project} />
+          <NarrativeMap project={project} />
 
-          <div className="mb-4">
-            <PathDurationTable project={project} />
-          </div>
-
-          <div className="bg-white border border-zinc-200 rounded-xl p-5 mb-4">
-            <h3 className="text-sm font-semibold text-zinc-700 mb-4">叙事地图</h3>
-            <div className="grid grid-cols-3 gap-4">
-              {/* 结局覆盖 */}
-              <div className="text-center">
-                <div className="text-2xl font-bold text-zinc-900">{project.nodes.filter(n => n.type === 'ending').length}</div>
-                <div className="text-xs text-zinc-500 mt-0.5">结局定义</div>
-                <div className="flex justify-center gap-1 mt-1.5">
-                  {(['good','bad','neutral','secret'] as const).map(type => {
-                    const colors: Record<string, string> = { good:'bg-green-400', bad:'bg-red-400', neutral:'bg-zinc-400', secret:'bg-purple-400' }
-                    return <div key={type} className={`w-2 h-2 rounded-full ${colors[type]}`} title={type} />
-                  })}
-                </div>
-              </div>
-              {/* 分支密度 */}
-              <div className="text-center">
-                <div className="text-2xl font-bold text-zinc-900">
-                  {project.nodes.length > 0 ? Math.round((project.nodes.filter(n => n.type === 'branch').length / project.nodes.length) * 100) : 0}%
-                </div>
-                <div className="text-xs text-zinc-500 mt-0.5">分支密度</div>
-                <div className="text-xs text-zinc-400 mt-1">{project.nodes.filter(n => n.type === 'branch').length} / {project.nodes.length} 节点</div>
-              </div>
-              {/* 对白完成度 */}
-              <div className="text-center">
-                <div className="text-2xl font-bold text-zinc-900">
-                  {project.nodes.length > 0 ? Math.round((project.nodes.filter(n => n.dialogue.length > 0).length / project.nodes.length) * 100) : 0}%
-                </div>
-                <div className="text-xs text-zinc-500 mt-0.5">对白完成度</div>
-                <div className="text-xs text-zinc-400 mt-1">
-                  {project.nodes.reduce((sum, n) => sum + n.dialogue.length, 0)} 行对白
-                </div>
-              </div>
+          {aiReport.loading ? (
+            <div className="flex items-center gap-2 mb-4">
+              <Button variant="secondary" className="flex-1 justify-center py-2.5" disabled loading>
+                生成中…
+              </Button>
+              <Button variant="ghost" size="sm" onClick={aiReport.cancel}>取消</Button>
             </div>
-            {/* 章节进度条 */}
-            {project.chapters.length > 0 && (
-              <div className="mt-4 space-y-2">
-                {project.chapters.sort((a, b) => a.order - b.order).map(ch => {
-                  const chNodes = project.acts
-                    .filter(a => a.chapterId === ch.id)
-                    .flatMap(a => a.nodeIds)
-                    .map(id => project.nodes.find(n => n.id === id))
-                    .filter(Boolean)
-                  const filled = chNodes.filter(n => n!.dialogue.length > 0).length
-                  const pct = chNodes.length > 0 ? Math.round((filled / chNodes.length) * 100) : 0
-                  return (
-                    <div key={ch.id}>
-                      <div className="flex items-center justify-between text-xs mb-1">
-                        <span className="text-zinc-600">{ch.title}</span>
-                        <span className="text-zinc-400">{filled}/{chNodes.length}</span>
-                      </div>
-                      <div className="h-1.5 bg-zinc-100 rounded-full overflow-hidden">
-                        <div className="h-full bg-amber-400 rounded-full transition-all" style={{ width: `${pct}%` }} />
-                      </div>
-                    </div>
-                  )
-                })}
-              </div>
-            )}
-          </div>
+          ) : (
+            <Button variant="secondary" className="w-full justify-center py-2.5 mb-4" onClick={handleAiReport}>
+              {aiSuggestions ? '重新生成' : 'AI 生成改进建议'}
+            </Button>
+          )}
 
-          <button
-            onClick={handleAiReport}
-            disabled={loading}
-            className="w-full py-2.5 mb-4 text-sm text-amber-600 border border-amber-200 rounded-xl hover:bg-amber-50 disabled:opacity-40 transition-colors flex items-center justify-center gap-2"
-          >
-            {loading && <span className="w-3 h-3 border border-amber-400 border-t-transparent rounded-full animate-spin" />}
-            {aiSuggestions ? '重新生成' : 'AI 生成改进建议'}
-          </button>
-
-          {aiError && (
-            <p className="mb-4 text-xs text-red-500 bg-red-50 border border-red-100 rounded-lg px-3 py-2">{aiError}</p>
+          {aiReport.error && (
+            <div className="mb-4 flex items-center justify-between gap-3 bg-paper border-l-4 border-vermilion px-3 py-2 text-xs text-ink">
+              <span>{aiReport.error}</span>
+              <Button variant="link" size="sm" onClick={aiReport.retry}>重试</Button>
+            </div>
           )}
 
           {aiSuggestions && (
-            <div className="bg-amber-50 border border-amber-100 rounded-xl p-5 mb-4">
-              <p className="text-xs font-semibold text-amber-600 uppercase tracking-wide mb-3">AI 改进建议</p>
-              <p className="text-sm text-gray-700 mb-3">{aiSuggestions.summary}</p>
+            <StickyNote title="AI 改进建议" className="mb-4">
+              <p className="mb-2">{aiSuggestions.summary}</p>
               {aiSuggestions.priority_issues?.length > 0 && (
-                <div className="mb-3">
-                  <p className="text-xs font-medium text-gray-500 mb-1.5">优先修复</p>
-                  {aiSuggestions.priority_issues.map((issue, i) => (
-                    <p key={i} className="text-sm text-gray-700">• {issue}</p>
-                  ))}
+                <div className="mb-2">
+                  <p className="font-semibold mb-1">优先修复</p>
+                  {aiSuggestions.priority_issues.map((issue, i) => <p key={i}>・{issue}</p>)}
                 </div>
               )}
               {aiSuggestions.suggestions?.length > 0 && (
                 <div>
-                  <p className="text-xs font-medium text-gray-500 mb-1.5">优化建议</p>
-                  {aiSuggestions.suggestions.map((s, i) => (
-                    <p key={i} className="text-sm text-gray-700">• {s}</p>
-                  ))}
+                  <p className="font-semibold mb-1">优化建议</p>
+                  {aiSuggestions.suggestions.map((s, i) => <p key={i}>・{s}</p>)}
                 </div>
               )}
-            </div>
+            </StickyNote>
           )}
 
-          <DirectorReviewPanel
-            review={directorReview}
-            loading={directorLoading}
-            onRequest={handleDirectorReview}
-          />
+          <DirectorReviewPanel review={directorReview} ai={aiDirector} onRequest={handleDirectorReview} />
         </>
       )}
     </div>
   )
+}
+
+function ScorePanel({ report }: { report: ValidationReport }) {
+  const tierText = report.passRate >= 80 ? 'text-leaf' : report.passRate >= 60 ? 'text-amberink' : 'text-vermilion'
+  const tierBg = report.passRate >= 80 ? 'bg-leaf' : report.passRate >= 60 ? 'bg-amberink' : 'bg-vermilion'
+  const issueCount = report.issues?.length ?? 0
+  return (
+    <div className="paper-sheet px-5 py-5 mb-4 flex flex-wrap items-end gap-8">
+      <div>
+        <div className={`courier text-5xl font-bold leading-none ${tierText}`}>{report.passRate}%</div>
+        <div className="h-1.5 bg-pencil/15 mt-2 w-32 overflow-hidden">
+          <div className={`h-full ${tierBg}`} style={{ width: `${report.passRate}%` }} />
+        </div>
+        <div className="text-xs text-pencil mt-1.5 tracking-wide">通过率</div>
+      </div>
+      <div className="flex gap-6">
+        <div className="text-center">
+          <div className="courier text-xl text-ink">{report.totalNodes}</div>
+          <div className="text-xs text-pencil mt-0.5">总节点</div>
+        </div>
+        <div className="text-center">
+          <div className="courier text-xl text-ink">{report.totalBranches}</div>
+          <div className="text-xs text-pencil mt-0.5">总分支</div>
+        </div>
+        <div className="text-center">
+          <div className={`courier text-xl ${issueCount === 0 ? 'text-leaf' : 'text-vermilion'}`}>{issueCount}</div>
+          <div className="text-xs text-pencil mt-0.5">问题数</div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+const LEVEL_CONF: Record<IssueLevel, { label: string; border: string }> = {
+  error: { label: '错误', border: 'border-vermilion' },
+  warning: { label: '警告', border: 'border-amberink' },
+  info: { label: '提示', border: 'border-inkblue' },
+}
+
+function IssueGroup({ level, items, projectId }: { level: IssueLevel; items: ValidationIssue[]; projectId: string }) {
+  const router = useRouter()
+  const [open, setOpen] = useState(level === 'error')
+  const conf = LEVEL_CONF[level]
+  return (
+    <div className="mb-1.5">
+      <button
+        type="button"
+        aria-expanded={open}
+        onClick={() => setOpen(o => !o)}
+        className="w-full flex items-center gap-1.5 cursor-pointer text-left py-1.5 px-1 text-xs font-medium text-pencil tracking-wide"
+      >
+        <span aria-hidden>{open ? '▾' : '▸'}</span>
+        {conf.label}（{items.length}）
+      </button>
+      {open && (
+        <div className="space-y-1.5">
+          {items.map(issue => (
+            <div key={issue.id} className={`bg-paper border-l-4 ${conf.border} px-3 py-2 text-sm text-ink`} style={{ boxShadow: 'var(--shadow-card)' }}>
+              <div className="flex items-start justify-between gap-2">
+                <span><span className="courier text-xs text-pencil">[{issue.code}]</span> {issue.message}</span>
+                {issue.relatedIds?.length > 0 && (
+                  <Button
+                    variant="link"
+                    size="sm"
+                    className="shrink-0"
+                    onClick={() => router.push(`/project/${projectId}/workshop?node=${issue.relatedIds[0]}`)}
+                  >
+                    去修复 →
+                  </Button>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+const ENDING_TONE: Record<string, { dot: string; bar: string }> = {
+  good: { dot: 'bg-leaf', bar: 'bg-leaf' },
+  bad: { dot: 'bg-vermilion', bar: 'bg-vermilion' },
+  neutral: { dot: 'bg-pencil', bar: 'bg-pencil' },
+  secret: { dot: 'bg-inkblue', bar: 'bg-inkblue' },
 }
 
 function PathDurationTable({ project }: { project: Project }) {
@@ -314,33 +272,93 @@ function PathDurationTable({ project }: { project: Project }) {
     const totalSeconds = path.reduce((sum, id) => sum + (nodeMap.get(id)?.durationSeconds ?? 0), 0)
     const endingNode = nodeMap.get(path[path.length - 1])
     const endingDef = project.endings.find(e => e.nodeId === endingNode?.id)
-    const typeColors: Record<string, string> = { good: 'bg-green-400', bad: 'bg-red-400', neutral: 'bg-zinc-400', secret: 'bg-purple-400' }
+    const type = endingDef?.type ?? 'neutral'
     return {
       label: endingDef?.title ?? endingNode?.title ?? `路径 ${i + 1}`,
-      type: endingDef?.type ?? 'neutral',
       nodes: path.length,
       minutes: Math.round(totalSeconds / 60),
-      barColor: typeColors[endingDef?.type ?? 'neutral'] ?? 'bg-zinc-400',
+      barClass: ENDING_TONE[type]?.bar ?? ENDING_TONE.neutral.bar,
     }
   })
   const maxMinutes = Math.max(...pathData.map(p => p.minutes), 1)
 
   return (
-    <div className="bg-white border border-zinc-200 rounded-xl p-5">
-      <h3 className="text-sm font-semibold text-zinc-700 mb-4">路径时长分布</h3>
+    <div className="paper-sheet p-5 mb-4">
+      <h3 className="text-sm font-semibold text-ink mb-4">路径时长分布</h3>
       <div className="space-y-2.5">
         {pathData.map((p, i) => (
           <div key={i} className="flex items-center gap-3">
-            <div className="w-28 text-xs text-zinc-600 truncate shrink-0" title={p.label}>{p.label}</div>
-            <div className="flex-1 h-3 bg-zinc-100 rounded-full overflow-hidden">
-              <div className={`h-full rounded-full transition-all ${p.barColor}`} style={{ width: `${(p.minutes / maxMinutes) * 100}%` }} />
+            <div className="w-28 text-xs text-ink-soft truncate shrink-0" title={p.label}>{p.label}</div>
+            <div className="flex-1 h-3 bg-pencil/15 overflow-hidden">
+              <div className={`h-full ${p.barClass}`} style={{ width: `${(p.minutes / maxMinutes) * 100}%` }} />
             </div>
-            <div className="text-xs text-zinc-400 shrink-0 w-24 text-right">{p.minutes}分 · {p.nodes}节点</div>
+            <div className="text-xs text-pencil shrink-0 w-24 text-right">{p.minutes}分 · {p.nodes}节点</div>
           </div>
         ))}
       </div>
       {paths.length >= 30 && (
-        <p className="text-xs text-zinc-400 mt-2">仅显示前30条路径</p>
+        <p className="text-xs text-pencil mt-2">仅显示前30条路径</p>
+      )}
+    </div>
+  )
+}
+
+function NarrativeMap({ project }: { project: Project }) {
+  const endingNodeCount = project.nodes.filter(n => n.type === 'ending').length
+  const branchNodeCount = project.nodes.filter(n => n.type === 'branch').length
+  const dialogueNodeCount = project.nodes.filter(n => n.dialogue.length > 0).length
+  const branchDensity = project.nodes.length > 0 ? Math.round((branchNodeCount / project.nodes.length) * 100) : 0
+  const dialogueRate = project.nodes.length > 0 ? Math.round((dialogueNodeCount / project.nodes.length) * 100) : 0
+
+  return (
+    <div className="paper-sheet p-5 mb-4">
+      <h3 className="text-sm font-semibold text-ink mb-4">叙事地图</h3>
+      <div className="grid grid-cols-3 gap-4">
+        <div className="text-center">
+          <div className="courier text-2xl font-bold text-ink">{endingNodeCount}</div>
+          <div className="text-xs text-pencil mt-0.5">结局定义</div>
+          <div className="flex justify-center gap-1 mt-1.5">
+            {(['good', 'bad', 'neutral', 'secret'] as const).map(type => (
+              <div key={type} className={`w-2 h-2 rounded-full ${ENDING_TONE[type].dot}`} title={type} />
+            ))}
+          </div>
+        </div>
+        <div className="text-center">
+          <div className="courier text-2xl font-bold text-ink">{branchDensity}%</div>
+          <div className="text-xs text-pencil mt-0.5">分支密度</div>
+          <div className="text-xs text-pencil/80 mt-1">{branchNodeCount} / {project.nodes.length} 节点</div>
+        </div>
+        <div className="text-center">
+          <div className="courier text-2xl font-bold text-ink">{dialogueRate}%</div>
+          <div className="text-xs text-pencil mt-0.5">对白完成度</div>
+          <div className="text-xs text-pencil/80 mt-1">
+            {project.nodes.reduce((sum, n) => sum + n.dialogue.length, 0)} 行对白
+          </div>
+        </div>
+      </div>
+      {project.chapters.length > 0 && (
+        <div className="mt-4 space-y-2">
+          {project.chapters.slice().sort((a, b) => a.order - b.order).map(ch => {
+            const chNodes = project.acts
+              .filter(a => a.chapterId === ch.id)
+              .flatMap(a => a.nodeIds)
+              .map(id => project.nodes.find(n => n.id === id))
+              .filter((n): n is StoryNode => Boolean(n))
+            const filled = chNodes.filter(n => n.dialogue.length > 0).length
+            const pct = chNodes.length > 0 ? Math.round((filled / chNodes.length) * 100) : 0
+            return (
+              <div key={ch.id}>
+                <div className="flex items-center justify-between text-xs mb-1">
+                  <span className="text-ink-soft">{ch.title}</span>
+                  <span className="text-pencil">{filled}/{chNodes.length}</span>
+                </div>
+                <div className="h-1.5 bg-pencil/15 overflow-hidden">
+                  <div className="h-full bg-leaf" style={{ width: `${pct}%` }} />
+                </div>
+              </div>
+            )
+          })}
+        </div>
       )}
     </div>
   )
@@ -348,7 +366,7 @@ function PathDurationTable({ project }: { project: Project }) {
 
 function EmotionArcChart({ project }: { project: Project }) {
   const orderedNodes: StoryNode[] = []
-  project.chapters.sort((a, b) => a.order - b.order).forEach(ch => {
+  project.chapters.slice().sort((a, b) => a.order - b.order).forEach(ch => {
     project.acts.filter(a => a.chapterId === ch.id).sort((a, b) => a.order - b.order).forEach(act => {
       act.nodeIds.forEach(nid => {
         const n = project.nodes.find(x => x.id === nid)
@@ -358,7 +376,7 @@ function EmotionArcChart({ project }: { project: Project }) {
   })
 
   if (orderedNodes.length < 2) return (
-    <div className="text-center py-8 text-gray-400 text-sm border border-dashed border-gray-200 rounded-xl">
+    <div className="paper-sheet border border-dashed border-line text-center py-8 text-pencil text-sm mb-4">
       填充节点情感函数后，此处将显示情感弧线
     </div>
   )
@@ -367,22 +385,19 @@ function EmotionArcChart({ project }: { project: Project }) {
   const xs = orderedNodes.map((_, i) => PAD + (i / (orderedNodes.length - 1)) * (W - PAD * 2))
   const ys = orderedNodes.map(n => PAD + ((10 - n.emotionFunction.tension) / 10) * (H - PAD * 2))
   const points = xs.map((x, i) => `${x},${ys[i]}`).join(' ')
-
-  const dotColor: Record<string, string> = {
-    start: '#22c55e', branch: '#7c3aed', merge: '#f43f5e', ending: '#f59e0b', normal: '#9ca3af', explore: '#14b8a6'
-  }
+  const peakIdx = ys.reduce((best, y, i) => (y < ys[best] ? i : best), 0)
 
   return (
-    <div className="bg-white border border-gray-200 rounded-xl p-4">
-      <div className="flex items-center justify-between mb-3">
-        <h3 className="text-sm font-semibold text-gray-700">情感弧线</h3>
-        <div className="flex items-center gap-3 text-xs text-gray-400">
+    <div className="paper-sheet p-4 mb-4">
+      <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
+        <h3 className="text-sm font-semibold text-ink">情感弧线</h3>
+        <div className="flex items-center gap-3 text-xs text-pencil">
           <span>低 ←紧张度→ 高</span>
-          <div className="flex items-center gap-2">
-            {([['开场','#22c55e'],['分支','#7c3aed'],['汇聚','#f43f5e'],['结局','#f59e0b'],['推进','#9ca3af'],['探索','#14b8a6']] as const).map(([label, color]) => (
-              <span key={label} className="flex items-center gap-0.5">
-                <span className="inline-block w-2 h-2 rounded-full" style={{ background: color }} />
-                {label}
+          <div className="flex items-center gap-2 flex-wrap">
+            {(Object.keys(NODE_TYPES) as NodeType[]).map(type => (
+              <span key={type} className="flex items-center gap-0.5">
+                <span aria-hidden className="inline-block w-2 h-2 rounded-full" style={{ background: nodeTypeStyle(type).hex }} />
+                {nodeTypeStyle(type).label}
               </span>
             ))}
           </div>
@@ -391,86 +406,102 @@ function EmotionArcChart({ project }: { project: Project }) {
       <svg viewBox={`0 0 ${W} ${H}`} className="w-full h-28">
         {[2, 5, 8].map(v => {
           const y = PAD + ((10 - v) / 10) * (H - PAD * 2)
-          return <line key={v} x1={PAD} y1={y} x2={W - PAD} y2={y} stroke="#f3f4f6" strokeWidth="1" />
+          return <line key={v} x1={PAD} y1={y} x2={W - PAD} y2={y} style={{ stroke: 'var(--color-pencil)', opacity: 0.2 }} strokeWidth="1" />
         })}
-        <polyline points={points} fill="none" stroke="#d97706" strokeWidth="2" strokeLinejoin="round" />
+        <polyline points={points} fill="none" style={{ stroke: 'var(--color-inkblue)' }} strokeWidth="2" strokeLinejoin="round" />
         {orderedNodes.map((n, i) => (
           <g key={n.id}>
-            <circle cx={xs[i]} cy={ys[i]} r={4} fill={dotColor[n.type] ?? '#9ca3af'} />
-            <title>{n.title} (tension: {n.emotionFunction.tension})</title>
+            {i === peakIdx && (
+              <circle cx={xs[i]} cy={ys[i]} r={7} fill="none" style={{ stroke: 'var(--color-vermilion)' }} strokeWidth="1.5" />
+            )}
+            <circle cx={xs[i]} cy={ys[i]} r={4} fill={nodeTypeStyle(n.type).hex} />
+            <title>{n.title}（紧张度 {n.emotionFunction.tension}）</title>
           </g>
         ))}
-        <text x={PAD - 4} y={PAD + 4} fontSize="9" fill="#9ca3af" textAnchor="end">10</text>
-        <text x={PAD - 4} y={H - PAD + 4} fontSize="9" fill="#9ca3af" textAnchor="end">0</text>
+        <text x={PAD - 4} y={PAD + 4} fontSize="9" style={{ fill: 'var(--color-pencil)' }} textAnchor="end">10</text>
+        <text x={PAD - 4} y={H - PAD + 4} fontSize="9" style={{ fill: 'var(--color-pencil)' }} textAnchor="end">0</text>
       </svg>
     </div>
   )
 }
 
-function DirectorReviewPanel({ review, loading, onRequest }: {
+function scoreTextClass(s: number) {
+  return s >= 8 ? 'text-leaf' : s >= 6 ? 'text-amberink' : 'text-vermilion'
+}
+
+function DirectorReviewPanel({ review, ai, onRequest }: {
   review: DirectorReview | null
-  loading: boolean
+  ai: AiActionState
   onRequest: () => void
 }) {
-  const scoreColor = (s: number) => s >= 8 ? 'text-green-600' : s >= 6 ? 'text-amber-600' : 'text-red-600'
-  const scoreBorderColor = (s: number) => s >= 8 ? '#16a34a' : s >= 6 ? '#d97706' : '#dc2626'
-
   if (!review) return (
-    <button
-      onClick={onRequest}
-      disabled={loading}
-      className="w-full py-3 text-sm border border-zinc-200 rounded-xl hover:bg-zinc-50 disabled:opacity-40 transition-colors flex items-center justify-center gap-2 text-zinc-600"
-    >
-      {loading && <span className="w-3 h-3 border border-zinc-400 border-t-transparent rounded-full animate-spin" />}
-      {loading ? '创作总监评审中…' : '召唤五位专家终审'}
-    </button>
+    <div className="mb-4">
+      {ai.loading ? (
+        <div className="flex items-center gap-2">
+          <Button variant="secondary" className="flex-1 justify-center py-3" disabled loading>
+            五位导演评审中…
+          </Button>
+          <Button variant="ghost" size="sm" onClick={ai.cancel}>取消</Button>
+        </div>
+      ) : (
+        <Button variant="secondary" className="w-full justify-center py-3" onClick={onRequest}>
+          召唤五位专家终审
+        </Button>
+      )}
+      {ai.error && (
+        <div className="mt-2 flex items-center justify-between gap-3 bg-paper border-l-4 border-vermilion px-3 py-2 text-xs text-ink">
+          <span>{ai.error}</span>
+          <Button variant="link" size="sm" onClick={ai.retry}>重试</Button>
+        </div>
+      )}
+    </div>
   )
 
   return (
-    <div className="border border-zinc-200 rounded-xl overflow-hidden">
-      <div className="px-5 py-4 bg-zinc-900 flex items-center justify-between">
-        <div className="flex-1 mr-4">
-          <p className="text-xs font-semibold text-zinc-400 uppercase tracking-wide mb-1">创作总监终审</p>
-          <p className="text-sm text-white">{review.executiveSummary}</p>
+    <div className="paper-sheet mb-4 overflow-hidden">
+      <div className="flex items-start justify-between gap-4 px-5 py-4 border-b border-line-soft">
+        <div className="flex-1">
+          <p className="text-xs font-semibold text-pencil uppercase tracking-wide mb-1.5">创作总监终审</p>
+          <p className="text-sm text-ink">{review.executiveSummary}</p>
         </div>
         <div className="text-right shrink-0">
-          <div className={`text-3xl font-bold ${scoreColor(review.overallScore)}`}>
-            {review.overallScore}<span className="text-lg font-normal text-zinc-500">/10</span>
+          <div className={`courier text-3xl font-bold ${scoreTextClass(review.overallScore)}`}>
+            {review.overallScore}<span className="text-base font-normal text-pencil">/10</span>
           </div>
-          <div className={`text-xs mt-1 px-2 py-0.5 rounded-full border inline-block ${review.greenlit ? 'bg-green-900 border-green-700 text-green-300' : 'bg-red-900 border-red-700 text-red-300'}`}>
-            {review.greenlit ? '✓ 绿灯通过' : '× 需修订'}
-          </div>
+          <Tag tone={review.greenlit ? 'leaf' : 'vermilion'} className="mt-1.5">
+            {review.greenlit ? '绿灯通过' : '需修订'}
+          </Tag>
         </div>
       </div>
 
       {review.mustFix?.length > 0 && (
-        <div className="px-5 py-3 bg-red-50 border-b border-red-100">
-          <p className="text-xs font-semibold text-red-600 mb-1.5">绿灯前必须修复</p>
-          {review.mustFix.map((item, i) => (
-            <p key={i} className="text-sm text-red-700">• {item}</p>
-          ))}
+        <div className="px-5 py-3 border-b border-line-soft bg-paper border-l-4 border-vermilion">
+          <p className="text-xs font-semibold text-vermilion mb-1.5">绿灯前必须修复</p>
+          {review.mustFix.map((item, i) => <p key={i} className="text-sm text-ink">・{item}</p>)}
         </div>
       )}
 
-      <div className="divide-y divide-zinc-100">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 p-5">
         {(review.verdicts ?? []).map((v, i) => (
-          <div key={i} className="px-5 py-3 flex items-start gap-3 bg-white" style={{ borderLeft: `3px solid ${scoreBorderColor(v.score)}` }}>
-            <div className="flex-1">
-              <p className="text-xs font-semibold text-zinc-400 mb-1">{v.lens}</p>
-              <p className="text-sm text-zinc-700 mb-1">{v.observation}</p>
-              <p className="text-xs text-zinc-400">→ {v.note}</p>
-            </div>
-            <div className={`text-2xl font-bold shrink-0 ${scoreColor(v.score)}`}>{v.score}</div>
-          </div>
+          <StickyNote key={i} title={v.lens} tilt={NOTE_TILT[i % NOTE_TILT.length]}>
+            <div className={`courier text-2xl font-bold mb-1 ${scoreTextClass(v.score)}`}>{v.score}</div>
+            <p className="mb-1">{v.observation}</p>
+            <p className="opacity-80">→ {v.note}</p>
+          </StickyNote>
         ))}
       </div>
 
-      <div className="px-5 py-3 bg-zinc-50 flex justify-between items-center">
-        <p className="text-xs text-zinc-400">{new Date(review.generatedAt).toLocaleString('zh-CN')}</p>
-        <button onClick={onRequest} disabled={loading} className="text-xs text-zinc-500 hover:text-zinc-700 underline disabled:opacity-40">
-          重新评审
-        </button>
+      <div className="flex justify-between items-center px-5 py-3 border-t border-line-soft">
+        <p className="text-xs text-pencil">{new Date(review.generatedAt).toLocaleString('zh-CN')}</p>
+        <Button variant="link" size="sm" onClick={onRequest} disabled={!!ai.loading}>重新评审</Button>
       </div>
+
+      {ai.error && (
+        <div className="mx-5 mb-4 flex items-center justify-between gap-3 bg-paper border-l-4 border-vermilion px-3 py-2 text-xs text-ink">
+          <span>{ai.error}</span>
+          <Button variant="link" size="sm" onClick={ai.retry}>重试</Button>
+        </div>
+      )}
     </div>
   )
 }

@@ -2,6 +2,9 @@
 import { useState, useEffect } from 'react'
 import type { AIConfig, AIProvider } from '@/lib/ai/config'
 import { PROVIDER_LABELS, DEFAULT_MODELS, saveAIConfig, loadAIConfig } from '@/lib/ai/config'
+import { Modal } from '@/app/components/ui/modal'
+import { Input, Field } from '@/app/components/ui/input'
+import { Button } from '@/app/components/ui/button'
 
 interface Props {
   open: boolean
@@ -48,155 +51,99 @@ export function AISettingsModal({ open, onClose }: Props) {
     setTimeout(() => { setSaved(false); onClose() }, 800)
   }
 
-  if (!open) return null
-
   return (
-    <div className="fixed inset-0 flex items-center justify-center z-50" style={{ background: 'rgba(26,31,62,0.92)' }} onClick={onClose}>
-      <div
-        className="relative w-full max-w-lg p-8 shadow-2xl"
-        style={{ background: 'var(--shell-mid)', border: '2px solid var(--gold-dim)' }}
-        onClick={e => e.stopPropagation()}
-      >
-        <h2 className="text-xl font-bold tracking-widest uppercase mb-1" style={{ color: 'var(--shell-fg)' }}>
-          AI 设置
-        </h2>
-        <div className="deco-rule mb-6" />
-
-        <div className="mb-5">
-          <label className="text-xs uppercase tracking-[0.3em] mb-2 block" style={{ color: 'var(--shell-fg-3)' }}>
-            AI 提供商
-          </label>
+    <Modal
+      open={open}
+      onClose={onClose}
+      title="AI 设置"
+      footer={
+        <>
+          <Button variant="secondary" onClick={onClose}>取消</Button>
+          <Button variant="primary" onClick={handleSave}>{saved ? '已保存 ✓' : '保存'}</Button>
+        </>
+      }
+    >
+      <div className="flex flex-col gap-4">
+        <Field label="AI 提供商">
           {deployMode === 'deploy' && (
-            <div className="mb-3 px-4 py-3 text-sm" style={{ background: 'var(--shell-raised)', border: '1px solid var(--shell-border)', color: 'var(--shell-fg-2)' }}>
+            <p className="mb-2 text-xs text-pencil bg-paper-dim border border-line px-3 py-2">
               当前为部署模式，Claude 订阅模式（CLI）不可用，请填写 API Key（BYOK）。
-            </div>
+            </p>
           )}
-          <div className="flex flex-col gap-2">
+          <div className="flex flex-col gap-1.5">
             {visibleProviders.map(p => (
               <button
                 key={p}
+                type="button"
                 onClick={() => setConfig(c => ({ ...c, provider: p, model: DEFAULT_MODELS[p] || '' }))}
-                className="text-left px-4 py-3 text-sm transition-all"
-                style={{
-                  background: config.provider === p ? 'var(--gold-trace)' : 'var(--shell-raised)',
-                  border: `1px solid ${config.provider === p ? 'var(--gold-mid)' : 'var(--shell-border)'}`,
-                  color: config.provider === p ? 'var(--gold-bright)' : 'var(--shell-fg-2)',
-                }}
+                className={`text-left px-3 py-2 text-sm border transition-colors cursor-pointer ${
+                  config.provider === p
+                    ? 'bg-paper-dim border-ink text-ink font-medium'
+                    : 'bg-paper border-line text-ink-soft hover:bg-paper-dim'
+                }`}
               >
                 {PROVIDER_LABELS[p]}
               </button>
             ))}
           </div>
-        </div>
+        </Field>
 
         {config.provider !== 'claude_cli' && (
           <>
-            <div className="mb-4">
-              <label className="text-xs uppercase tracking-[0.3em] mb-2 block" style={{ color: 'var(--shell-fg-3)' }}>
-                API Key
-              </label>
-              <input
+            <Field label="API Key">
+              <Input
                 type="password"
                 value={config.apiKey || ''}
                 onChange={e => setConfig(c => ({ ...c, apiKey: e.target.value }))}
                 placeholder={config.provider === 'gemini' ? 'AIza...' : 'sk-...'}
-                className="w-full px-4 py-3 text-sm focus:outline-none"
-                style={{ background: 'var(--shell-raised)', border: '1px solid var(--shell-border)', color: 'var(--shell-fg)' }}
-                onFocus={e => { e.currentTarget.style.borderColor = 'var(--gold-mid)' }}
-                onBlur={e => { e.currentTarget.style.borderColor = 'var(--shell-border)' }}
               />
-            </div>
+            </Field>
 
-            <div className="mb-4">
-              <label className="text-xs uppercase tracking-[0.3em] mb-2 block" style={{ color: 'var(--shell-fg-3)' }}>
-                模型
-              </label>
-              <input
+            <Field label="模型">
+              <Input
                 type="text"
                 value={config.model || DEFAULT_MODELS[config.provider]}
                 onChange={e => setConfig(c => ({ ...c, model: e.target.value }))}
-                className="w-full px-4 py-3 text-sm focus:outline-none"
-                style={{ background: 'var(--shell-raised)', border: '1px solid var(--shell-border)', color: 'var(--shell-fg)' }}
-                onFocus={e => { e.currentTarget.style.borderColor = 'var(--gold-mid)' }}
-                onBlur={e => { e.currentTarget.style.borderColor = 'var(--shell-border)' }}
               />
-            </div>
+            </Field>
 
             {config.provider === 'custom' && (
-              <div className="mb-4">
-                <label className="text-xs uppercase tracking-[0.3em] mb-2 block" style={{ color: 'var(--shell-fg-3)' }}>
-                  API Base URL
-                </label>
-                <input
+              <Field label="API Base URL">
+                <Input
                   type="text"
                   value={config.baseUrl || ''}
                   onChange={e => setConfig(c => ({ ...c, baseUrl: e.target.value }))}
                   placeholder="http://localhost:11434/v1"
-                  className="w-full px-4 py-3 text-sm focus:outline-none"
-                  style={{ background: 'var(--shell-raised)', border: '1px solid var(--shell-border)', color: 'var(--shell-fg)' }}
-                  onFocus={e => { e.currentTarget.style.borderColor = 'var(--gold-mid)' }}
-                  onBlur={e => { e.currentTarget.style.borderColor = 'var(--shell-border)' }}
                 />
-              </div>
+              </Field>
             )}
 
-            <div className="mb-4">
-              <label className="text-xs uppercase tracking-[0.3em] mb-2 block" style={{ color: 'var(--shell-fg-3)' }}>
-                快速模式模型（可选）
-              </label>
-              <input
+            <Field label="快速模式模型（可选）">
+              <Input
                 type="text"
                 value={config.modelFast || ''}
                 onChange={e => setConfig(c => ({ ...c, modelFast: e.target.value }))}
                 placeholder="留空使用默认（如 glm-5-turbo / claude-haiku-4-5）"
-                className="w-full px-4 py-3 text-sm focus:outline-none"
-                style={{ background: 'var(--shell-raised)', border: '1px solid var(--shell-border)', color: 'var(--shell-fg)' }}
-                onFocus={e => { e.currentTarget.style.borderColor = 'var(--gold-mid)' }}
-                onBlur={e => { e.currentTarget.style.borderColor = 'var(--shell-border)' }}
               />
-            </div>
+            </Field>
 
-            <div className="mb-6">
-              <label className="text-xs uppercase tracking-[0.3em] mb-2 block" style={{ color: 'var(--shell-fg-3)' }}>
-                思考模式模型（可选）
-              </label>
-              <input
+            <Field label="思考模式模型（可选）">
+              <Input
                 type="text"
                 value={config.modelThinking || ''}
                 onChange={e => setConfig(c => ({ ...c, modelThinking: e.target.value }))}
                 placeholder="留空则沿用上方「模型」"
-                className="w-full px-4 py-3 text-sm focus:outline-none"
-                style={{ background: 'var(--shell-raised)', border: '1px solid var(--shell-border)', color: 'var(--shell-fg)' }}
-                onFocus={e => { e.currentTarget.style.borderColor = 'var(--gold-mid)' }}
-                onBlur={e => { e.currentTarget.style.borderColor = 'var(--shell-border)' }}
               />
-            </div>
+            </Field>
           </>
         )}
 
         {config.provider === 'claude_cli' && (
-          <div className="mb-6 px-4 py-3 text-sm" style={{ background: 'var(--shell-raised)', border: '1px solid var(--shell-border)', color: 'var(--shell-fg-2)' }}>
-            使用 Claude CLI 调用，需要安装 <code className="text-xs" style={{ color: 'var(--gold-mid)' }}>@anthropic-ai/claude-code</code> 并登录 Claude 订阅账号。无需 API Key。
-          </div>
+          <p className="text-sm text-pencil bg-paper-dim border border-line px-4 py-3">
+            使用 Claude CLI 调用，需要安装 <code className="text-xs text-inkblue">@anthropic-ai/claude-code</code> 并登录 Claude 订阅账号。无需 API Key。
+          </p>
         )}
-
-        <div className="flex gap-3">
-          <button
-            onClick={onClose}
-            className="flex-1 py-3 text-sm font-medium tracking-wider transition-all"
-            style={{ border: '1px solid var(--shell-border)', color: 'var(--shell-fg-2)', background: 'transparent' }}
-          >
-            取消
-          </button>
-          <button
-            onClick={handleSave}
-            className="flex-1 py-3 text-sm font-medium tracking-wider transition-all"
-            style={{ background: saved ? 'var(--gold-dim)' : 'var(--gold-mid)', color: 'var(--shell)' }}
-          >
-            {saved ? '已保存 ✓' : '保存'}
-          </button>
-        </div>
       </div>
-    </div>
+    </Modal>
   )
 }

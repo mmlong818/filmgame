@@ -3,16 +3,23 @@ import { useState, useEffect, useRef, useCallback, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useToast } from '@/app/components/toast'
 import { useProjectStore } from '@/lib/store/projectStore'
-import { aiFetch } from '@/lib/ai/client'
+import { pushUndo, undo } from '@/lib/store/history'
+import { useAiAction } from '@/lib/hooks/useAiAction'
+import { aiJson } from '@/lib/ai/client'
+import { formatAiError } from '@/lib/ai/errors'
 import type { StoryNode, DialogueLine, EmotionFunction, Character } from '@/lib/types/project'
 import { nanoid } from 'nanoid'
+import { Button } from '@/app/components/ui/button'
+import { ConfirmButton } from '@/app/components/ui/confirm'
+import { NodeTypeBadge, Tag } from '@/app/components/ui/tag'
 import {
   inputClass,
-  NODE_TYPE_LABEL,
+  NODE_TYPE_HINT,
   speakerColor,
-  NodeTypeBadge,
-  SceneDescHint,
   Section,
+  SceneDescHint,
+  AiActionButton,
+  AiErrorNote,
   BulkProgressOverlay,
   BufferedInput,
   BufferedTextarea,
@@ -36,21 +43,26 @@ type NodeDraft = {
   dialogue?: DialogueLine[]
 }
 
+type SceneAnalysisResult = { working: string; issues: Array<{ line: string; problem: string; fix: string }>; killer_line: string }
+type SceneTensionResult = { tension_diagnosis: string; missing_element: string; rewrite_suggestion: string; upgraded_line: string; mcguffin: string; dramatic_irony: string }
+type ChoiceSuggestion = { text: string; consequence: string; longterm: string; dramatic_cost?: string; thematic_resonance?: string }
+type ChoiceConsequenceResult = { immediate: string; chapter_impact: string; regret_factor: string; [key: string]: string }
+
 // 场景描述文本框 + 字数提示需共享同一份本地缓冲值（提示要随打字实时变化，而不是等回写 store 才更新）。
 function SceneDescField({ value, onCommit }: { value: string; onCommit: (v: string) => void }) {
   const { value: local, onChange, onBlur } = useBufferedField(value, onCommit)
   return (
-    <Section title="场景描述">
+    <div>
       <textarea
         value={local}
         onChange={e => onChange(e.target.value)}
         onBlur={onBlur}
         rows={3}
-        className={`${inputClass} resize-none text-sm leading-relaxed`}
+        className="w-full bg-transparent border-none outline-none resize-none text-[12.5px] leading-relaxed text-ink placeholder:text-pencil/70 focus:bg-paper-dim/40"
         placeholder="镜头语言描述：交代环境、氛围、角色位置关系…"
       />
       <SceneDescHint n={local.length} />
-    </Section>
+    </div>
   )
 }
 
@@ -58,29 +70,53 @@ function WorkshopPageInner() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const { toast } = useToast()
-  const { project, updateNode, updateChoice, updateCharacter, advancePhase, addNode, addChoice } = useProjectStore()
+  const { project, updateNode, updateChoice, updateCharacter, advancePhase, addNode, addChoice, deleteNode, deleteChoice } = useProjectStore()
   const [selectedId, setSelectedId] = useState<string | null>(() => searchParams.get('node'))
-  const [loading, setLoading] = useState<string | null>(null)
   const [nodeDrafts, setNodeDrafts] = useState<Record<string, NodeDraft>>({})
   const {
     bulkLoading, bulkProgress, bulkScope, setBulkScope, bulkFailedIds, setBulkFailedIds,
     getScopedNodes, runBulkAi, retryFailedNodes, cancelBulk,
   } = useBulkAi({ project, selectedId, updateNode, toast })
-  const [aiError, setAiError] = useState<string | null>(null)
+
+  // 8 个单节点 AI 动作各自独立的状态机：各自 loading / error / 取消 / 重试，互不禁用。
+  const aiEmotion = useAiAction()
+  const aiDialogue = useAiAction()
+  const aiChoices = useAiAction()
+  const aiSceneAnalysis = useAiAction()
+  const aiSceneTension = useAiAction()
+  const aiChoiceConsequence = useAiAction()
+  const aiDesignNode = useAiAction()
+  const aiReviseDialogue = useAiAction()
+
   const [voiceOpenCharId, setVoiceOpenCharId] = useState<string | null>(null)
   const [voiceLoadingCharId, setVoiceLoadingCharId] = useState<string | null>(null)
-  const [choiceSuggestions, setChoiceSuggestions] = useState<Array<{text:string;consequence:string;longterm:string;dramatic_cost?:string;thematic_resonance?:string}> | null>(null)
-  const [sceneAnalysis, setSceneAnalysis] = useState<{working:string;issues:Array<{line:string;problem:string;fix:string}>;killer_line:string} | null>(null)
-  const [sceneTension, setSceneTension] = useState<{tension_diagnosis:string;missing_element:string;rewrite_suggestion:string;upgraded_line:string;mcguffin:string;dramatic_irony:string} | null>(null)
+  const [choiceSuggestions, setChoiceSuggestions] = useState<ChoiceSuggestion[] | null>(null)
+  const [sceneAnalysis, setSceneAnalysis] = useState<SceneAnalysisResult | null>(null)
+  const [sceneTension, setSceneTension] = useState<SceneTensionResult | null>(null)
   const [sceneTensionOpen, setSceneTensionOpen] = useState(true)
-  const [choiceConsequence, setChoiceConsequence] = useState<{immediate:string;chapter_impact:string;regret_factor:string;[key:string]:string} | null>(null)
+  const [choiceConsequence, setChoiceConsequence] = useState<ChoiceConsequenceResult | null>(null)
   const [nodeSearch, setNodeSearch] = useState('')
+  const [kbdHintDismissed, setKbdHintDismissed] = useState(true)
 
   const hasPendingDraft = Object.keys(nodeDrafts).length > 0
 
   // 记录当前选中节点，异步 AI 结果 resolve 时校验节点未切换，避免串号
   const selectedIdRef = useRef<string | null>(selectedId)
   useEffect(() => { selectedIdRef.current = selectedId }, [selectedId])
+
+  useEffect(() => {
+    setKbdHintDismissed(localStorage.getItem('workshop-kbd-hint-dismissed') === '1')
+  }, [])
+
+  // 命令面板以 /workshop?node=<id> 跳入时，页面已挂载也要响应（不止首次加载）。
+  useEffect(() => {
+    const n = searchParams.get('node')
+    if (n && n !== selectedIdRef.current) {
+      setSelectedId(n)
+      resetPanels()
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams])
 
   useEffect(() => {
     if (!hasPendingDraft) return
@@ -92,6 +128,18 @@ function WorkshopPageInner() {
     return () => window.removeEventListener('beforeunload', handler)
   }, [hasPendingDraft])
 
+  function cancelAllAi() {
+    aiEmotion.cancel(); aiDialogue.cancel(); aiChoices.cancel()
+    aiSceneAnalysis.cancel(); aiSceneTension.cancel(); aiChoiceConsequence.cancel()
+    aiDesignNode.cancel(); aiReviseDialogue.cancel()
+  }
+
+  function resetPanels() {
+    setChoiceSuggestions(null); setSceneAnalysis(null); setSceneTension(null); setChoiceConsequence(null)
+    setVoiceOpenCharId(null)
+    cancelAllAi()
+  }
+
   useEffect(() => {
     function handleKey(e: KeyboardEvent) {
       if (['INPUT', 'TEXTAREA'].includes((e.target as HTMLElement).tagName)) return
@@ -101,33 +149,41 @@ function WorkshopPageInner() {
 
       if (e.key === 'j' || e.key === 'ArrowDown') {
         const next = nodes[currentIdx + 1]
-        if (next) { setSelectedId(next.id); setChoiceSuggestions(null); setSceneAnalysis(null); setSceneTension(null); setChoiceConsequence(null); setLoading(null); setVoiceOpenCharId(null) }
+        if (next) { setSelectedId(next.id); resetPanels() }
       } else if (e.key === 'k' || e.key === 'ArrowUp') {
         const prev = nodes[currentIdx - 1]
-        if (prev) { setSelectedId(prev.id); setChoiceSuggestions(null); setSceneAnalysis(null); setSceneTension(null); setChoiceConsequence(null); setLoading(null); setVoiceOpenCharId(null) }
+        if (prev) { setSelectedId(prev.id); resetPanels() }
       } else if (e.key === 'Escape') {
-        setSelectedId(null); setChoiceSuggestions(null); setSceneAnalysis(null); setSceneTension(null); setChoiceConsequence(null); setLoading(null); setVoiceOpenCharId(null)
+        setSelectedId(null); resetPanels()
       }
     }
 
     window.addEventListener('keydown', handleKey)
     return () => window.removeEventListener('keydown', handleKey)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedId, project?.nodes])
 
   // 稳定引用的回调，配合 NodeTreeSidebar 的 memo() 避免每次渲染都因内联函数导致 sidebar 重渲染
   const handleSelectNode = useCallback((id: string) => {
     setSelectedId(id)
-    setChoiceSuggestions(null); setSceneAnalysis(null); setSceneTension(null); setChoiceConsequence(null); setLoading(null); setVoiceOpenCharId(null)
+    resetPanels()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
   const handleHasDraft = useCallback((id: string) => !!nodeDrafts[id], [nodeDrafts])
   const handleAddNode = useCallback((actId: string) => {
     const n = addNode(actId)
     setSelectedId(n.id)
-    setChoiceSuggestions(null); setSceneAnalysis(null); setSceneTension(null); setChoiceConsequence(null); setLoading(null); setVoiceOpenCharId(null)
+    resetPanels()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [addNode])
 
+  function dismissKbdHint() {
+    localStorage.setItem('workshop-kbd-hint-dismissed', '1')
+    setKbdHintDismissed(true)
+  }
+
   if (!project) return (
-    <div className="flex items-center justify-center h-64 text-gray-400 text-sm">
+    <div className="flex items-center justify-center h-64 text-pencil text-sm">
       加载中...
     </div>
   )
@@ -151,189 +207,124 @@ function WorkshopPageInner() {
     updateNode(exploreNodeId, { exploreReturnNodeId: fromNodeId })
   }
 
-  function withRunId(msg: string, runId?: string | null) {
-    return runId ? `${msg}（trace: ${runId}）` : msg
+  function aiContext(node: StoryNode) {
+    return { node, worldAnchor: project!.worldAnchor, characters: project!.characters, variables: project!.variables }
   }
 
-  async function callAiForNode(action: string, node: StoryNode) {
+  function callAiFillEmotion(node: StoryNode) {
     const nodeId = node.id
-    setLoading(action)
-    setAiError(null)
-    try {
-      const res = await aiFetch('workshop', action, { node, worldAnchor: project!.worldAnchor, characters: project!.characters, variables: project!.variables })
-      const data = await res.json()
-      if (!data.ok) { if (selectedIdRef.current === nodeId) setAiError(withRunId(data.error ?? 'AI 请求失败', data.runId)); return }
+    aiEmotion.run('fill_emotion', async signal => {
+      const data = await aiJson<{ result?: EmotionFunction }>('workshop', 'fill_emotion', aiContext(node), signal)
+      if (selectedIdRef.current !== nodeId) return
+      if (data.result) setNodeDrafts(d => ({ ...d, [node.id]: { ...(d[node.id] || {}), emotionFunction: data.result } }))
+    })
+  }
 
-      // nodeDrafts 按 nodeId 索引，切换节点后写入仍安全，不会串号；
-      // updater 内直接读最新草稿而非请求前捕获的快照，避免覆盖等待期间产生的其他草稿字段
-      if (action === 'fill_emotion' && data.result) {
-        setNodeDrafts(d => ({ ...d, [node.id]: { ...(d[node.id] || {}), emotionFunction: data.result } }))
-      } else if (action === 'write_dialogue' && data.result?.dialogue) {
-        const dialogue = data.result.dialogue.map((d: DialogueLine) => ({ ...d, id: nanoid(6) }))
-        const sceneDesc = data.result.sceneDesc as string | undefined
+  function callAiWriteDialogue(node: StoryNode) {
+    const nodeId = node.id
+    aiDialogue.run('write_dialogue', async signal => {
+      const data = await aiJson<{ result?: { dialogue?: DialogueLine[]; sceneDesc?: string } }>('workshop', 'write_dialogue', aiContext(node), signal)
+      if (selectedIdRef.current !== nodeId) return
+      if (data.result?.dialogue) {
+        const dialogue = data.result.dialogue.map(d => ({ ...d, id: nanoid(6) }))
+        const sceneDesc = data.result.sceneDesc
         setNodeDrafts(d => ({ ...d, [node.id]: { ...(d[node.id] || {}), dialogue, ...(sceneDesc ? { sceneDesc } : {}) } }))
       }
-    } catch (err) {
-      if (selectedIdRef.current === nodeId) setAiError(err instanceof Error ? err.message : 'AI 请求失败')
-    } finally {
-      if (selectedIdRef.current === nodeId) setLoading(null)
-    }
+    })
   }
 
-  async function callAiForSuggestChoices(node: StoryNode) {
+  function callAiSuggestChoices(node: StoryNode) {
     const nodeId = node.id
-    setLoading('suggest_choices')
-    setAiError(null)
-    try {
-      const res = await aiFetch('workshop', 'suggest_choices', { node, worldAnchor: project!.worldAnchor, characters: project!.characters, variables: project!.variables })
-      const data = await res.json()
+    aiChoices.run('suggest_choices', async signal => {
+      const data = await aiJson<{ result?: { choices?: ChoiceSuggestion[] } }>('workshop', 'suggest_choices', aiContext(node), signal)
       if (selectedIdRef.current !== nodeId) return
-      if (!data.ok) { setAiError(withRunId(data.error ?? 'AI 请求失败', data.runId)); return }
-      if (data.result?.choices) {
-        setChoiceSuggestions(data.result.choices as Array<{text:string;consequence:string;longterm:string}>)
-      }
-    } catch (err) {
-      if (selectedIdRef.current === nodeId) setAiError(err instanceof Error ? err.message : 'AI 请求失败')
-    } finally {
-      if (selectedIdRef.current === nodeId) setLoading(null)
-    }
+      if (data.result?.choices) setChoiceSuggestions(data.result.choices)
+    })
   }
 
-  async function callAiSceneAnalysis(node: StoryNode) {
+  function callAiSceneAnalysis(node: StoryNode) {
     const nodeId = node.id
-    setLoading('scene_analysis')
-    setAiError(null)
-    setSceneAnalysis(null)
-    try {
-      const res = await aiFetch('workshop', 'scene_analysis', { node, worldAnchor: project!.worldAnchor, characters: project!.characters, variables: project!.variables })
-      const data = await res.json()
+    aiSceneAnalysis.run('scene_analysis', async signal => {
+      const data = await aiJson<{ result?: SceneAnalysisResult }>('workshop', 'scene_analysis', aiContext(node), signal)
       if (selectedIdRef.current !== nodeId) return
-      if (!data.ok) { setAiError(withRunId(data.error ?? 'AI 请求失败', data.runId)); return }
-      if (data.result) {
-        setSceneAnalysis(data.result as {working:string;issues:Array<{line:string;problem:string;fix:string}>;killer_line:string})
-      }
-    } catch (err) {
-      if (selectedIdRef.current === nodeId) setAiError(err instanceof Error ? err.message : 'AI 请求失败')
-    } finally {
-      if (selectedIdRef.current === nodeId) setLoading(null)
-    }
+      if (data.result) setSceneAnalysis(data.result)
+    })
   }
 
-  async function callAiSceneTension(node: StoryNode) {
+  function callAiSceneTension(node: StoryNode) {
     const nodeId = node.id
-    setLoading('scene_tension')
-    setAiError(null)
-    setSceneTension(null)
-    try {
-      const res = await aiFetch('workshop', 'scene_tension', { node, worldAnchor: project!.worldAnchor, characters: project!.characters })
-      const data = await res.json()
+    aiSceneTension.run('scene_tension', async signal => {
+      const data = await aiJson<{ result?: SceneTensionResult }>('workshop', 'scene_tension', { node, worldAnchor: project!.worldAnchor, characters: project!.characters }, signal)
       if (selectedIdRef.current !== nodeId) return
-      if (!data.ok) { setAiError(withRunId(data.error ?? 'AI 请求失败', data.runId)); return }
-      if (data.result) {
-        setSceneTension(data.result)
-        setSceneTensionOpen(true)
-      }
-    } catch (err) {
-      if (selectedIdRef.current === nodeId) setAiError(err instanceof Error ? err.message : 'AI 请求失败')
-    } finally {
-      if (selectedIdRef.current === nodeId) setLoading(null)
-    }
+      if (data.result) { setSceneTension(data.result); setSceneTensionOpen(true) }
+    })
   }
 
-  async function callAiChoiceConsequence(node: StoryNode, choiceIndex = 0) {
+  function callAiChoiceConsequence(node: StoryNode, choiceIndex = 0) {
     const nodeId = node.id
-    setLoading(`choice_consequence_${choiceIndex}`)
-    setAiError(null)
-    setChoiceConsequence(null)
-    try {
-      const res = await aiFetch('workshop', 'choice_consequence', { choice: node.choices[choiceIndex] ?? null, currentNode: node, worldAnchor: project!.worldAnchor, characters: project!.characters, nodes: project!.nodes.slice(0, 20) })
-      const data = await res.json()
+    aiChoiceConsequence.run(`choice_consequence:${choiceIndex}`, async signal => {
+      const data = await aiJson<{ result?: ChoiceConsequenceResult }>('workshop', 'choice_consequence', {
+        choice: node.choices[choiceIndex] ?? null, currentNode: node,
+        worldAnchor: project!.worldAnchor, characters: project!.characters, nodes: project!.nodes.slice(0, 20),
+      }, signal)
       if (selectedIdRef.current !== nodeId) return
-      if (!data.ok) { setAiError(withRunId(data.error ?? 'AI 请求失败', data.runId)); return }
-      if (data.result) {
-        setChoiceConsequence(data.result)
-      }
-    } catch (err) {
-      if (selectedIdRef.current === nodeId) setAiError(err instanceof Error ? err.message : 'AI 请求失败')
-    } finally {
-      if (selectedIdRef.current === nodeId) setLoading(null)
-    }
+      if (data.result) setChoiceConsequence(data.result)
+    })
   }
 
-  async function callAiDesignNode(node: StoryNode) {
+  function callAiDesignNode(node: StoryNode) {
     const nodeId = node.id
-    setLoading('design_node')
-    setAiError(null)
-    try {
-      const [emotionRes, dialogueRes] = await Promise.all([
-        aiFetch('workshop', 'fill_emotion', { node, worldAnchor: project!.worldAnchor, characters: project!.characters, variables: project!.variables }),
-        aiFetch('workshop', 'write_dialogue', { node, worldAnchor: project!.worldAnchor, characters: project!.characters, variables: project!.variables }),
+    aiDesignNode.run('design_node', async signal => {
+      const [eData, dData] = await Promise.all([
+        aiJson<{ result?: EmotionFunction }>('workshop', 'fill_emotion', aiContext(node), signal),
+        aiJson<{ result?: { dialogue?: DialogueLine[]; sceneDesc?: string } }>('workshop', 'write_dialogue', aiContext(node), signal),
       ])
-      const [eData, dData] = await Promise.all([emotionRes.json(), dialogueRes.json()])
+      if (selectedIdRef.current !== nodeId) return
       const draft: NodeDraft = {}
-      if (eData.ok && eData.result) draft.emotionFunction = eData.result
-      if (dData.ok && dData.result?.dialogue) {
-        draft.dialogue = dData.result.dialogue.map((d: DialogueLine) => ({ ...d, id: nanoid(6) }))
-        if (dData.result.sceneDesc) draft.sceneDesc = dData.result.sceneDesc as string
+      if (eData.result) draft.emotionFunction = eData.result
+      if (dData.result?.dialogue) {
+        draft.dialogue = dData.result.dialogue.map(d => ({ ...d, id: nanoid(6) }))
+        if (dData.result.sceneDesc) draft.sceneDesc = dData.result.sceneDesc
       }
-      // nodeDrafts 按 nodeId 索引，切换节点后写入仍安全
       if (draft.emotionFunction || draft.dialogue) {
         setNodeDrafts(d => ({ ...d, [node.id]: draft }))
         toast('AI 设计草稿已生成，请确认', 'info')
       }
-    } catch (err) {
-      if (selectedIdRef.current === nodeId) setAiError(err instanceof Error ? err.message : 'AI 请求失败')
-    } finally {
-      if (selectedIdRef.current === nodeId) setLoading(null)
-    }
+    })
   }
 
   // 单节点"AI 修改对白"：一句话指令走 revise_dialogue，结果复用 write_dialogue 的
   // draft 预览/采纳流程（nodeDrafts），selectedIdRef 防串号写法与其余 callAi* 一致。
-  async function callAiReviseDialogue(node: StoryNode, instruction: string) {
+  function callAiReviseDialogue(node: StoryNode, instruction: string) {
     const nodeId = node.id
-    setLoading('revise_dialogue')
-    setAiError(null)
-    try {
-      const res = await aiFetch('workshop', 'revise_dialogue', {
-        node,
-        critique: { issues: [], killer_line: '' },
-        instruction,
-        worldAnchor: project!.worldAnchor,
-        characters: project!.characters,
-        variables: project!.variables,
-      })
-      const data = await res.json()
+    aiReviseDialogue.run('revise_dialogue', async signal => {
+      const data = await aiJson<{ result?: { dialogue?: DialogueLine[]; sceneDesc?: string } }>('workshop', 'revise_dialogue', {
+        node, critique: { issues: [], killer_line: '' }, instruction,
+        worldAnchor: project!.worldAnchor, characters: project!.characters, variables: project!.variables,
+      }, signal)
       if (selectedIdRef.current !== nodeId) return
-      if (!data.ok) { setAiError(withRunId(data.error ?? 'AI 请求失败', data.runId)); return }
       if (data.result?.dialogue) {
-        const dialogue = data.result.dialogue.map((d: DialogueLine) => ({ ...d, id: nanoid(6) }))
-        const sceneDesc = data.result.sceneDesc as string | undefined
+        const dialogue = data.result.dialogue.map(d => ({ ...d, id: nanoid(6) }))
+        const sceneDesc = data.result.sceneDesc
         setNodeDrafts(d => ({ ...d, [node.id]: { ...(d[node.id] || {}), dialogue, ...(sceneDesc ? { sceneDesc } : {}) } }))
         toast('AI 修改后的对白草稿已生成，请确认', 'info')
       }
-    } catch (err) {
-      if (selectedIdRef.current === nodeId) setAiError(err instanceof Error ? err.message : 'AI 请求失败')
-    } finally {
-      if (selectedIdRef.current === nodeId) setLoading(null)
-    }
+    })
   }
 
   // 角色声纹（与 world 页角色卡相同的 character_voice 动作）。写回走 updateCharacter
   // -> saveProjectMeta 保存路径，与 world 页一致。生成成功后自动弹出声纹卡。
+  // 不属于本页统一的 8 个单节点动作（按角色而非按节点触发），沿用独立的 loading/toast 处理。
   async function callAiCharacterVoice(character: Character) {
     setVoiceLoadingCharId(character.id)
-    setAiError(null)
     try {
-      const res = await aiFetch('workshop', 'character_voice', { character, worldAnchor: project!.worldAnchor })
-      const data = await res.json()
-      if (!data.ok) { setAiError(withRunId(data.error ?? 'AI 请求失败', data.runId)); return }
+      const data = await aiJson<{ result?: Character['voiceProfile'] }>('workshop', 'character_voice', { character, worldAnchor: project!.worldAnchor })
       if (data.result) {
         updateCharacter(character.id, { voiceProfile: data.result })
         setVoiceOpenCharId(character.id)
       }
     } catch (err) {
-      setAiError(err instanceof Error ? err.message : 'AI 请求失败')
+      toast(formatAiError(err), 'error')
     } finally {
       setVoiceLoadingCharId(null)
     }
@@ -354,12 +345,25 @@ function WorkshopPageInner() {
     setNodeDrafts(d => { const n = { ...d }; delete n[nodeId]; return n })
   }
 
+  const aiErrorEntries = [
+    { key: 'fill_emotion', hook: aiEmotion },
+    { key: 'write_dialogue', hook: aiDialogue },
+    { key: 'suggest_choices', hook: aiChoices },
+    { key: 'scene_analysis', hook: aiSceneAnalysis },
+    { key: 'scene_tension', hook: aiSceneTension },
+    { key: 'choice_consequence', hook: aiChoiceConsequence },
+    { key: 'design_node', hook: aiDesignNode },
+    { key: 'revise_dialogue', hook: aiReviseDialogue },
+  ].filter(e => e.hook.error)
+
+  const hasStickyNotes = !!(sceneAnalysis || sceneTension || choiceConsequence || choiceSuggestions)
+
   return (
-    <div className="flex flex-col h-[calc(100vh-112px)] relative">
+    <div className="flex flex-col h-[calc(100vh-112px)] relative corkboard">
       {bulkLoading && bulkProgress && (
         <BulkProgressOverlay progress={bulkProgress} onCancel={cancelBulk} />
       )}
-      <div className="flex-shrink-0 px-6 py-3 border-b border-gray-200 bg-white flex items-center gap-3">
+      <div className="flex-shrink-0 px-6 py-3 border-b border-line bg-paper flex items-center gap-3">
         <BulkAiScopeBar
           scope={bulkScope}
           onScopeChange={setBulkScope}
@@ -368,15 +372,14 @@ function WorkshopPageInner() {
           nodeCount={getScopedNodes(bulkScope).length}
           bulkLoading={bulkLoading}
           onStart={runBulkAi}
+          onCancel={cancelBulk}
         />
         {project.variables.length > 0 && (
-          <div className="ml-auto flex items-center gap-1.5 text-xs text-gray-400">
+          <div className="ml-auto flex items-center gap-1.5">
             {project.variables.slice(0, 4).map(v => (
-              <span key={v.id} className="px-2 py-0.5 bg-gray-50 border border-gray-100 rounded text-gray-500">
-                {v.name}
-              </span>
+              <Tag key={v.id} tone="pencil">{v.name}</Tag>
             ))}
-            {project.variables.length > 4 && <span>+{project.variables.length - 4}</span>}
+            {project.variables.length > 4 && <span className="text-xs text-pencil">+{project.variables.length - 4}</span>}
           </div>
         )}
       </div>
@@ -401,7 +404,7 @@ function WorkshopPageInner() {
 
         <div className="flex-1 overflow-y-auto">
           {!selected ? (
-            <div className="flex items-center justify-center h-full text-gray-400">
+            <div className="flex items-center justify-center h-full text-pencil">
               <div className="text-center">
                 <p className="text-2xl mb-2">✏️</p>
                 <p className="text-sm">从左侧选择一个节点开始编辑</p>
@@ -411,104 +414,91 @@ function WorkshopPageInner() {
             // 计算当前节点所在的章幕位置
             const nodeAct = project.acts.find(a => a.nodeIds.includes(selected.id))
             const nodeChapter = nodeAct ? project.chapters.find(c => c.id === nodeAct.chapterId) : null
-            const chapterIdx = nodeChapter ? project.chapters.sort((a,b)=>a.order-b.order).findIndex(c=>c.id===nodeChapter.id) : -1
-            const totalChapters = project.chapters.length
             const nodeIdxInAll = project.nodes.findIndex(n => n.id === selected.id)
             const totalNodes = project.nodes.length
             const storyPct = totalNodes > 1 ? Math.round((nodeIdxInAll / (totalNodes - 1)) * 100) : 0
 
             return (
-            <div className="max-w-2xl mx-auto px-8 py-6 space-y-6">
+            <div className="max-w-2xl mx-auto px-8 py-6 space-y-5">
               {/* 叙事位置导航仪 */}
               {nodeChapter && (
-                <div className="flex items-center gap-3 py-2 border-b border-zinc-100">
-                  <div className="flex items-center gap-1.5 text-xs text-zinc-400">
-                    <span className="text-zinc-300">{nodeChapter.title}</span>
+                <div className="flex items-center gap-3 py-2 border-b border-line-soft">
+                  <div className="flex items-center gap-1.5 text-xs text-pencil">
+                    <span>{nodeChapter.title}</span>
                     {nodeAct && <><span>›</span><span>{nodeAct.title}</span></>}
                   </div>
-                  <div className="flex-1 h-px bg-zinc-100 relative">
-                    <div className="absolute h-2 w-2 -top-0.5 bg-amber-500 rounded-full transition-all" style={{ left: `${storyPct}%`, transform: 'translateX(-50%)' }} />
+                  <div className="flex-1 h-px bg-line-soft relative">
+                    <div className="absolute h-2 w-2 -top-0.5 bg-vermilion rounded-full transition-all" style={{ left: `${storyPct}%`, transform: 'translateX(-50%)' }} />
                   </div>
-                  <span className="text-xs text-zinc-300 shrink-0">{storyPct}%</span>
+                  <span className="text-xs text-pencil shrink-0">{storyPct}%</span>
                 </div>
               )}
 
-              {aiError && (
-                <div className="text-xs text-red-500 bg-red-50 border border-red-100 rounded-lg px-3 py-2">{aiError}</div>
+              {aiErrorEntries.length > 0 && (
+                <div className="space-y-1.5">
+                  {aiErrorEntries.map(({ key, hook }) => (
+                    <AiErrorNote key={key} error={hook.error!} onRetry={hook.retry} onDismiss={hook.clearError} />
+                  ))}
+                </div>
               )}
+
               <div className="flex items-start justify-between gap-4">
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 mb-1.5">
-                    <NodeTypeBadge type={selected.type} size="md" />
-                    <span className="text-xs text-gray-400">{NODE_TYPE_LABEL[selected.type]}</span>
-                    <span className="text-xs text-gray-300 ml-auto">
-                      {selected.dialogue.length > 0 && `约 ${Math.round(selected.dialogue.length * 18)}s · ${selected.dialogue.length} 行对白`}
-                    </span>
-                  </div>
-                  <BufferedInput
-                    key={selected.id}
-                    value={selected.title}
-                    onCommit={v => updateNode(selected.id, { title: v })}
-                    className="text-xl font-semibold text-gray-900 border-none outline-none bg-transparent w-full"
-                    placeholder="节点标题"
-                  />
+                <div className="flex-1 min-w-0 flex items-center gap-2">
+                  <NodeTypeBadge type={selected.type} />
+                  <span className="text-xs text-pencil">
+                    {selected.dialogue.length > 0 && `约 ${Math.round(selected.dialogue.length * 18)}s · ${selected.dialogue.length} 行对白`}
+                  </span>
                 </div>
                 <div className="flex items-center gap-2 flex-shrink-0">
-                  <button
-                    onClick={() => callAiSceneAnalysis(selected)}
-                    disabled={loading === 'scene_analysis'}
-                    className="text-sm text-amber-500 hover:text-amber-600 border border-amber-100 rounded-lg px-3 py-1.5 disabled:opacity-40 flex items-center gap-1.5"
+                  <AiActionButton label="场景分析" tone="amberink" loading={!!aiSceneAnalysis.loading} onRun={() => callAiSceneAnalysis(selected)} onCancel={aiSceneAnalysis.cancel} />
+                  <AiActionButton label="⚡ 场景张力诊断" tone="inkblue" loading={!!aiSceneTension.loading} onRun={() => callAiSceneTension(selected)} onCancel={aiSceneTension.cancel} />
+                  <AiActionButton label="AI 设计此节点" tone="vermilion" loading={!!aiDesignNode.loading} onRun={() => callAiDesignNode(selected)} onCancel={aiDesignNode.cancel} />
+                  <ConfirmButton
+                    size="sm"
+                    variant="danger"
+                    confirmLabel="确认删除节点"
+                    onConfirm={() => {
+                      const title = selected.title
+                      deleteNode(selected.id)
+                      setSelectedId(null)
+                      resetPanels()
+                      toast(`已删除节点「${title || '无标题'}」`, 'info', { action: { label: '撤销', onClick: () => undo() } })
+                    }}
                   >
-                    {loading === 'scene_analysis' && <span className="w-3 h-3 border border-amber-400 border-t-transparent rounded-full animate-spin" />}
-                    场景分析
-                  </button>
-                  <button
-                    onClick={() => callAiSceneTension(selected)}
-                    disabled={loading === 'scene_tension'}
-                    className="text-sm text-violet-500 hover:text-violet-600 border border-violet-100 rounded-lg px-3 py-1.5 disabled:opacity-40 flex items-center gap-1.5"
-                  >
-                    {loading === 'scene_tension' && <span className="w-3 h-3 border border-violet-400 border-t-transparent rounded-full animate-spin" />}
-                    ⚡ 场景张力诊断
-                  </button>
-                  <button
-                    onClick={() => callAiDesignNode(selected)}
-                    disabled={loading === 'design_node'}
-                    className="text-sm text-amber-600 hover:text-amber-700 border border-amber-200 rounded-lg px-3 py-1.5 disabled:opacity-40 flex items-center gap-1.5"
-                  >
-                    {loading === 'design_node' && <span className="w-3 h-3 border border-amber-400 border-t-transparent rounded-full animate-spin" />}
-                    AI 设计此节点
-                  </button>
+                    删除节点
+                  </ConfirmButton>
                 </div>
               </div>
 
               {currentDraft && (
-                <div className="bg-amber-50 border border-amber-200 rounded-xl p-4">
+                <div className="bg-paper border border-vermilion/30 border-l-[3px] border-l-vermilion p-4" style={{ boxShadow: 'var(--shadow-card)' }}>
                   <div className="flex items-center justify-between mb-3">
-                    <p className="text-sm font-medium text-amber-700">AI 已生成设计方案</p>
+                    <p className="text-sm font-medium text-ink">AI 已生成设计方案</p>
                     <div className="flex gap-2">
-                      <button onClick={() => discardDraft(selected.id)} className="text-xs border border-gray-300 text-gray-600 rounded-lg px-2.5 py-1 hover:bg-gray-50">丢弃</button>
+                      <button type="button" onClick={() => discardDraft(selected.id)} className="cursor-pointer text-xs border border-line text-ink-soft px-2.5 py-1 hover:bg-paper-dim">丢弃</button>
                       <button
+                        type="button"
                         onClick={() => {
-                          const node = project!.nodes.find(n => n.id === selected.id)
+                          const node = project.nodes.find(n => n.id === selected.id)
                           if (node) callAiDesignNode(node)
                         }}
-                        className="text-xs border border-gray-300 text-gray-600 rounded-lg px-2.5 py-1 hover:bg-gray-50"
+                        className="cursor-pointer text-xs border border-line text-ink-soft px-2.5 py-1 hover:bg-paper-dim"
                       >
                         重新生成
                       </button>
-                      <button onClick={() => commitDraft(selected.id)} className="text-xs bg-amber-600 text-white rounded-lg px-2.5 py-1 hover:bg-amber-700">通过</button>
+                      <button type="button" onClick={() => commitDraft(selected.id)} className="cursor-pointer text-xs bg-vermilion text-paper px-2.5 py-1 hover:bg-vermilion-deep">通过</button>
                     </div>
                   </div>
                   {currentDraft.sceneDesc && (
                     <div className="mb-2">
-                      <p className="text-xs font-medium text-amber-600 mb-1">场景描述预览</p>
-                      <p className="text-xs text-amber-800 bg-white rounded-lg p-2 leading-relaxed">{currentDraft.sceneDesc}</p>
+                      <p className="text-xs font-medium text-ink-soft mb-1">场景描述预览</p>
+                      <p className="text-xs text-ink-soft bg-paper-dim p-2 leading-relaxed">{currentDraft.sceneDesc}</p>
                     </div>
                   )}
                   {currentDraft.emotionFunction && (
                     <div className="mb-2">
-                      <p className="text-xs font-medium text-amber-600 mb-1">情感函数预览</p>
-                      <div className="grid grid-cols-2 gap-1.5 text-xs text-amber-800 bg-white rounded-lg p-2">
+                      <p className="text-xs font-medium text-ink-soft mb-1">情感函数预览</p>
+                      <div className="grid grid-cols-2 gap-1.5 text-xs text-ink-soft bg-paper-dim p-2">
                         <span>进入：{currentDraft.emotionFunction.emotionIn}</span>
                         <span>离开：{currentDraft.emotionFunction.emotionOut}</span>
                         <span>玩家情感：{currentDraft.emotionFunction.playerEmotion}</span>
@@ -518,12 +508,12 @@ function WorkshopPageInner() {
                   )}
                   {currentDraft.dialogue && (
                     <div>
-                      <p className="text-xs font-medium text-amber-600 mb-1">对白预览</p>
-                      <div className="space-y-1 bg-white rounded-lg p-2">
+                      <p className="text-xs font-medium text-ink-soft mb-1">对白预览</p>
+                      <div className="space-y-1 bg-paper-dim p-2">
                         {currentDraft.dialogue.map((line, i) => (
-                          <div key={i} className="text-xs text-amber-800">
+                          <div key={i} className="text-xs text-ink-soft">
                             <span className="font-medium">{line.speaker}</span>
-                            <span className="text-amber-500 mx-1">·</span>
+                            <span className="text-pencil mx-1">·</span>
                             <span>{line.text}</span>
                           </div>
                         ))}
@@ -533,217 +523,233 @@ function WorkshopPageInner() {
                 </div>
               )}
 
-              <div className="flex items-center gap-2 mb-3">
-                <select
-                  value={selected.sceneHeader?.interior ?? 'INT'}
-                  onChange={e => updateNode(selected.id, { sceneHeader: { ...selected.sceneHeader ?? { location: '', timeOfDay: 'DAY', interior: 'INT' }, interior: e.target.value as 'INT' | 'EXT' | 'INT/EXT' } })}
-                  className="text-xs border border-zinc-200 rounded px-2 py-1.5 bg-white font-mono font-bold text-zinc-700 focus:outline-none focus:ring-1 focus:ring-amber-400"
-                >
-                  <option>INT</option>
-                  <option>EXT</option>
-                  <option>INT/EXT</option>
-                </select>
-                <span className="text-zinc-300 text-xs">.</span>
-                <input
-                  value={selected.sceneHeader?.location ?? ''}
-                  onChange={e => updateNode(selected.id, { sceneHeader: { interior: 'INT', timeOfDay: 'DAY', ...selected.sceneHeader, location: e.target.value } })}
-                  placeholder="地点（如：废弃仓库）"
-                  className="flex-1 text-xs font-mono font-bold text-zinc-700 uppercase border border-zinc-200 rounded px-2 py-1.5 bg-white focus:outline-none focus:ring-1 focus:ring-amber-400"
-                />
-                <span className="text-zinc-300 text-xs">-</span>
-                <select
-                  value={selected.sceneHeader?.timeOfDay ?? 'DAY'}
-                  onChange={e => updateNode(selected.id, { sceneHeader: { interior: 'INT', location: '', ...selected.sceneHeader, timeOfDay: e.target.value as 'DAY' | 'NIGHT' | 'DAWN' | 'DUSK' | 'CONTINUOUS' } })}
-                  className="text-xs border border-zinc-200 rounded px-2 py-1.5 bg-white font-mono font-bold text-zinc-700 focus:outline-none focus:ring-1 focus:ring-amber-400"
-                >
-                  <option value="DAY">DAY</option>
-                  <option value="NIGHT">NIGHT</option>
-                  <option value="DAWN">DAWN</option>
-                  <option value="DUSK">DUSK</option>
-                  <option value="CONTINUOUS">CONTINUOUS</option>
-                </select>
-              </div>
+              <div className="paper-sheet paper-sheet-ruled courier px-8 py-6 space-y-4">
+                <span className="block text-[11px] tracking-[0.2em] text-pencil">场景 {String(nodeIdxInAll + 1).padStart(2, '0')}</span>
 
-              <SceneDescField
-                key={selected.id}
-                value={selected.sceneDesc ?? ''}
-                onCommit={v => updateNode(selected.id, { sceneDesc: v })}
-              />
-
-              <Section title="情感函数" action={{ label: 'AI 填写', loading: loading === 'fill_emotion', onClick: () => callAiForNode('fill_emotion', selected) }}>
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="text-xs text-gray-500 block mb-1">进入情绪</label>
-                    <input value={selected.emotionFunction?.emotionIn ?? ''} onChange={e => updateNode(selected.id, { emotionFunction: { ...selected.emotionFunction, emotionIn: e.target.value } })} className={inputClass} placeholder="例：焦虑" />
-                  </div>
-                  <div>
-                    <label className="text-xs text-gray-500 block mb-1">离开情绪</label>
-                    <input value={selected.emotionFunction?.emotionOut ?? ''} onChange={e => updateNode(selected.id, { emotionFunction: { ...selected.emotionFunction, emotionOut: e.target.value } })} className={inputClass} placeholder="例：震惊" />
-                  </div>
-                  <div>
-                    <label className="text-xs text-gray-500 block mb-1">玩家情感目标</label>
-                    <input value={selected.emotionFunction?.playerEmotion ?? ''} onChange={e => updateNode(selected.id, { emotionFunction: { ...selected.emotionFunction, playerEmotion: e.target.value } })} className={inputClass} placeholder="例：紧张期待" />
-                  </div>
-                  <div>
-                    <label className="text-xs text-gray-500 block mb-1">紧张度 ({selected.emotionFunction?.tension ?? 0}/10)</label>
-                    <input type="range" min={0} max={10} value={selected.emotionFunction?.tension ?? 0} onChange={e => updateNode(selected.id, { emotionFunction: { ...selected.emotionFunction, tension: Number(e.target.value) } })} className="w-full mt-2" />
-                  </div>
+                <div className="flex items-center gap-2">
+                  <select
+                    value={selected.sceneHeader?.interior ?? 'INT'}
+                    onChange={e => updateNode(selected.id, { sceneHeader: { ...selected.sceneHeader ?? { location: '', timeOfDay: 'DAY', interior: 'INT' }, interior: e.target.value as 'INT' | 'EXT' | 'INT/EXT' } })}
+                    className="courier text-xs uppercase font-bold text-ink border border-line bg-paper px-2 py-1.5 focus:border-inkblue focus:outline-none"
+                  >
+                    <option>INT</option>
+                    <option>EXT</option>
+                    <option>INT/EXT</option>
+                  </select>
+                  <span className="text-pencil text-xs">.</span>
+                  <input
+                    value={selected.sceneHeader?.location ?? ''}
+                    onChange={e => updateNode(selected.id, { sceneHeader: { interior: 'INT', timeOfDay: 'DAY', ...selected.sceneHeader, location: e.target.value } })}
+                    placeholder="地点（如：废弃仓库）"
+                    className="courier flex-1 text-xs font-bold text-ink uppercase border border-line bg-paper px-2 py-1.5 focus:border-inkblue focus:outline-none"
+                  />
+                  <span className="text-pencil text-xs">-</span>
+                  <select
+                    value={selected.sceneHeader?.timeOfDay ?? 'DAY'}
+                    onChange={e => updateNode(selected.id, { sceneHeader: { interior: 'INT', location: '', ...selected.sceneHeader, timeOfDay: e.target.value as 'DAY' | 'NIGHT' | 'DAWN' | 'DUSK' | 'CONTINUOUS' } })}
+                    className="courier text-xs uppercase font-bold text-ink border border-line bg-paper px-2 py-1.5 focus:border-inkblue focus:outline-none"
+                  >
+                    <option value="DAY">DAY</option>
+                    <option value="NIGHT">NIGHT</option>
+                    <option value="DAWN">DAWN</option>
+                    <option value="DUSK">DUSK</option>
+                    <option value="CONTINUOUS">CONTINUOUS</option>
+                  </select>
                 </div>
-              </Section>
 
-              {project.characters.length > 0 && (() => {
-                const speakersInNode = [...new Set(selected.dialogue.map(d => d.speaker).filter(Boolean))]
-                const relevantChars = project.characters.filter(c =>
-                  speakersInNode.includes(c.name) || project.characters.length <= 3
-                )
-                if (relevantChars.length === 0) return null
-                return (
-                  <div className="mb-2 space-y-1.5">
-                    {relevantChars.map(ch => (
-                      <div key={ch.id} className="bg-gray-50 border border-gray-100 rounded-lg px-3 py-2">
-                        <div className="flex items-center gap-2 mb-1">
-                          <span className={`text-xs font-bold ${speakerColor(ch.name)}`}>{ch.name}</span>
-                          <span className="text-[10px] text-gray-400">{ch.role}</span>
-                        </div>
-                        {ch.wound && <p className="text-[11px] text-gray-500 leading-snug"><span className="text-red-400 font-medium">伤痛：</span>{ch.wound}</p>}
-                        {ch.lie && <p className="text-[11px] text-gray-500 leading-snug"><span className="text-orange-400 font-medium">谎言：</span>{ch.lie}</p>}
-                        {ch.voiceProfile?.sample_lines && ch.voiceProfile.sample_lines.length > 0 && (
-                          <p className="text-[11px] text-gray-400 italic mt-0.5">"{ch.voiceProfile.sample_lines[0]}"</p>
-                        )}
-                      </div>
-                    ))}
+                <div className="flex items-baseline gap-2">
+                  <BufferedInput
+                    key={selected.id}
+                    value={selected.title}
+                    onCommit={v => updateNode(selected.id, { title: v })}
+                    className="font-sans text-xl font-bold text-ink border-none outline-none bg-transparent flex-1 min-w-0"
+                    placeholder="节点标题"
+                  />
+                  <span className="font-sans text-xs font-normal text-pencil shrink-0">（{NODE_TYPE_HINT[selected.type]}）</span>
+                </div>
+
+                <SceneDescField
+                  key={`desc-${selected.id}`}
+                  value={selected.sceneDesc ?? ''}
+                  onCommit={v => updateNode(selected.id, { sceneDesc: v })}
+                />
+
+                <Section title="情感函数" action={{ label: 'AI 填写', loading: !!aiEmotion.loading, onClick: () => callAiFillEmotion(selected), onCancel: aiEmotion.cancel }}>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="text-xs text-pencil block mb-1">进入情绪</label>
+                      <input value={selected.emotionFunction?.emotionIn ?? ''} onChange={e => updateNode(selected.id, { emotionFunction: { ...selected.emotionFunction, emotionIn: e.target.value } })} className={inputClass} placeholder="例：焦虑" />
+                    </div>
+                    <div>
+                      <label className="text-xs text-pencil block mb-1">离开情绪</label>
+                      <input value={selected.emotionFunction?.emotionOut ?? ''} onChange={e => updateNode(selected.id, { emotionFunction: { ...selected.emotionFunction, emotionOut: e.target.value } })} className={inputClass} placeholder="例：震惊" />
+                    </div>
+                    <div>
+                      <label className="text-xs text-pencil block mb-1">玩家情感目标</label>
+                      <input value={selected.emotionFunction?.playerEmotion ?? ''} onChange={e => updateNode(selected.id, { emotionFunction: { ...selected.emotionFunction, playerEmotion: e.target.value } })} className={inputClass} placeholder="例：紧张期待" />
+                    </div>
+                    <div>
+                      <label className="text-xs text-pencil block mb-1">紧张度 ({selected.emotionFunction?.tension ?? 0}/10)</label>
+                      <input type="range" min={0} max={10} value={selected.emotionFunction?.tension ?? 0} onChange={e => updateNode(selected.id, { emotionFunction: { ...selected.emotionFunction, tension: Number(e.target.value) } })} className="w-full mt-2 accent-vermilion" />
+                    </div>
                   </div>
-                )
-              })()}
+                </Section>
 
-              <Section title="对白" action={{ label: 'AI 生成', loading: loading === 'write_dialogue', onClick: () => callAiForNode('write_dialogue', selected) }}>
-                {(() => {
-                  // 声纹入口只对"出场角色"（对白 speaker 精确匹配到 characters 列表）显示，
-                  // speaker 是自由文本时匹配不到角色，不出按钮。
+                {project.characters.length > 0 && (() => {
                   const speakersInNode = [...new Set(selected.dialogue.map(d => d.speaker).filter(Boolean))]
-                  const voiceChars = project.characters.filter(c => speakersInNode.includes(c.name))
-                  if (voiceChars.length === 0) return null
+                  const relevantChars = project.characters.filter(c =>
+                    speakersInNode.includes(c.name) || project.characters.length <= 3
+                  )
+                  if (relevantChars.length === 0) return null
                   return (
-                    <div className="flex items-center flex-wrap gap-x-3 gap-y-1 mb-3 pb-2 border-b border-dashed border-gray-100">
-                      <span className="text-[10px] text-gray-300 uppercase tracking-wide">声纹</span>
-                      {voiceChars.map(ch => (
-                        <span key={ch.id} className="inline-flex items-center text-xs">
-                          <span className={`font-medium ${speakerColor(ch.name)}`}>{ch.name}</span>
-                          <CharacterVoiceEntry
-                            character={ch}
-                            open={voiceOpenCharId === ch.id}
-                            loading={voiceLoadingCharId === ch.id}
-                            onToggle={() => setVoiceOpenCharId(id => id === ch.id ? null : ch.id)}
-                            onGenerate={() => callAiCharacterVoice(ch)}
-                            onClose={() => setVoiceOpenCharId(null)}
-                          />
-                        </span>
+                    <div className="space-y-1.5">
+                      {relevantChars.map(ch => (
+                        <div key={ch.id} className="bg-paper-dim border border-line-soft px-3 py-2">
+                          <div className="flex items-center gap-2 mb-1">
+                            <span className={`text-xs font-bold ${speakerColor(ch.name)}`}>{ch.name}</span>
+                            <span className="text-[10px] text-pencil">{ch.role}</span>
+                          </div>
+                          {ch.wound && <p className="text-[11px] text-ink-soft leading-snug"><span className="text-vermilion font-medium">伤痛：</span>{ch.wound}</p>}
+                          {ch.lie && <p className="text-[11px] text-ink-soft leading-snug"><span className="text-amberink font-medium">谎言：</span>{ch.lie}</p>}
+                          {ch.voiceProfile?.sample_lines && ch.voiceProfile.sample_lines.length > 0 && (
+                            <p className="text-[11px] text-pencil italic mt-0.5">&quot;{ch.voiceProfile.sample_lines[0]}&quot;</p>
+                          )}
+                        </div>
                       ))}
                     </div>
                   )
                 })()}
 
-                {selected.dialogue.length > 0 && (
-                  <div className="mb-3">
-                    <ReviseDialogueControl
-                      loading={loading === 'revise_dialogue'}
-                      onSubmit={instruction => callAiReviseDialogue(selected, instruction)}
-                    />
-                  </div>
-                )}
+                <Section title="对白" action={{ label: 'AI 生成', loading: !!aiDialogue.loading, onClick: () => callAiWriteDialogue(selected), onCancel: aiDialogue.cancel }}>
+                  {(() => {
+                    // 声纹入口只对"出场角色"（对白 speaker 精确匹配到 characters 列表）显示，
+                    // speaker 是自由文本时匹配不到角色，不出按钮。
+                    const speakersInNode = [...new Set(selected.dialogue.map(d => d.speaker).filter(Boolean))]
+                    const voiceChars = project.characters.filter(c => speakersInNode.includes(c.name))
+                    if (voiceChars.length === 0) return null
+                    return (
+                      <div className="flex items-center flex-wrap gap-x-3 gap-y-1 mb-3 pb-2 border-b border-dashed border-line-soft">
+                        <span className="text-[10px] text-pencil uppercase tracking-wide">声纹</span>
+                        {voiceChars.map(ch => (
+                          <span key={ch.id} className="inline-flex items-center text-xs">
+                            <span className={`font-medium ${speakerColor(ch.name)}`}>{ch.name}</span>
+                            <CharacterVoiceEntry
+                              character={ch}
+                              open={voiceOpenCharId === ch.id}
+                              loading={voiceLoadingCharId === ch.id}
+                              onToggle={() => setVoiceOpenCharId(id => id === ch.id ? null : ch.id)}
+                              onGenerate={() => callAiCharacterVoice(ch)}
+                              onClose={() => setVoiceOpenCharId(null)}
+                            />
+                          </span>
+                        ))}
+                      </div>
+                    )
+                  })()}
 
-                <div className="space-y-2">
-                  {selected.dialogue.map((line, i) => (
-                    <div key={line.id} className="group relative py-3 border-b border-gray-50 last:border-0">
-                      {/* 角色名行 */}
-                      <div className="flex items-center justify-center gap-2 mb-1.5">
-                        <BufferedInput
-                          value={line.speaker}
-                          onCommit={v => { const d = [...selected.dialogue]; d[i] = { ...line, speaker: v }; updateNode(selected.id, { dialogue: d }) }}
-                          className={`text-xs font-bold tracking-widest uppercase bg-transparent border-none outline-none text-center w-32 ${line.speaker ? speakerColor(line.speaker) : 'text-amber-600'}`}
-                          placeholder="角色名"
-                        />
-                        <span className="text-gray-300 text-xs">·</span>
-                        <BufferedInput
-                          value={line.emotion}
-                          onCommit={v => { const d = [...selected.dialogue]; d[i] = { ...line, emotion: v }; updateNode(selected.id, { dialogue: d }) }}
-                          className="text-xs text-gray-400 italic bg-transparent border-none outline-none w-20"
-                          placeholder="情绪"
-                        />
-                        <button
-                          onClick={() => { const d = selected.dialogue.filter((_, j) => j !== i); updateNode(selected.id, { dialogue: d }) }}
-                          className="absolute right-0 top-3 text-gray-200 hover:text-red-400 text-xs opacity-0 group-hover:opacity-100 transition-opacity"
-                        >✕</button>
-                      </div>
-                      {/* 台词 */}
-                      <div className="px-8">
-                        <BufferedInput
-                          value={line.text}
-                          onCommit={v => { const d = [...selected.dialogue]; d[i] = { ...line, text: v }; updateNode(selected.id, { dialogue: d }) }}
-                          className="text-sm text-gray-800 w-full bg-transparent border-none outline-none leading-relaxed"
-                          placeholder="台词..."
-                        />
-                      </div>
+                  {selected.dialogue.length > 0 && (
+                    <div className="mb-3">
+                      <ReviseDialogueControl
+                        loading={!!aiReviseDialogue.loading}
+                        onSubmit={instruction => callAiReviseDialogue(selected, instruction)}
+                        onCancel={aiReviseDialogue.cancel}
+                      />
                     </div>
-                  ))}
-                  <button
-                    onClick={() => { const d = [...selected.dialogue, { id: nanoid(6), speaker: '', text: '', emotion: '' }]; updateNode(selected.id, { dialogue: d }) }}
-                    className="w-full text-xs text-gray-300 hover:text-amber-500 py-3 border border-dashed border-gray-100 hover:border-amber-200 rounded-lg transition-colors mt-2"
-                  >
-                    + 添加台词
-                  </button>
-                </div>
-              </Section>
+                  )}
 
-              {sceneAnalysis && (
-                <SceneAnalysisPanel data={sceneAnalysis} onClose={() => setSceneAnalysis(null)} />
-              )}
-
-              {sceneTension && (
-                <SceneTensionPanel
-                  data={sceneTension}
-                  open={sceneTensionOpen}
-                  onToggle={() => setSceneTensionOpen(o => !o)}
-                  onClose={() => setSceneTension(null)}
-                />
-              )}
+                  <div className="space-y-1">
+                    {selected.dialogue.map((line, i) => (
+                      <div key={line.id} className="group relative py-3">
+                        <div className="flex items-center justify-center gap-2">
+                          <BufferedInput
+                            value={line.speaker}
+                            onCommit={v => { const d = [...selected.dialogue]; d[i] = { ...line, speaker: v }; updateNode(selected.id, { dialogue: d }) }}
+                            className={`text-[13px] font-bold tracking-[0.2em] uppercase bg-transparent border-none outline-none text-center w-32 ${line.speaker ? speakerColor(line.speaker) : 'text-pencil'}`}
+                            placeholder="角色名"
+                          />
+                        </div>
+                        <div className="flex items-center justify-center gap-0.5 text-[11px] text-pencil italic">
+                          <span>（</span>
+                          <BufferedInput
+                            value={line.emotion}
+                            onCommit={v => { const d = [...selected.dialogue]; d[i] = { ...line, emotion: v }; updateNode(selected.id, { dialogue: d }) }}
+                            className="bg-transparent border-none outline-none text-center w-20"
+                            placeholder="情绪"
+                          />
+                          <span>）</span>
+                        </div>
+                        <div className="px-6 mt-1">
+                          <BufferedInput
+                            value={line.text}
+                            onCommit={v => { const d = [...selected.dialogue]; d[i] = { ...line, text: v }; updateNode(selected.id, { dialogue: d }) }}
+                            className="text-[13px] text-ink w-full bg-transparent border-none outline-none text-center leading-relaxed"
+                            placeholder="台词..."
+                          />
+                        </div>
+                        <ConfirmButton
+                          size="sm"
+                          variant="ghost"
+                          confirmLabel="确认删除"
+                          className="absolute right-0 top-2 text-xs opacity-0 group-hover:opacity-100 transition-opacity px-1.5 py-0.5"
+                          onConfirm={() => {
+                            pushUndo('删除台词', project)
+                            const d = selected.dialogue.filter((_, j) => j !== i)
+                            updateNode(selected.id, { dialogue: d })
+                            toast('已删除台词', 'info', { action: { label: '撤销', onClick: () => undo() } })
+                          }}
+                        >
+                          ✕
+                        </ConfirmButton>
+                      </div>
+                    ))}
+                    <button
+                      type="button"
+                      onClick={() => { const d = [...selected.dialogue, { id: nanoid(6), speaker: '', text: '', emotion: '' }]; updateNode(selected.id, { dialogue: d }) }}
+                      className="cursor-pointer w-full text-xs text-pencil hover:text-vermilion py-2.5 border border-dashed border-line hover:border-vermilion/40 transition-colors mt-1"
+                    >
+                      + 添加台词
+                    </button>
+                  </div>
+                </Section>
+              </div>
 
               {selected.type === 'explore' && (
                 <Section title="探索节点设置">
                   <div className="space-y-3">
-                    <p className="text-xs text-teal-700 bg-teal-50 border border-teal-100 rounded-lg px-3 py-2 leading-relaxed">
+                    <p className="text-xs text-inkblue bg-inkblue/10 border border-inkblue/20 px-3 py-2 leading-relaxed">
                       探索节点是<strong>可选旁支内容</strong>——玩家自愿进入，看完后通过"返回主线"按钮回到主故事。
                       它不占用主线选项，也不影响剧情走向，适合放置档案、日记、隐藏线索等内容。
                     </p>
                     <div>
-                      <label className="text-xs text-gray-500 block mb-1.5">
+                      <label className="text-xs text-pencil block mb-1.5">
                         探索完成后返回的节点
-                        <span className="ml-1 text-gray-400">（玩家点击"返回主线"后跳转到这里）</span>
+                        <span className="ml-1 text-pencil/80">（玩家点击"返回主线"后跳转到这里）</span>
                       </label>
                       {selected.exploreReturnNodeId ? (
                         <div className="flex items-center gap-2">
-                          <div className="flex-1 flex items-center gap-2 bg-teal-50 border border-teal-200 rounded-lg px-3 py-2">
-                            <span className="text-xs text-teal-600">◎ 返回至：</span>
-                            <span className="text-sm font-medium text-teal-800">
+                          <div className="flex-1 flex items-center gap-2 bg-inkblue/10 border border-inkblue/30 px-3 py-2">
+                            <span className="text-xs text-inkblue">◎ 返回至：</span>
+                            <span className="text-sm font-medium text-ink">
                               {project.nodes.find(n => n.id === selected.exploreReturnNodeId)?.title ?? '（节点已删除）'}
                             </span>
                           </div>
                           <button
+                            type="button"
                             onClick={() => updateNode(selected.id, { exploreReturnNodeId: undefined })}
-                            className="text-xs text-gray-400 hover:text-red-500 px-2 py-1 border border-gray-200 rounded-lg"
+                            className="cursor-pointer text-xs text-pencil hover:text-vermilion px-2 py-1 border border-line"
                           >
                             清除
                           </button>
                         </div>
                       ) : (
                         <div className="space-y-1.5">
-                          <div className="text-xs text-red-500 bg-red-50 border border-red-100 rounded-lg px-3 py-2">
+                          <div className="text-xs text-vermilion bg-vermilion/10 border border-vermilion/20 px-3 py-2">
                             ⚠ 未设置返回节点——玩家进入此探索节点后将无法返回主线
                           </div>
                           <select
                             defaultValue=""
                             onChange={e => { if (e.target.value) updateNode(selected.id, { exploreReturnNodeId: e.target.value }) }}
-                            className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-teal-400"
+                            className={`${inputClass} focus:border-inkblue`}
                           >
                             <option value="" disabled>选择返回目标节点…</option>
                             {project.nodes
@@ -761,58 +767,79 @@ function WorkshopPageInner() {
               )}
 
               {(selected.choices.length > 0 || selected.type === 'branch') && (
-                <Section title="节点选择" action={{ label: 'AI 建议选项', loading: loading === 'suggest_choices', onClick: () => callAiForSuggestChoices(selected) }}>
-                  <div className="space-y-2">
+                <Section title="节点选择" action={{ label: 'AI 建议选项', loading: !!aiChoices.loading, onClick: () => callAiSuggestChoices(selected), onCancel: aiChoices.cancel }}>
+                  <div className="flex flex-wrap gap-3">
                     {selected.choices.map((choice, i) => {
                       const targetNode = project.nodes.find(n => n.id === choice.targetNodeId)
-                      const isAnalyzing = loading === `choice_consequence_${i}`
+                      const isAnalyzing = aiChoiceConsequence.loading === `choice_consequence:${i}`
+                      const critical = choice.choiceWeight === 'critical'
+                      const letter = String.fromCharCode(65 + i)
                       return (
-                        <div key={choice.id}>
-                          <div className="flex items-center gap-3 bg-gray-50 rounded-lg px-3 py-2.5 group">
-                            <span className="text-xs text-gray-400 font-medium w-5 shrink-0">{i + 1}</span>
-                            <BufferedInput
-                              value={choice.text}
-                              onCommit={v => {
-                                const updated = selected.choices.map((c, j) => j === i ? { ...c, text: v } : c)
-                                updateNode(selected.id, { choices: updated })
-                              }}
-                              className="text-sm text-gray-800 bg-transparent border-none outline-none flex-1"
-                              placeholder="选项文字..."
-                            />
+                        <div
+                          key={choice.id}
+                          className={`group relative flex-1 min-w-[200px] bg-paper border-t-[3px] px-3 pt-4 pb-3 ${critical ? 'border-t-vermilion' : 'border-t-pencil'}`}
+                          style={{ boxShadow: 'var(--shadow-card)' }}
+                        >
+                          <span
+                            aria-hidden
+                            className={`courier absolute -top-3 left-2.5 w-5 h-5 rounded-full flex items-center justify-center text-[12px] font-bold text-paper ${critical ? 'bg-vermilion' : 'bg-pencil'}`}
+                          >
+                            {letter}
+                          </span>
+                          <BufferedInput
+                            value={choice.text}
+                            onCommit={v => {
+                              const updated = selected.choices.map((c, j) => j === i ? { ...c, text: v } : c)
+                              updateNode(selected.id, { choices: updated })
+                            }}
+                            className="text-sm font-semibold text-ink bg-transparent border-none outline-none w-full"
+                            placeholder="选项文字..."
+                          />
+                          <div className="flex items-center gap-1.5 mt-1.5 text-[11px] text-pencil flex-wrap">
                             {choice.choiceWeight && (
-                              <span className={`text-[10px] font-bold shrink-0 px-1.5 py-0.5 rounded ${
-                                choice.choiceWeight === 'critical' ? 'bg-red-50 text-red-500' :
-                                choice.choiceWeight === 'heavy' ? 'bg-orange-50 text-orange-500' :
-                                'bg-gray-50 text-gray-400'
+                              <span className={`text-[10px] font-bold px-1.5 py-0.5 ${
+                                critical ? 'bg-vermilion/10 text-vermilion' :
+                                choice.choiceWeight === 'heavy' ? 'bg-amberink/10 text-amberink' :
+                                'bg-pencil/10 text-pencil'
                               }`}>
-                                {choice.choiceWeight === 'critical' ? '关键' : choice.choiceWeight === 'heavy' ? '重要' : '轻'}
+                                {critical ? '关键' : choice.choiceWeight === 'heavy' ? '重要' : '轻'}
                               </span>
                             )}
+                            <span>→</span>
+                            <span className="text-inkblue truncate max-w-[9rem]">{targetNode?.title ?? '未连接'}</span>
+                            {critical && <span className="text-vermilion">⚠ 不可逆</span>}
                             <button
-                              onClick={() => callAiChoiceConsequence(selected, i)}
-                              disabled={!!loading}
-                              title="推演此选项后果"
-                              className="opacity-0 group-hover:opacity-100 text-[10px] text-rose-400 hover:text-rose-600 px-1.5 py-0.5 rounded border border-rose-100 hover:border-rose-300 transition-all disabled:opacity-30 shrink-0"
+                              type="button"
+                              onClick={() => isAnalyzing ? aiChoiceConsequence.cancel() : callAiChoiceConsequence(selected, i)}
+                              title={isAnalyzing ? '中止推演' : '推演此选项后果'}
+                              className={`cursor-pointer ml-auto text-[10px] text-vermilion hover:text-vermilion-deep px-1.5 py-0.5 border border-vermilion/30 hover:border-vermilion/60 transition-all shrink-0 ${isAnalyzing ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}
                             >
-                              {isAnalyzing ? <span className="w-2 h-2 border border-rose-400 border-t-transparent rounded-full animate-spin inline-block" /> : '🎯'}
+                              🎯
                             </button>
-                            <span className="text-gray-300 text-xs shrink-0">→</span>
-                            <span className="text-xs text-amber-600 bg-amber-50 rounded px-2 py-0.5 shrink-0 max-w-32 truncate">
-                              {targetNode?.title ?? '未连接'}
-                            </span>
+                            <ConfirmButton
+                              size="sm"
+                              variant="ghost"
+                              confirmLabel="确认删除"
+                              className="text-[10px] px-1.5 py-0.5 opacity-0 group-hover:opacity-100 transition-opacity shrink-0"
+                              onConfirm={() => {
+                                deleteChoice(choice.id)
+                                toast('已删除选项', 'info', { action: { label: '撤销', onClick: () => undo() } })
+                              }}
+                            >
+                              ✕
+                            </ConfirmButton>
                           </div>
                           {choice.consequence && (
-                            <div className="mt-1 px-3">
-                              <span className="text-[11px] text-gray-400 italic">↳ {choice.consequence}</span>
-                            </div>
+                            <p className="text-[11px] text-pencil italic mt-1">↳ {choice.consequence}</p>
                           )}
                           {project.variables.length > 0 && (
-                            <div className="mt-1.5 flex flex-wrap gap-1 px-3">
+                            <div className="mt-1.5 flex flex-wrap gap-1">
                               {project.variables.map(v => {
                                 const isActive = choice.variableEffects.includes(v.name)
                                 return (
                                   <button
                                     key={v.id}
+                                    type="button"
                                     onClick={() => {
                                       const effects = choice.variableEffects
                                       const newEffects = isActive
@@ -820,10 +847,10 @@ function WorkshopPageInner() {
                                         : effects ? `${effects}, +${v.name}` : `+${v.name}`
                                       updateChoice(choice.id, { variableEffects: newEffects.replace(/,\s*$/, '') })
                                     }}
-                                    className={`text-xs px-2 py-0.5 rounded-full border transition-colors ${
+                                    className={`cursor-pointer text-[10px] px-2 py-0.5 border transition-colors ${
                                       isActive
-                                        ? 'bg-amber-50 border-amber-200 text-amber-600'
-                                        : 'bg-gray-50 border-gray-200 text-gray-400 hover:border-gray-300'
+                                        ? 'bg-vermilion/10 border-vermilion/40 text-vermilion'
+                                        : 'border-line text-pencil hover:border-vermilion/30'
                                     }`}
                                   >
                                     {v.type === 'counter' ? (isActive ? `+${v.name}` : v.name) : v.name}
@@ -847,12 +874,12 @@ function WorkshopPageInner() {
                     )
                     if (linkedExplores.length === 0 && unlinkedExplores.length === 0) return null
                     return (
-                      <div className="mt-3 pt-3 border-t border-dashed border-teal-100">
-                        <div className="text-xs text-teal-600 font-medium mb-2">◎ 可选探索入口</div>
+                      <div className="mt-3 pt-3 border-t border-dashed border-inkblue/20">
+                        <div className="text-xs text-inkblue font-medium mb-2">◎ 可选探索入口</div>
                         {linkedExplores.length > 0 && (
                           <div className="flex flex-wrap gap-1.5 mb-2">
                             {linkedExplores.map(n => (
-                              <span key={n.id} className="text-xs bg-teal-50 border border-teal-200 text-teal-700 rounded-full px-2.5 py-0.5">
+                              <span key={n.id} className="text-xs bg-inkblue/10 border border-inkblue/30 text-inkblue px-2.5 py-0.5">
                                 ◎ {n.title}
                               </span>
                             ))}
@@ -862,7 +889,7 @@ function WorkshopPageInner() {
                           <select
                             value=""
                             onChange={e => linkExploreNode(selected.id, e.target.value)}
-                            className="w-full text-xs border border-teal-200 rounded-lg px-2.5 py-1.5 bg-teal-50 text-teal-700 focus:outline-none focus:ring-1 focus:ring-teal-400"
+                            className={`${inputClass} text-xs focus:border-inkblue`}
                           >
                             <option value="" disabled>+ 连接探索节点（可选内容）…</option>
                             {unlinkedExplores.map(n => (
@@ -873,14 +900,6 @@ function WorkshopPageInner() {
                       </div>
                     )
                   })()}
-
-                  {choiceConsequence && (
-                    <ChoiceConsequencePanel data={choiceConsequence} onClose={() => setChoiceConsequence(null)} />
-                  )}
-
-                  {choiceSuggestions && (
-                    <ChoiceSuggestionsPanel data={choiceSuggestions} onClose={() => setChoiceSuggestions(null)} />
-                  )}
                 </Section>
               )}
 
@@ -897,29 +916,58 @@ function WorkshopPageInner() {
             </div>
           )})()}
         </div>
+
+        {selected && hasStickyNotes && (
+          <aside className="w-64 shrink-0 overflow-y-auto p-3.5 space-y-4">
+            {sceneAnalysis && (
+              <SceneAnalysisPanel data={sceneAnalysis} onClose={() => setSceneAnalysis(null)} />
+            )}
+            {sceneTension && (
+              <SceneTensionPanel
+                data={sceneTension}
+                open={sceneTensionOpen}
+                onToggle={() => setSceneTensionOpen(o => !o)}
+                onClose={() => setSceneTension(null)}
+              />
+            )}
+            {choiceConsequence && (
+              <ChoiceConsequencePanel data={choiceConsequence} onClose={() => setChoiceConsequence(null)} />
+            )}
+            {choiceSuggestions && (
+              <ChoiceSuggestionsPanel data={choiceSuggestions} onClose={() => setChoiceSuggestions(null)} />
+            )}
+          </aside>
+        )}
       </div>
 
-      <div className="flex-shrink-0 border-t border-gray-200 bg-white px-6 py-4 flex justify-end">
-        <button
-          onClick={() => { advancePhase(); if (project) router.push(`/project/${project.id}/validate`) }}
-          className="px-5 py-2.5 bg-amber-600 text-white text-sm font-medium rounded-lg hover:bg-amber-700 transition-colors"
-        >
+      <div className="flex-shrink-0 border-t border-line bg-paper px-6 py-4 flex justify-end">
+        <Button variant="primary" size="md" onClick={() => { advancePhase(); if (project) router.push(`/project/${project.id}/validate`) }}>
           下一步：全局校验 →
-        </button>
+        </Button>
       </div>
 
-      <div className="fixed bottom-4 left-6 text-xs text-gray-300 space-y-0.5 pointer-events-none">
-        <div>J / ↓ 下一节点</div>
-        <div>K / ↑ 上一节点</div>
-        <div>Esc 取消选择</div>
-      </div>
+      {!kbdHintDismissed && (
+        <div className="fixed bottom-4 left-6 bg-paper border border-line text-[11px] text-pencil px-3 py-2 space-y-0.5" style={{ boxShadow: 'var(--shadow-card)' }}>
+          <button
+            type="button"
+            aria-label="关闭提示"
+            onClick={dismissKbdHint}
+            className="cursor-pointer absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full bg-paper border border-line text-pencil hover:text-vermilion text-[10px] leading-none flex items-center justify-center"
+          >
+            ×
+          </button>
+          <div>J / ↓ 下一节点</div>
+          <div>K / ↑ 上一节点</div>
+          <div>Esc 取消选择</div>
+        </div>
+      )}
     </div>
   )
 }
 
 export default function WorkshopPage() {
   return (
-    <Suspense fallback={<div className="flex items-center justify-center h-64 text-gray-400 text-sm">加载中...</div>}>
+    <Suspense fallback={<div className="flex items-center justify-center h-64 text-pencil text-sm">加载中...</div>}>
       <WorkshopPageInner />
     </Suspense>
   )

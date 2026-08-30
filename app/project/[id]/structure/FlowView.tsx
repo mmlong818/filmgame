@@ -4,68 +4,54 @@ import { useRouter, useParams } from 'next/navigation'
 import { ReactFlow, Background, Controls, MiniMap, Handle, Position, MarkerType } from '@xyflow/react'
 import type { Node, Edge, NodeProps, NodeMouseHandler, OnNodeDrag } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
-import type { Project, StoryNode } from '@/lib/types/project'
+import type { Project, StoryNode, NodeType } from '@/lib/types/project'
 import { useProjectStore } from '@/lib/store/projectStore'
-
-// ── Node type config ────────────────────────────────────────────────────────
-
-const TYPE_STYLE: Record<string, { border: string; bg: string; label: string; labelColor: string; glow: string; dot: string }> = {
-  start:  { border: 'border-emerald-400', bg: 'bg-emerald-50',  label: '开场', labelColor: 'text-emerald-700', glow: '#10b981', dot: 'bg-emerald-500' },
-  ending: { border: 'border-amber-400',   bg: 'bg-amber-50',    label: '结局', labelColor: 'text-amber-700',   glow: '#f59e0b', dot: 'bg-amber-500'   },
-  branch: { border: 'border-violet-400',  bg: 'bg-violet-50',   label: '分支', labelColor: 'text-violet-700',  glow: '#8b5cf6', dot: 'bg-violet-500'  },
-  merge:  { border: 'border-rose-400',    bg: 'bg-rose-50',     label: '汇聚', labelColor: 'text-rose-700',    glow: '#f43f5e', dot: 'bg-rose-500'    },
-  normal: { border: 'border-slate-300',   bg: 'bg-white',       label: '推进', labelColor: 'text-slate-500',   glow: '#94a3b8', dot: 'bg-slate-400'   },
-  explore:{ border: 'border-cyan-400',    bg: 'bg-cyan-50',     label: '探索', labelColor: 'text-cyan-700',    glow: '#06b6d4', dot: 'bg-cyan-500'    },
-}
-
-const MINIMAP_COLORS: Record<string, string> = {
-  start: '#10b981', ending: '#f59e0b', branch: '#8b5cf6', merge: '#f43f5e', normal: '#94a3b8', explore: '#06b6d4',
-}
+import { nodeTypeStyle } from '@/lib/ui/nodeTypes'
 
 // ── Node renderer ───────────────────────────────────────────────────────────
 
 function StoryNodeView({ data }: NodeProps) {
   const d = data as {
-    label: string; nodeType: string; highlighted: boolean; dimmed: boolean
+    label: string; nodeType: NodeType; highlighted: boolean; dimmed: boolean
     dialogueCount: number; hasChoices: boolean; deadEnd: boolean
     onEdit: () => void
   }
-  const s = TYPE_STYLE[d.nodeType] ?? TYPE_STYLE.normal
+  const s = nodeTypeStyle(d.nodeType)
   const opacity = d.dimmed ? 'opacity-20' : 'opacity-100'
 
   return (
     <div
-      className={`border ${s.border} ${s.bg} rounded-xl shadow-md transition-all duration-150 ${opacity} cursor-grab active:cursor-grabbing hover:shadow-lg`}
+      className={`bg-paper border ${s.border} transition-all duration-150 ${opacity} cursor-grab active:cursor-grabbing`}
       style={{
         minWidth: NODE_W,
         maxWidth: NODE_W,
-        boxShadow: d.highlighted ? `0 0 20px ${s.glow}60, 0 0 6px ${s.glow}30` : undefined,
-        outline: d.highlighted ? `1.5px solid ${s.glow}80` : undefined,
+        borderLeftWidth: 3,
+        borderLeftColor: s.hex,
+        boxShadow: d.highlighted ? `0 0 0 1.5px ${s.hex}, var(--shadow-card-lift)` : 'var(--shadow-card)',
       }}
     >
       <Handle type="target" position={Position.Left}
-        style={{ background: s.glow, width: 8, height: 8, border: '2px solid #f8fafc', left: -5 }} />
+        style={{ background: s.hex, width: 8, height: 8, border: '2px solid var(--color-paper)', left: -5 }} />
 
       {/* Header */}
       <div className={`flex items-center gap-1.5 px-3 pt-2.5 pb-1`}>
-        <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${s.dot}`} />
-        <span className={`text-[10px] font-bold tracking-widest uppercase ${s.labelColor}`}>{s.label}</span>
+        <span className={`text-[10px] font-bold tracking-widest uppercase ${s.text}`}>{s.label}</span>
         {d.deadEnd && (
-          <span className="ml-auto text-[9px] text-red-500 font-bold bg-red-100 px-1 rounded">断头</span>
+          <span className="ml-auto text-[9px] text-vermilion font-bold bg-vermilion/10 border border-vermilion/40 px-1">断头</span>
         )}
       </div>
 
       {/* Title */}
       <div className="px-3 pb-1">
         <div
-          className="text-sm font-medium text-slate-800 leading-snug"
+          className="text-sm font-medium text-ink leading-snug"
           style={{ display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}
           title={d.label}
         >
           {d.label}
         </div>
         {d.dialogueCount > 0 && (
-          <div className="mt-1 text-[10px] text-slate-400">{d.dialogueCount} 行对白</div>
+          <div className="mt-1 text-[10px] text-pencil">{d.dialogueCount} 行对白</div>
         )}
       </div>
 
@@ -73,7 +59,7 @@ function StoryNodeView({ data }: NodeProps) {
       <div className="px-3 pb-2.5 pt-1">
         <button
           onClick={(e) => { e.stopPropagation(); d.onEdit() }}
-          className="text-[10px] text-slate-400 hover:text-slate-700 border border-slate-300 hover:border-slate-500 rounded px-2 py-0.5 transition-colors cursor-pointer"
+          className="text-[10px] text-pencil hover:text-ink border border-line hover:border-ink-soft px-2 py-0.5 transition-colors cursor-pointer"
           style={{ lineHeight: '1.6' }}
         >
           编辑
@@ -81,7 +67,7 @@ function StoryNodeView({ data }: NodeProps) {
       </div>
 
       <Handle type="source" position={Position.Right}
-        style={{ background: s.glow, width: 8, height: 8, border: '2px solid #f8fafc', right: -5 }} />
+        style={{ background: s.hex, width: 8, height: 8, border: '2px solid var(--color-paper)', right: -5 }} />
     </div>
   )
 }
@@ -223,9 +209,8 @@ function buildFlowData(project: Project, hoveredNodeId: string | null, manualPos
   const pNodes = project.nodes ?? []
   const nodeMap = new Map(pNodes.map(n => [n.id, n]))
   const endingNodeIds = new Set(pNodes.filter(n => n.type === 'ending').map(n => n.id))
-
-  // All target node IDs that are referenced by choices
-  const referencedTargets = new Set(pNodes.flatMap(n => (n.choices ?? []).map(c => c.targetNodeId).filter(Boolean)))
+  const endingHex = nodeTypeStyle('ending').hex
+  const normalHex = nodeTypeStyle('normal').hex
 
   // Highlight path
   let highlightedIds = new Set<string>()
@@ -276,7 +261,7 @@ function buildFlowData(project: Project, hoveredNodeId: string | null, manualPos
       const onPath = hoveredNodeId ? (highlightedIds.has(node.id) && highlightedIds.has(choice.targetNodeId)) : false
       const edgeDimmed = !!hoveredNodeId && !onPath
 
-      const stroke = edgeDimmed ? '#e2e8f0' : toEnding ? '#f59e0b' : onPath ? '#a78bfa' : '#94a3b8'
+      const stroke = edgeDimmed ? 'var(--color-line)' : toEnding ? endingHex : onPath ? 'var(--color-vermilion)' : normalHex
 
       edges.push({
         id: `e-${choice.id}`,
@@ -291,10 +276,10 @@ function buildFlowData(project: Project, hoveredNodeId: string | null, manualPos
         },
         labelStyle: {
           fontSize: 10,
-          fill: edgeDimmed ? '#cbd5e1' : toEnding ? '#d97706' : onPath ? '#7c3aed' : '#64748b',
+          fill: edgeDimmed ? 'var(--color-line)' : toEnding ? endingHex : onPath ? 'var(--color-vermilion)' : 'var(--color-pencil)',
           fontWeight: onPath ? 600 : 400,
         },
-        labelBgStyle: { fill: '#ffffff', fillOpacity: 0.9 },
+        labelBgStyle: { fill: 'var(--color-paper)', fillOpacity: 0.9 },
         labelBgPadding: [3, 5],
         animated: onPath,
       })
@@ -340,7 +325,7 @@ export default function FlowView({ project }: { project: Project }) {
 
   if (nodes.length === 0) {
     return (
-      <div className="flex items-center justify-center h-full text-slate-400 text-sm bg-slate-50">
+      <div className="flex items-center justify-center h-full text-pencil text-sm bg-paper-dim">
         暂无节点，请先在列表视图中创建节点结构
       </div>
     )
@@ -349,9 +334,12 @@ export default function FlowView({ project }: { project: Project }) {
   const endingCount = project.nodes.filter(n => n.type === 'ending').length
   const branchCount = project.nodes.filter(n => n.type === 'branch').length
   const deadEndCount = nodes.filter(n => (n.data as { deadEnd: boolean }).deadEnd).length
+  const branchStyle = nodeTypeStyle('branch')
+  const endingStyle = nodeTypeStyle('ending')
+  const normalStyle = nodeTypeStyle('normal')
 
   return (
-    <div className="h-full w-full relative bg-slate-50">
+    <div className="h-full w-full relative" style={{ background: 'var(--color-kraft)' }}>
       <ReactFlow
         nodes={nodes}
         edges={edges}
@@ -365,61 +353,61 @@ export default function FlowView({ project }: { project: Project }) {
         onNodeMouseLeave={handleNodeMouseLeave}
         onNodeDragStop={handleNodeDragStop}
         proOptions={{ hideAttribution: true }}
-        style={{ background: '#f8fafc' }}
+        style={{ background: 'var(--color-kraft)' }}
         minZoom={0.1}
         maxZoom={2}
       >
-        <Background color="#cbd5e1" gap={32} size={1} variant={'dots' as never} />
+        <Background color="color-mix(in srgb, var(--color-ink) 15%, transparent)" gap={32} size={1} variant={'dots' as never} />
         <Controls
           showInteractive={false}
-          style={{ background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: 8 }}
+          style={{ background: 'var(--color-paper)', border: '1px solid var(--color-line)', borderRadius: 2 }}
         />
         <MiniMap
-          nodeColor={n => MINIMAP_COLORS[(n.data as { nodeType: string }).nodeType] ?? '#94a3b8'}
-          maskColor="rgba(248,250,252,0.75)"
-          style={{ background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: 8 }}
+          nodeColor={n => nodeTypeStyle((n.data as { nodeType: NodeType }).nodeType).hex}
+          maskColor="color-mix(in srgb, var(--color-paper) 75%, transparent)"
+          style={{ background: 'var(--color-paper)', border: '1px solid var(--color-line)', borderRadius: 2 }}
           nodeStrokeWidth={0}
         />
       </ReactFlow>
 
       {/* Stats bar */}
       <div className="absolute top-3 left-3 flex items-center gap-2 pointer-events-none">
-        <div className="bg-white/95 border border-slate-200 rounded-lg px-3 py-2 flex items-center gap-3 text-xs shadow-sm">
-          <span className="text-slate-500">{project.nodes.length} 节点</span>
-          <span className="text-slate-300">·</span>
-          <span className="text-violet-600">{branchCount} 分支</span>
-          <span className="text-slate-300">·</span>
-          <span className="text-amber-600">{endingCount} 结局</span>
+        <div className="bg-paper/95 border border-line px-3 py-2 flex items-center gap-3 text-xs" style={{ boxShadow: 'var(--shadow-card)' }}>
+          <span className="text-pencil">{project.nodes.length} 节点</span>
+          <span className="text-line">·</span>
+          <span className={branchStyle.text}>{branchCount} 分支</span>
+          <span className="text-line">·</span>
+          <span className={endingStyle.text}>{endingCount} 结局</span>
           {deadEndCount > 0 && (
             <>
-              <span className="text-slate-300">·</span>
-              <span className="text-red-500 font-medium">{deadEndCount} 断头</span>
+              <span className="text-line">·</span>
+              <span className="text-vermilion font-medium">{deadEndCount} 断头</span>
             </>
           )}
         </div>
         {hoveredNodeId && (
-          <div className="bg-white/95 border border-violet-400/50 rounded-lg px-3 py-2 text-xs text-violet-600 shadow-sm">
+          <div className="bg-paper/95 border border-vermilion/50 px-3 py-2 text-xs text-vermilion" style={{ boxShadow: 'var(--shadow-card)' }}>
             悬停高亮路径 · 点击前往工坊
           </div>
         )}
       </div>
 
       {/* Legend */}
-      <div className="absolute bottom-24 left-3 bg-white/95 border border-slate-200 rounded-lg px-3 py-2.5 pointer-events-none shadow-sm">
+      <div className="absolute bottom-24 left-3 bg-paper/95 border border-line px-3 py-2.5 pointer-events-none" style={{ boxShadow: 'var(--shadow-card)' }}>
         <div className="flex flex-col gap-1.5">
           {[
-            { color: '#f59e0b', label: '通向结局' },
-            { color: '#a78bfa', label: '当前悬停路径' },
-            { color: '#94a3b8', label: '普通连接' },
+            { color: endingStyle.hex, label: '通向结局' },
+            { color: 'var(--color-vermilion)', label: '当前悬停路径' },
+            { color: normalStyle.hex, label: '普通连接' },
           ].map(item => (
             <div key={item.label} className="flex items-center gap-2 text-xs">
-              <div className="w-6 h-px rounded" style={{ background: item.color, height: 2 }} />
-              <span className="text-slate-500">{item.label}</span>
+              <div className="w-6 rounded-none" style={{ background: item.color, height: 2 }} />
+              <span className="text-pencil">{item.label}</span>
             </div>
           ))}
-          <div className="border-t border-slate-200 mt-1 pt-1.5 flex items-center gap-2 text-xs">
-            <span className="text-red-500 font-bold text-[10px] bg-red-100 px-1 rounded">断头</span>
-            <span className="text-slate-500">无有效出口</span>
+          <div className="border-t border-line mt-1 pt-1.5 flex items-center gap-2 text-xs">
+            <span className="text-vermilion font-bold text-[10px] bg-vermilion/10 border border-vermilion/40 px-1">断头</span>
+            <span className="text-pencil">无有效出口</span>
           </div>
         </div>
       </div>

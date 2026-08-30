@@ -1,5 +1,7 @@
 'use client'
 import type { Character } from '@/lib/types/project'
+import { Spinner } from '@/app/components/ui/button'
+import { StickyNote } from '@/app/components/ui/sticky-note'
 
 interface Props {
   character: Character
@@ -22,7 +24,7 @@ export function CharacterVoiceEntry({ character, open, loading, onToggle, onGene
           type="button"
           onClick={onToggle}
           title="查看声纹档案"
-          className="text-xs text-amber-500 hover:text-amber-600 ml-1 align-middle"
+          className="cursor-pointer text-xs text-vermilion hover:text-vermilion-deep ml-1 align-middle"
         >
           🎙
         </button>
@@ -32,36 +34,40 @@ export function CharacterVoiceEntry({ character, open, loading, onToggle, onGene
           onClick={onGenerate}
           disabled={loading}
           title="生成声纹档案"
-          className="text-[10px] text-gray-300 hover:text-amber-500 ml-1 align-middle disabled:opacity-40 inline-flex items-center gap-1"
+          className="cursor-pointer text-[10px] text-pencil hover:text-vermilion ml-1 align-middle disabled:opacity-40 inline-flex items-center gap-1"
         >
-          {loading && <span className="w-2 h-2 border border-amber-400 border-t-transparent rounded-full animate-spin inline-block" />}
+          {loading && <Spinner />}
           + 生成声纹
         </button>
       )}
 
       {open && vp && (
-        <div className="absolute z-30 top-full left-0 mt-1.5 w-72 bg-amber-50 border border-amber-200 rounded-xl shadow-lg p-3 space-y-1.5">
-          <div className="flex items-center justify-between mb-1">
-            <span className="text-xs font-semibold text-amber-700">{character.name} · 声纹档案</span>
-            <button onClick={onClose} className="text-xs text-gray-400 hover:text-gray-600">✕</button>
-          </div>
-          {vp.speaking_rhythm && (
-            <p className="text-[11px] text-amber-800 leading-relaxed"><span className="font-medium">节奏：</span>{vp.speaking_rhythm}</p>
-          )}
-          {vp.vocabulary && (
-            <p className="text-[11px] text-amber-800 leading-relaxed"><span className="font-medium">词汇：</span>{vp.vocabulary}</p>
-          )}
-          {vp.defense_mechanism && (
-            <p className="text-[11px] text-amber-800 leading-relaxed"><span className="font-medium">压力下：</span>{vp.defense_mechanism}</p>
-          )}
-          {vp.lie_tells && (
-            <p className="text-[11px] text-amber-800 leading-relaxed"><span className="font-medium">说谎特征：</span>{vp.lie_tells}</p>
-          )}
-          {vp.sample_lines && vp.sample_lines.length > 0 && (
-            <div className="text-[11px] text-amber-700 italic border-t border-amber-100 pt-1.5 space-y-0.5">
-              {vp.sample_lines.slice(0, 2).map((l, i) => <p key={i}>「{l}」</p>)}
+        <div className="absolute z-30 top-full left-0 mt-1.5 w-72">
+          <StickyNote tilt={-0.6}>
+            <div className="flex items-center justify-between mb-1.5">
+              <span className="font-semibold">{character.name} · 声纹档案</span>
+              <button type="button" aria-label="关闭" onClick={onClose} className="cursor-pointer opacity-60 hover:opacity-100 leading-none">×</button>
             </div>
-          )}
+            <div className="space-y-1">
+              {vp.speaking_rhythm && (
+                <p><span className="font-medium">节奏：</span>{vp.speaking_rhythm}</p>
+              )}
+              {vp.vocabulary && (
+                <p><span className="font-medium">词汇：</span>{vp.vocabulary}</p>
+              )}
+              {vp.defense_mechanism && (
+                <p><span className="font-medium">压力下：</span>{vp.defense_mechanism}</p>
+              )}
+              {vp.lie_tells && (
+                <p><span className="font-medium">说谎特征：</span>{vp.lie_tells}</p>
+              )}
+              {vp.sample_lines && vp.sample_lines.length > 0 && (
+                <div className="italic border-t border-[#4a3c14]/15 pt-1.5 space-y-0.5">
+                  {vp.sample_lines.slice(0, 2).map((l, i) => <p key={i}>「{l}」</p>)}
+                </div>
+              )}
+            </div>
+          </StickyNote>
         </div>
       )}
     </span>

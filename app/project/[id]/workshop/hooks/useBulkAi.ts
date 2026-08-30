@@ -20,6 +20,8 @@ export function useBulkAi({ project, selectedId, updateNode, toast }: Params) {
   const [bulkScope, setBulkScope] = useState<BulkScope>('act')
   const [bulkFailedIds, setBulkFailedIds] = useState<string[]>([])
   const bulkCancelRef = useRef(false)
+  // 与协作式取消标志配套：中止当前批量运行里所有在飞请求，而不只是让循环停止发起下一轮。
+  const bulkCtlRef = useRef<AbortController | null>(null)
 
   // 批量范围解析：全部 / 当前幕（selectedId 所在 act）/ 当前章（该 act 所属 chapter 下所有 act）。
   // 没有选中节点时退化为全部节点，调用方 UI 会提示这一回退。
@@ -40,7 +42,7 @@ export function useBulkAi({ project, selectedId, updateNode, toast }: Params) {
   // 批量第一轮（生成）的可复用执行体：初次批量运行、失败重试都走这里。
   // patches 由调用方持有并原地写入——用于第二轮精修判断"哪些节点仍偏薄"，
   // 不能依赖 project.nodes（批量耗时可能数分钟，之后 project 引用会随外部重渲染变化）。
-  async function runGeneratePass(nodesToProcess: StoryNode[], patches: Record<string, Partial<StoryNode>>): Promise<string[]> {
+  async function runGeneratePass(nodesToProcess: StoryNode[], patches: Record<string, Partial<StoryNode>>, signal: AbortSignal): Promise<string[]> {
     if (!project) return []
     const ctx = { worldAnchor: project.worldAnchor, characters: project.characters, variables: project.variables }
     const failed: string[] = []
@@ -49,8 +51,8 @@ export function useBulkAi({ project, selectedId, updateNode, toast }: Params) {
       let succeeded = false
       try {
         const [eRes, dRes] = await Promise.all([
-          aiFetch('workshop', 'fill_emotion', { node, ...ctx }),
-          aiFetch('workshop', 'write_dialogue', { node, ...ctx }),
+          aiFetch('workshop', 'fill_emotion', { node, ...ctx }, { signal }),
+          aiFetch('workshop', 'write_dialogue', { node, ...ctx }, { signal }),
         ])
         const [eData, dData] = await Promise.all([eRes.json(), dRes.json()])
         const patch: Partial<StoryNode> = {}
@@ -64,7 +66,7 @@ export function useBulkAi({ project, selectedId, updateNode, toast }: Params) {
           updateNode(node.id, patch)
         }
         succeeded = !!dData.ok
-      } catch { /* succeeded 保持 false，计入失败清单 */ }
+      } catch { /* succeeded 保持 false，计入失败清单（含用户主动中止的在飞请求） */ }
       if (!succeeded) failed.push(node.id)
       setBulkProgress(p => p ? { ...p, done: p.done + 1 } : null)
     }
@@ -75,13 +77,16 @@ export function useBulkAi({ project, selectedId, updateNode, toast }: Params) {
     if (!project || bulkFailedIds.length === 0) return
     const nodesToRetry = project.nodes.filter(n => bulkFailedIds.includes(n.id))
     bulkCancelRef.current = false
+    const ctl = new AbortController()
+    bulkCtlRef.current = ctl
     setBulkLoading(true)
     setBulkProgress({ done: 0, total: nodesToRetry.length, phase: 'generate' })
     const patches: Record<string, Partial<StoryNode>> = {}
-    const failed = await runGeneratePass(nodesToRetry, patches)
+    const failed = await runGeneratePass(nodesToRetry, patches, ctl.signal)
     setBulkFailedIds(failed)
     setBulkLoading(false)
     setBulkProgress(null)
+    bulkCtlRef.current = null
     if (bulkCancelRef.current) {
       toast('重试已取消', 'error')
     } else if (failed.length > 0) {
@@ -94,6 +99,8 @@ export function useBulkAi({ project, selectedId, updateNode, toast }: Params) {
   async function runBulkAi() {
     if (!project) return
     bulkCancelRef.current = false
+    const ctl = new AbortController()
+    bulkCtlRef.current = ctl
     setBulkLoading(true)
     setBulkFailedIds([])
     const nodes = getScopedNodes(bulkScope)
@@ -102,7 +109,7 @@ export function useBulkAi({ project, selectedId, updateNode, toast }: Params) {
     // Pass 1: Generate — fill_emotion + write_dialogue for all nodes in scope
     setBulkProgress({ done: 0, total: nodes.length, phase: 'generate' })
     const patches: Record<string, Partial<StoryNode>> = {}
-    const failed = await runGeneratePass(nodes, patches)
+    const failed = await runGeneratePass(nodes, patches, ctl.signal)
     const failedSet = new Set(failed)
 
     // Pass 2: Refine — critique thin nodes (<6 lines) and auto-revise, skip nodes that failed generation
@@ -117,10 +124,10 @@ export function useBulkAi({ project, selectedId, updateNode, toast }: Params) {
         if (bulkCancelRef.current) break
         try {
           const updatedNode = { ...node, ...(patches[node.id] ?? {}) }
-          const critiqueRes = await aiFetch('workshop', 'scene_analysis', { node: updatedNode, ...ctx })
+          const critiqueRes = await aiFetch('workshop', 'scene_analysis', { node: updatedNode, ...ctx }, { signal: ctl.signal })
           const critiqueData = await critiqueRes.json()
           if (!critiqueData.ok) { setBulkProgress(p => p ? { ...p, done: p.done + 1 } : null); continue }
-          const reviseRes = await aiFetch('workshop', 'revise_dialogue', { node: updatedNode, critique: critiqueData.result, ...ctx })
+          const reviseRes = await aiFetch('workshop', 'revise_dialogue', { node: updatedNode, critique: critiqueData.result, ...ctx }, { signal: ctl.signal })
           const reviseData = await reviseRes.json()
           if (reviseData.ok && reviseData.result?.dialogue) {
             const revised: Partial<StoryNode> = { dialogue: reviseData.result.dialogue.map((d: DialogueLine) => ({ ...d, id: nanoid(6) })) }
@@ -135,6 +142,7 @@ export function useBulkAi({ project, selectedId, updateNode, toast }: Params) {
     setBulkFailedIds(failed)
     setBulkLoading(false)
     setBulkProgress(null)
+    bulkCtlRef.current = null
     if (bulkCancelRef.current) {
       toast('批量生成已取消', 'error')
     } else {
@@ -146,6 +154,7 @@ export function useBulkAi({ project, selectedId, updateNode, toast }: Params) {
 
   function cancelBulk() {
     bulkCancelRef.current = true
+    bulkCtlRef.current?.abort()
   }
 
   return {

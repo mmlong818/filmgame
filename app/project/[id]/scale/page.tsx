@@ -2,7 +2,9 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { useProjectStore } from '@/lib/store/projectStore'
-import { aiFetch } from '@/lib/ai/client'
+import { useAiAction } from '@/lib/hooks/useAiAction'
+import { aiJson } from '@/lib/ai/client'
+import { Skeleton } from '@/app/components/ui/skeleton'
 import type { ScalePlan } from '@/lib/types/project'
 
 function PlanCard({
@@ -21,40 +23,49 @@ function PlanCard({
 
   return (
     <div
+      role="radio"
+      aria-checked={selected}
+      tabIndex={0}
       onClick={onSelect}
-      className={`
-        relative border-2 rounded-xl p-5 cursor-pointer transition-all
-        ${selected ? 'border-amber-500 bg-amber-50' : 'border-gray-200 bg-white hover:border-amber-200'}
-      `}
+      onKeyDown={(e) => {
+        if (e.target !== e.currentTarget) return
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault()
+          onSelect()
+        }
+      }}
+      className={`paper-sheet relative px-5 py-4 transition-colors ${
+        selected ? 'border-2 border-vermilion' : 'border border-line/70 hover:bg-paper-dim'
+      }`}
     >
+      <span aria-hidden className={`pin ${selected ? 'pin-red' : ''}`} />
+
       {/* Top row: label + badge */}
       <div className="flex items-start justify-between mb-2">
-        <span className={`text-sm font-semibold px-2.5 py-0.5 rounded-full ${selected ? 'bg-amber-500 text-white' : 'bg-gray-100 text-gray-600'}`}>
-          {plan.label}
-        </span>
+        <span className="courier text-sm font-bold text-ink tracking-wide">{plan.label}</span>
         {selected && (
-          <span className="text-xs bg-amber-500 text-white px-2 py-0.5 rounded-full font-medium">已选中 ✓</span>
+          <span className="text-xs text-vermilion font-medium">已选中 ✓</span>
         )}
       </div>
 
       {/* Core data row */}
-      <p className="text-sm font-medium text-gray-800 mb-1">
+      <p className="text-sm font-medium text-ink-soft mb-1">
         {plan.chapterCount} 章 × {plan.actCountPerChapter} 幕/章 = {plan.totalNodes} 节点
-        <span className="text-gray-400 mx-1">·</span>
+        <span className="text-pencil mx-1">·</span>
         {plan.totalBranches} 个分支
-        <span className="text-gray-400 mx-1">·</span>
+        <span className="text-pencil mx-1">·</span>
         预估 {plan.estimatedHours}h
       </p>
 
       {/* AI rationale */}
       {plan.aiRationale && (
-        <p className="text-xs text-gray-400 italic mb-3">{plan.aiRationale}</p>
+        <p className="text-xs text-pencil italic mb-3">{plan.aiRationale}</p>
       )}
 
       {/* Change warning */}
       {!selected && nodeCount > 0 && (
-        <p className="text-xs text-amber-600 mb-3">
-          ⚠️ 已有 {nodeCount} 个节点，更换方案将在进入结构阶段后需要重新生成结构
+        <p className="text-xs text-amberink mb-3">
+          已有 {nodeCount} 个节点，更换方案将在进入结构阶段后需要重新生成结构
         </p>
       )}
 
@@ -62,19 +73,20 @@ function PlanCard({
       {hasChapters && (
         <div>
           <button
+            type="button"
             onClick={(e) => { e.stopPropagation(); setChaptersOpen(o => !o) }}
-            className="flex items-center gap-1 text-xs text-gray-500 hover:text-gray-700 mb-1"
+            className="flex items-center gap-1 text-xs text-pencil hover:text-ink-soft mb-1"
           >
-            <span className={`transition-transform ${chaptersOpen ? 'rotate-90' : ''}`}>▶</span>
+            <span className={`inline-block transition-transform ${chaptersOpen ? 'rotate-90' : ''}`}>▶</span>
             章节大纲（{plan.chapters!.length} 章）
           </button>
           {chaptersOpen && (
-            <div className="space-y-1 pl-3 border-l-2 border-amber-200 mt-1">
+            <div className="space-y-1 pl-3 border-l-2 border-line mt-1">
               {plan.chapters!.map((ch, i) => (
                 <div key={i} className="flex items-start gap-2 text-xs">
-                  <span className="text-amber-500 shrink-0 font-medium">第{i + 1}章</span>
-                  <span className="font-medium text-gray-700 shrink-0">{ch.title}</span>
-                  {ch.brief && <span className="text-gray-400">— {ch.brief}</span>}
+                  <span className="courier text-vermilion shrink-0 font-medium">第{i + 1}章</span>
+                  <span className="font-medium text-ink-soft shrink-0">{ch.title}</span>
+                  {ch.brief && <span className="text-pencil">— {ch.brief}</span>}
                 </div>
               ))}
             </div>
@@ -100,15 +112,15 @@ function CompareTable({
   ]
 
   return (
-    <div className="mt-6 overflow-x-auto rounded-xl border border-gray-200">
-      <table className="w-full text-sm">
+    <div className="mt-6 overflow-x-auto border border-line">
+      <table className="w-full text-sm border-collapse">
         <thead>
-          <tr className="bg-gray-50">
-            <th className="text-left px-4 py-2.5 text-gray-500 font-medium w-32">维度</th>
+          <tr className="bg-paper-dim">
+            <th className="text-left px-4 py-2.5 text-pencil text-[11px] tracking-wider font-medium border-b border-line w-32">维度</th>
             {plans.map(plan => (
               <th
                 key={plan.id}
-                className={`px-4 py-2.5 text-center font-medium ${selectedId === plan.id ? 'text-amber-600 bg-amber-50' : 'text-gray-600'}`}
+                className={`px-4 py-2.5 text-center text-[11px] tracking-wider font-medium border-b border-line ${selectedId === plan.id ? 'text-vermilion bg-paper' : 'text-pencil'}`}
               >
                 {plan.label}
               </th>
@@ -117,15 +129,15 @@ function CompareTable({
         </thead>
         <tbody>
           {rows.map((row, ri) => (
-            <tr key={row.key} className={ri % 2 === 0 ? 'bg-white' : 'bg-gray-50/50'}>
-              <td className="px-4 py-2.5 text-gray-500">{row.label}</td>
+            <tr key={row.key} className={ri % 2 === 0 ? 'bg-paper' : 'bg-paper-dim/50'}>
+              <td className="px-4 py-2.5 text-pencil border-b border-line-soft">{row.label}</td>
               {plans.map(plan => {
                 const val = plan[row.key]
                 const display = row.key === 'estimatedHours' ? `${val}h` : val
                 return (
                   <td
                     key={plan.id}
-                    className={`px-4 py-2.5 text-center font-medium ${selectedId === plan.id ? 'text-amber-600' : 'text-gray-800'}`}
+                    className={`px-4 py-2.5 text-center font-medium border-b border-line-soft ${selectedId === plan.id ? 'text-vermilion' : 'text-ink'}`}
                   >
                     {display as string}
                   </td>
@@ -142,89 +154,91 @@ function CompareTable({
 export default function ScalePage() {
   const router = useRouter()
   const { project, setScalePlanOptions, selectScalePlan, advancePhase, clearDownstream, clearStaleFlag } = useProjectStore()
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+  const ai = useAiAction()
 
   useEffect(() => {
     if (project?.scalePlanOptions.length === 0 && project?.worldAnchor) {
-      generatePlans()
+      void generatePlans()
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [project?.id])
 
   async function generatePlans() {
     if (!project?.worldAnchor) return
-    setLoading(true)
-    setError(null)
-    try {
-      const res = await aiFetch('scale', 'generate', project.worldAnchor as unknown as Record<string, unknown>)
-      const data = await res.json()
-      if (!data.ok) {
-        setError(data.error ?? 'AI 服务不可用，请稍后重试')
-        return
-      }
-      if (data.result?.plans) {
-        setScalePlanOptions(data.result.plans as ScalePlan[])
-      }
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'AI 服务不可用，请稍后重试')
-    } finally {
-      setLoading(false)
+    const data = await ai.run('生成规模方案', signal =>
+      aiJson<{ result?: { plans?: ScalePlan[] } }>(
+        'scale',
+        'generate',
+        project.worldAnchor as unknown as Record<string, unknown>,
+        signal,
+      ),
+    )
+    if (data?.result?.plans) {
+      setScalePlanOptions(data.result.plans)
     }
   }
 
   if (!project) return (
-    <div className="flex items-center justify-center h-64 text-gray-400 text-sm">
+    <div className="flex items-center justify-center h-64 text-pencil text-sm">
       加载中...
     </div>
   )
 
   const selected = project.selectedScalePlanId
   const nodeCount = project.nodes.length
+  const loading = Boolean(ai.loading)
 
   return (
-    <div className="max-w-3xl mx-auto px-6 py-8 bg-white min-h-screen">
+    <div className="max-w-3xl mx-auto px-6 py-8 bg-paper min-h-screen">
       {project.downstreamStale && (
-        <div className="mb-4 flex items-center gap-3 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3">
-          <span className="text-amber-600 text-sm flex-1">世界锚点已更新，当前方案基于旧版本</span>
+        <div className="mb-4 flex items-center gap-3 bg-paper border-l-[3px] border-amberink px-4 py-3">
+          <span className="text-amberink text-sm flex-1">世界锚点已更新，当前方案基于旧版本</span>
           <button
-            onClick={() => { clearDownstream('scale'); generatePlans() }}
-            className="text-xs px-3 py-1.5 bg-amber-600 text-white rounded-lg hover:bg-amber-700"
+            type="button"
+            onClick={() => { clearDownstream('scale'); void generatePlans() }}
+            className="text-xs px-3 py-1.5 bg-vermilion text-paper hover:bg-vermilion-deep"
           >重新生成</button>
           <button
+            type="button"
             onClick={() => clearStaleFlag()}
-            className="text-xs px-3 py-1.5 border border-gray-300 text-gray-600 rounded-lg hover:bg-gray-50"
+            className="text-xs px-3 py-1.5 border border-line text-ink-soft hover:bg-paper-dim"
           >忽略</button>
         </div>
       )}
 
       <div className="flex items-center justify-between mb-4">
         <div>
-          <h2 className="text-xl font-semibold text-gray-900">规模规划</h2>
-          <p className="text-sm text-gray-500 mt-1">选择适合你的项目体量</p>
+          <h2 className="text-xl font-semibold text-ink">规模规划</h2>
+          <p className="text-sm text-pencil mt-1">选择适合你的项目体量</p>
         </div>
-        <button
-          onClick={generatePlans}
-          disabled={loading}
-          className="text-sm text-amber-600 hover:text-amber-700 disabled:opacity-40"
-        >
-          {loading ? '生成中...' : '重新生成'}
-        </button>
+        {loading ? (
+          <button
+            type="button"
+            onClick={() => ai.cancel()}
+            className="text-sm text-vermilion hover:text-vermilion-deep"
+          >中止生成</button>
+        ) : (
+          <button
+            type="button"
+            onClick={() => void generatePlans()}
+            className="text-sm text-inkblue hover:text-vermilion"
+          >重新生成</button>
+        )}
       </div>
 
       {(() => {
         const endings = project.worldAnchor?.endingsDesign ?? []
         if (endings.length === 0) return null
         const typeLabel: Record<string, string> = { good: '好', bad: '坏', neutral: '中立', secret: '隐藏' }
-        const typeColor: Record<string, string> = { good: 'text-green-600', bad: 'text-red-600', neutral: 'text-gray-500', secret: 'text-purple-600' }
+        const typeColor: Record<string, string> = { good: 'text-leaf', bad: 'text-vermilion', neutral: 'text-pencil', secret: 'text-inkblue' }
         return (
-          <div className="mb-6 bg-amber-50 border border-amber-100 rounded-xl px-4 py-3">
-            <p className="text-xs font-medium text-amber-700 mb-2">已设计 {endings.length} 条结局线（规模方案需容纳所有分支路径）</p>
+          <div className="mb-6 bg-paper-dim border-l-[3px] border-amberink px-4 py-3">
+            <p className="text-xs font-medium text-amberink mb-2">已设计 {endings.length} 条结局线（规模方案需容纳所有分支路径）</p>
             <div className="flex flex-wrap gap-2">
               {endings.map((e, i) => (
-                <span key={e.id ?? i} className="text-xs bg-white border border-amber-100 rounded-full px-3 py-1">
-                  <span className={`font-medium ${typeColor[e.type] ?? 'text-gray-500'}`}>[{typeLabel[e.type] ?? e.type}]</span>
-                  <span className="text-gray-700 ml-1">{e.title}</span>
+                <span key={e.id ?? i} className="text-xs bg-paper border border-line px-3 py-1">
+                  <span className={`font-medium ${typeColor[e.type] ?? 'text-pencil'}`}>[{typeLabel[e.type] ?? e.type}]</span>
+                  <span className="text-ink-soft ml-1">{e.title}</span>
                 </span>
               ))}
             </div>
@@ -232,25 +246,34 @@ export default function ScalePage() {
         )
       })()}
 
-      {error && (
-        <div className="mb-4 bg-red-50 border border-red-200 rounded-xl p-4 text-red-700 text-sm flex items-center justify-between">
-          <span>⚠️ {error}</span>
-          <button onClick={generatePlans} className="text-red-600 hover:text-red-800 underline text-xs ml-4 shrink-0">重试</button>
+      {ai.error && (
+        <div className="mb-4 bg-paper border-l-[3px] border-vermilion px-4 py-3 flex items-center justify-between gap-4" role="alert">
+          <span className="text-ink-soft text-sm">{ai.error}</span>
+          <button
+            type="button"
+            onClick={() => ai.retry()}
+            className="text-vermilion hover:text-vermilion-deep underline text-xs ml-4 shrink-0"
+          >重试</button>
         </div>
       )}
 
       {loading ? (
-        <div className="flex flex-col items-center py-20 text-gray-400">
-          <div className="w-6 h-6 border-2 border-amber-400 border-t-transparent rounded-full animate-spin mb-3" />
-          <p className="text-sm">AI 正在根据你的世界锚点生成规模方案...</p>
+        <div className="grid gap-4" role="status" aria-label="AI 正在生成规模方案">
+          {Array.from({ length: 3 }, (_, i) => (
+            <div key={i} className="paper-sheet border border-line/70 px-5 py-4">
+              <Skeleton className="h-4 w-28 mb-3" />
+              <Skeleton className="h-3.5 w-full mb-2" />
+              <Skeleton className="h-3.5 w-3/5" />
+            </div>
+          ))}
         </div>
       ) : project.scalePlanOptions.length === 0 ? (
-        <div className="text-center py-16 text-gray-400">
+        <div className="text-center py-16 text-pencil">
           <p className="text-sm">暂无方案，请先完成世界锚点设置</p>
         </div>
       ) : (
         <>
-          <div className="grid gap-4">
+          <div className="grid gap-4" role="radiogroup" aria-label="规模方案">
             {project.scalePlanOptions.map(plan => (
               <PlanCard
                 key={plan.id}
@@ -270,9 +293,10 @@ export default function ScalePage() {
 
       <div className="flex justify-end mt-8">
         <button
+          type="button"
           onClick={() => { advancePhase(); if (project) router.push(`/project/${project.id}/structure`) }}
           disabled={!selected}
-          className="px-5 py-2 bg-amber-600 text-white text-sm font-medium rounded-lg hover:bg-amber-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+          className="px-5 py-2 bg-vermilion text-paper text-sm font-medium hover:bg-vermilion-deep disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
         >
           下一步：结构设计 →
         </button>

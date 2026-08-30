@@ -1,14 +1,15 @@
 'use client'
 import { useEffect, useRef, useState } from 'react'
 import type { SaveStateDetail } from '@/lib/persistence'
+import { Spinner } from '@/app/components/ui/button'
 
 type DisplayState = 'idle' | 'saving' | 'saved' | 'error' | 'conflict'
 
-const CONFIG: Record<Exclude<DisplayState, 'idle'>, { label: string; color: string }> = {
-  saving: { label: '保存中…', color: 'var(--shell-fg-3)' },
-  saved: { label: '已保存', color: 'var(--gold-mid)' },
-  error: { label: '保存失败，重试中…', color: 'rgb(220,38,38)' },
-  conflict: { label: '保存冲突', color: 'rgb(220,38,38)' },
+const LABEL: Record<Exclude<DisplayState, 'idle'>, string> = {
+  saving: '保存中…',
+  saved: '已保存 ✓',
+  error: '保存失败，重试中…',
+  conflict: '保存冲突',
 }
 
 /** 监听 window 上的 `filmgame:save-state` 事件，展示当前项目的保存状态。 */
@@ -34,12 +35,19 @@ export function SaveStatusIndicator({ projectId }: { projectId: string }) {
   }, [projectId])
 
   if (state === 'idle') return null
-  const { label, color } = CONFIG[state]
 
-  return (
-    <span className="text-xs font-medium tracking-wide flex items-center gap-1.5 shrink-0" style={{ color }}>
-      <span className="w-1.5 h-1.5 rounded-full" style={{ background: color }} />
-      {label}
-    </span>
-  )
+  if (state === 'saving') {
+    return (
+      <span className="text-xs text-pencil flex items-center gap-1.5 shrink-0">
+        <Spinner />
+        {LABEL.saving}
+      </span>
+    )
+  }
+
+  if (state === 'saved') {
+    return <span className="text-xs text-pencil shrink-0">{LABEL.saved}</span>
+  }
+
+  return <span className="text-xs font-medium text-vermilion shrink-0">{LABEL[state]}</span>
 }
