@@ -1,71 +1,178 @@
+@import url("https://fonts.googleapis.com/css2?family=Zhi+Mang+Xing&display=swap");
 @import "tailwindcss";
 
-:root {
-  /* Content areas — unchanged */
-  --background: #ffffff;
-  --foreground: #09090b;
-  --card: #ffffff;
-  --card-warm: #fafaf9;
-  --border: #e4e4e7;
-  --border-light: #f4f4f5;
-  --primary: #ca8a04;
-  --primary-hover: #a16207;
-  --text-main: #09090b;
-  --text-secondary: #71717a;
-  --text-muted: #a1a1aa;
-  --muted: #71717a;
-  --muted-bg: #f4f4f5;
-  --success: #16a34a;
-  --warning: #ca8a04;
-  --error: #dc2626;
-  --locked: #52525b;
+/* ══════════════════════════════════════════════════════════════
+   编剧房间设计系统 (Writers' Room)
+   全站唯一视觉语言来源：软木板 / 索引卡 / 打字机稿纸 / 朱批 / 便签。
+   语义色经 @theme 暴露为 Tailwind 工具类（bg-paper、text-ink、border-line…），
+   页面一律使用这些语义类，禁止再写 gray/zinc/slate/amber 字面色。
+   ══════════════════════════════════════════════════════════════ */
 
-  /* Shell — deep midnight indigo, NOT black */
-  --shell:         #1a1f3e;
-  --shell-mid:     #1e2448;
-  --shell-raised:  #242b55;
-  --shell-border:  #2d3566;
+@theme {
+  /* 面 */
+  --color-paper: #fdfaf1;        /* 稿纸/卡片面 */
+  --color-paper-dim: #f6efdd;    /* 纸面次级/悬停 */
+  --color-kraft: #e8ddc2;        /* 桌面底色（软木板） */
+  --color-kraft-deep: #dccfae;   /* 底色加深 */
+  --color-sticky: #f7e37e;       /* 便签黄（AI 批注） */
+  --color-sticky-green: #cfe3c0; /* 便签绿（进行中任务） */
 
-  /* Gold system */
-  --gold-bright:   #e8c97a;
-  --gold-mid:      #c9a84c;
-  --gold-dim:      #7a6030;
-  --gold-trace:    #2a200a;
+  /* 线 */
+  --color-line: #d9caa4;         /* 实线边框 */
+  --color-line-soft: #e8ddc4;    /* 弱分隔线 */
 
-  /* Text on shell */
-  --shell-fg:      #ede9e0;
-  --shell-fg-2:    #a8b2cc;
-  --shell-fg-3:    #6b7899;
+  /* 字 */
+  --color-ink: #33291c;          /* 主文字 */
+  --color-ink-soft: #5c5140;     /* 次级文字 */
+  --color-pencil: #7a6f5c;       /* 铅笔灰：辅助文字/占位/图标 */
+
+  /* 色（信号） */
+  --color-vermilion: #c23a2b;      /* 朱红：主动作/当前项/危险 */
+  --color-vermilion-deep: #9e2c20; /* 朱红按下 */
+  --color-inkblue: #2c4a68;        /* 墨蓝：链接/条件/信息 */
+  --color-leaf: #4e7a48;           /* 成功/已完成 */
+  --color-amberink: #8a5a24;       /* 警示（赭） */
+
+  /* 字体族 */
+  --font-sans: -apple-system, "Segoe UI", "Microsoft YaHei", "PingFang SC", "Noto Sans SC", sans-serif;
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: var(--font-geist), -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+/* next/font 注入的变量需 inline 引用；手写体走 Google CSS（CJK 分片），楷体兜底 */
+@theme inline {
+  --font-courier: var(--font-courier-prime), "Courier New", monospace;
+}
+@theme {
+  --font-hand: "Zhi Mang Xing", "Kaiti SC", "KaiTi", "STKaiti", cursive;
+}
+
+:root {
+  --shadow-card: 0 1px 3px rgba(80, 60, 30, 0.18);
+  --shadow-card-lift: 0 3px 9px rgba(80, 60, 30, 0.26);
+  --shadow-sticky: 0 3px 7px rgba(80, 60, 30, 0.28);
 }
 
 * {
   box-sizing: border-box;
 }
 
-/* ── Art Deco Shell ── */
+body {
+  background: var(--color-kraft);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+}
+
+/* 软木板底纹（应用外壳背景） */
+.corkboard {
+  background:
+    radial-gradient(ellipse at 50% 0%, rgba(255, 250, 235, 0.5), transparent 70%),
+    radial-gradient(rgba(120, 95, 60, 0.13) 1px, transparent 1.5px) 0 0 / 9px 9px,
+    var(--color-kraft);
+}
+
+/* 稿纸面：白纸 + 左侧红边线（打字机稿纸） */
+.paper-sheet {
+  background: var(--color-paper);
+  box-shadow: var(--shadow-card-lift);
+  position: relative;
+}
+.paper-sheet-ruled {
+  padding-left: 2.75rem;
+}
+.paper-sheet-ruled::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 2rem;
+  width: 1px;
+  background: rgba(194, 58, 43, 0.35);
+  pointer-events: none;
+}
+
+/* 索引卡上的图钉 */
+.pin {
+  position: absolute;
+  top: -3px;
+  left: 50%;
+  width: 8px;
+  height: 8px;
+  margin-left: -4px;
+  border-radius: 50%;
+  background: #9aa3ad;
+  box-shadow: 0 1px 2px rgba(40, 30, 20, 0.5);
+}
+.pin-red {
+  background: var(--color-vermilion);
+}
+
+/* 纸胶带标签 */
+.tape-label {
+  display: inline-block;
+  background: rgba(252, 248, 238, 0.72);
+  padding: 2px 12px;
+  box-shadow: 0 1px 3px rgba(80, 60, 30, 0.2);
+  transform: rotate(-0.8deg);
+}
+
+/* 手写体（仅用于便签标题/短批注，长文用正文字体） */
+.hand {
+  font-family: var(--font-hand);
+}
+
+/* 剧本体 */
+.courier {
+  font-family: var(--font-courier);
+}
+
+/* 可见焦点（a11y 基线） */
+:focus-visible {
+  outline: 2px solid var(--color-inkblue);
+  outline-offset: 1px;
+}
+
+/* 骨架屏微光 */
+@keyframes skeleton-sheen {
+  0% { background-position: -180px 0; }
+  100% { background-position: 240px 0; }
+}
+.skeleton {
+  background: linear-gradient(90deg, rgba(120, 95, 60, 0.1) 25%, rgba(120, 95, 60, 0.18) 45%, rgba(120, 95, 60, 0.1) 65%) 0 0 / 240px 100%;
+  animation: skeleton-sheen 1.3s linear infinite;
+  border-radius: 3px;
+}
+
+@keyframes pulse-dot {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.25; }
+}
+
+/* ══════════════════════════════════════════════════════════════
+   ⚠ 以下为旧视觉遗留区（Art Deco 外壳 + 预览页暗色覆写 hack）。
+   阶段 2 逐页换装完成后整段删除，新代码禁止引用。
+   ══════════════════════════════════════════════════════════════ */
+
+:root {
+  --shell: #1a1f3e;
+  --shell-mid: #1e2448;
+  --shell-raised: #242b55;
+  --shell-border: #2d3566;
+  --gold-bright: #e8c97a;
+  --gold-mid: #c9a84c;
+  --gold-dim: #7a6030;
+  --gold-trace: #2a200a;
+  --shell-fg: #ede9e0;
+  --shell-fg-2: #a8b2cc;
+  --shell-fg-3: #6b7899;
+  --border: #e4e4e7;
+  --text-secondary: #71717a;
+}
+
 .filmgame-shell {
   background-color: var(--shell);
   background-image: url("data:image/svg+xml,%3Csvg width='48' height='48' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M24 0 L48 24 L24 48 L0 24 Z' fill='none' stroke='%23c9a84c' stroke-opacity='0.07' stroke-width='0.75'/%3E%3C/svg%3E");
   background-size: 48px 48px;
 }
 
-/* Chamfered corner frame — Art Deco geometric cut */
-.deco-frame {
-  clip-path: polygon(
-    8px 0%, calc(100% - 8px) 0%,
-    100% 8px, 100% calc(100% - 8px),
-    calc(100% - 8px) 100%, 8px 100%,
-    0% calc(100% - 8px), 0% 8px
-  );
-}
-
-/* Gold horizontal rule — 2px, not hairline */
 .deco-rule {
   height: 2px;
   background: linear-gradient(
@@ -80,12 +187,6 @@ body {
   );
 }
 
-.screenplay {
-  background: #fafaf9;
-  font-family: 'Georgia', serif;
-}
-
-/* Preview dark cinema theme — overrides light slate tokens when [data-preview-theme="dark"] is present */
 [data-preview-theme="dark"] { background: #0a0a0f; color: #f4f4f5; }
 [data-preview-theme="dark"] .bg-slate-50 { background: transparent; }
 [data-preview-theme="dark"] .bg-white\/80 { background: rgba(18,18,24,0.85); }
@@ -112,7 +213,6 @@ body {
 [data-preview-theme="dark"] .hover\:text-slate-900:hover { color: #fafafa; }
 [data-preview-theme="dark"] .hover\:text-purple-600:hover { color: #c4b5fd; }
 [data-preview-theme="dark"] .backdrop-blur-sm { backdrop-filter: blur(8px); }
-/* Ending softer pastels still feel warm on dark; reduce opacity */
 [data-preview-theme="dark"] .from-amber-50,
 [data-preview-theme="dark"] .from-slate-100,
 [data-preview-theme="dark"] .from-slate-50,
@@ -124,7 +224,6 @@ body {
 [data-preview-theme="dark"] .via-amber-100\/60 { --tw-gradient-via: rgba(140,80,30,0.2) !important; }
 [data-preview-theme="dark"] .via-slate-100\/60 { --tw-gradient-via: rgba(40,40,50,0.25) !important; }
 [data-preview-theme="dark"] .via-purple-100\/30 { --tw-gradient-via: rgba(80,50,130,0.2) !important; }
-/* Choice-accent overrides for cinema feel */
 [data-preview-theme="dark"] .bg-teal-50 { background: rgba(20,80,80,0.25); }
 [data-preview-theme="dark"] .bg-teal-100 { background: rgba(20,80,80,0.4); }
 [data-preview-theme="dark"] .hover\:bg-teal-100:hover { background: rgba(20,110,110,0.45); }

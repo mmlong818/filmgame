@@ -4,6 +4,7 @@ import type { Project, StoryNode, Choice, Variable, WorldAnchor, ScalePlan, Vali
 import type { Phase } from '@/lib/types/phase'
 import { loadLocalSnapshot, writeLocalSnapshot, saveProject, saveProjectMeta, saveNode, setHydrated, clearConflictLock } from '@/lib/persistence'
 import type { SaveStateDetail } from '@/lib/persistence'
+import { bindHistory, pushUndo, clearHistory } from '@/lib/store/history'
 
 const PHASE_ORDER: Phase[] = ['world', 'scale', 'structure', 'workshop', 'validate']
 
@@ -105,6 +106,8 @@ interface ProjectStore {
   /** 异步：先本地快照乐观 paint，再 GET 对账，DB 胜出，记录 loadedVersion。 */
   hydrateProject: (id: string) => Promise<HydrateResult>
   setProject: (p: Project, version?: number) => void
+  /** 撤销/重做恢复：整档替换当前项目并走整档保存（乐观锁基线沿用服务端确认值）。 */
+  restoreSnapshot: (p: Project) => void
   clearConflict: () => void
   clearStale: () => void
 
@@ -161,12 +164,14 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
   loadProject: (id) => {
     const p = loadLocalSnapshot(id)
     if (!p) return false
+    if (get().project?.id !== id) clearHistory()
     setHydrated(id, false)
     set({ project: p, paintBase: p, loadedVersion: null, saveConflict: null, stale: false, hydrated: false, offline: false })
     return true
   },
 
   hydrateProject: async (id) => {
+    if (get().project?.id !== id) clearHistory()
     setHydrated(id, false)
     const prior = get()
     let base: Project | null = null
@@ -217,9 +222,17 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
 
   setProject: (p, version) => {
     // 调用方（新建/导入项目）传入的是服务端刚确认落库的权威数据，等同一次成功对账。
+    if (get().project?.id !== p.id) clearHistory()
     setHydrated(p.id, true)
     set({ project: p, paintBase: null, loadedVersion: version ?? null, saveConflict: null, stale: false, hydrated: true, offline: false })
   },
+
+  restoreSnapshot: (p) => set((s) => {
+    if (!s.project || s.project.id !== p.id) return s
+    const restored: Project = { ...p, updatedAt: new Date().toISOString() }
+    saveProject(restored, s.loadedVersion ?? undefined)
+    return { project: restored }
+  }),
 
   clearConflict: () => set({ saveConflict: null }),
   clearStale: () => set({ stale: false }),
@@ -258,6 +271,7 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
 
   deleteCharacter: (id) => set((s) => {
     if (!s.project) return s
+    pushUndo('删除角色', s.project)
     const p = { ...s.project, characters: s.project.characters.filter(c => c.id !== id), updatedAt: new Date().toISOString() }
     saveProjectMeta(p, s.loadedVersion ?? undefined)
     return { project: p }
@@ -265,6 +279,7 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
 
   setCharacters: (characters) => set((s) => {
     if (!s.project) return s
+    pushUndo('批量覆盖角色', s.project)
     const p = { ...s.project, characters, updatedAt: new Date().toISOString() }
     saveProjectMeta(p, s.loadedVersion ?? undefined)
     return { project: p }
@@ -311,6 +326,7 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
   // targetPhase 之后的阶段重新锁定；若当前阶段本就未超过 targetPhase，则不改变阶段。
   clearDownstream: (targetPhase) => set((s) => {
     if (!s.project) return s
+    pushUndo('清空下游内容', s.project)
     let nextPhase = s.project.currentPhase
     let nextProgress = s.project.phaseProgress
     if (targetPhase) {
@@ -336,6 +352,7 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
   // 两个 action 产生两条并发的项目级保存。
   resetStructure: () => set((s) => {
     if (!s.project) return s
+    pushUndo('重新设计结构', s.project)
     const structIdx = PHASE_ORDER.indexOf('structure')
     const progress = { ...s.project.phaseProgress }
     PHASE_ORDER.forEach((ph, i) => { if (i > structIdx) progress[ph] = 'locked' })
@@ -380,6 +397,7 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
   // 结构批量重写：acts/chapters/nodes 一起变化，走整档保存。
   bulkSetStructure: (chapters, acts, nodes) => set((s) => {
     if (!s.project) return s
+    if (s.project.nodes.length > 0 || s.project.chapters.length > 0) pushUndo('结构批量覆盖', s.project)
     const p = { ...s.project, chapters, acts, nodes, updatedAt: new Date().toISOString() }
     saveProject(p, s.loadedVersion ?? undefined)
     return { project: p }
@@ -421,6 +439,7 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
   // 删除节点会牵连其它节点的悬空 choices、acts.nodeIds、endings —— 多行联动，走整档保存。
   deleteNode: (nodeId) => set((s) => {
     if (!s.project) return s
+    pushUndo('删除节点', s.project)
     const nodes = s.project.nodes
       .filter(n => n.id !== nodeId)
       .map(n => ({ ...n, choices: n.choices.filter(c => c.targetNodeId !== nodeId) }))
@@ -462,6 +481,7 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
 
   deleteChoice: (choiceId) => set((s) => {
     if (!s.project) return s
+    pushUndo('删除选项', s.project)
     const owner = s.project.nodes.find(n => n.choices.some(c => c.id === choiceId))
     if (!owner) return s
     const updatedNode = { ...owner, choices: owner.choices.filter(c => c.id !== choiceId) }
@@ -490,6 +510,7 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
 
   setVariables: (variables) => set((s) => {
     if (!s.project) return s
+    pushUndo('批量覆盖变量', s.project)
     const p = { ...s.project, variables, updatedAt: new Date().toISOString() }
     saveProjectMeta(p, s.loadedVersion ?? undefined)
     return { project: p }
@@ -513,6 +534,7 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
 
   deleteEnding: (id) => set((s) => {
     if (!s.project) return s
+    pushUndo('删除结局', s.project)
     const p = { ...s.project, endings: s.project.endings.filter(e => e.id !== id), updatedAt: new Date().toISOString() }
     saveProjectMeta(p, s.loadedVersion ?? undefined)
     return { project: p }
@@ -520,6 +542,7 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
 
   setEndingsDesign: (endings) => set((s) => {
     if (!s.project) return s
+    pushUndo('覆盖结局设计', s.project)
     const worldAnchor = s.project.worldAnchor ? { ...s.project.worldAnchor, endingsDesign: endings } : null
     const p = { ...s.project, worldAnchor, updatedAt: new Date().toISOString() }
     saveProjectMeta(p, s.loadedVersion ?? undefined)
@@ -554,6 +577,12 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
     return { project: p }
   }),
 }))
+
+// 撤销/重做恢复通道（history.ts 不反向依赖本模块）
+bindHistory({
+  getProject: () => useProjectStore.getState().project,
+  restore: (p) => useProjectStore.getState().restoreSnapshot(p),
+})
 
 // ─── 多标签页协同（BroadcastChannel）+ 保存状态桥接 ───────────────────
 // 只处理整档保存（saveConflict/version/broadcast）：节点级保存没有暴露 per-node version
