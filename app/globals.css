@@ -1,54 +1,55 @@
-@import url("https://fonts.googleapis.com/css2?family=Zhi+Mang+Xing&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@600;700;900&display=swap");
 @import "tailwindcss";
 
 /* ══════════════════════════════════════════════════════════════
-   编剧房间设计系统 (Writers' Room)
-   全站唯一视觉语言来源：软木板 / 索引卡 / 打字机稿纸 / 朱批 / 便签。
+   铅字与朱批设计系统 (Letterpress & Vermilion)
+   克制的素纸编辑部：安静纸面 + 发丝线 + 宋体标题 + 朱红点睛 + 剧本体。
+   无底纹、无倾斜、无手写体——装饰预算给到最低，长时间工作不扰眼。
    语义色经 @theme 暴露为 Tailwind 工具类（bg-paper、text-ink、border-line…），
    页面一律使用这些语义类，禁止再写 gray/zinc/slate/amber 字面色。
    ══════════════════════════════════════════════════════════════ */
 
 @theme {
   /* 面 */
-  --color-paper: #fdfaf1;        /* 稿纸/卡片面 */
-  --color-paper-dim: #f6efdd;    /* 纸面次级/悬停 */
-  --color-kraft: #e8ddc2;        /* 桌面底色（软木板） */
-  --color-kraft-deep: #dccfae;   /* 底色加深 */
-  --color-sticky: #f7e37e;       /* 便签黄（AI 批注） */
-  --color-sticky-green: #cfe3c0; /* 便签绿（进行中任务） */
+  --color-paper: #fbf9f3;        /* 卡片/稿纸面 */
+  --color-paper-dim: #f2eee3;    /* 纸面次级/悬停 */
+  --color-kraft: #f4f1ea;        /* 页面底（比纸面仅深半度） */
+  --color-kraft-deep: #eae6da;   /* 底色加深 */
+  --color-sticky: #f6f1e1;       /* AI 批注底（安静米纸，靠朱红边条点题） */
+  --color-sticky-green: #eef1e4; /* 进行中任务底 */
 
   /* 线 */
-  --color-line: #d9caa4;         /* 实线边框 */
-  --color-line-soft: #e8ddc4;    /* 弱分隔线 */
+  --color-line: #ddd6c4;         /* 实线边框 */
+  --color-line-soft: #ebe6d8;    /* 弱分隔线 */
 
   /* 字 */
-  --color-ink: #33291c;          /* 主文字 */
-  --color-ink-soft: #5c5140;     /* 次级文字 */
-  --color-pencil: #7a6f5c;       /* 铅笔灰：辅助文字/占位/图标 */
+  --color-ink: #2b261d;          /* 主文字 */
+  --color-ink-soft: #5b5546;     /* 次级文字 */
+  --color-pencil: #877f6d;       /* 铅笔灰：辅助文字/占位/图标 */
 
   /* 色（信号） */
-  --color-vermilion: #c23a2b;      /* 朱红：主动作/当前项/危险 */
-  --color-vermilion-deep: #9e2c20; /* 朱红按下 */
+  --color-vermilion: #b0341c;      /* 朱红：主动作/当前项/危险 */
+  --color-vermilion-deep: #8f2a16; /* 朱红按下 */
   --color-inkblue: #2c4a68;        /* 墨蓝：链接/条件/信息 */
   --color-leaf: #4e7a48;           /* 成功/已完成 */
   --color-amberink: #8a5a24;       /* 警示（赭） */
 
   /* 字体族 */
   --font-sans: -apple-system, "Segoe UI", "Microsoft YaHei", "PingFang SC", "Noto Sans SC", sans-serif;
+  --font-serif: "Noto Serif SC", "Songti SC", "SimSun", Georgia, serif;
+  /* 历史命名：曾是手写体，现统一为宋体批注（保留 token 名避免全站改引用） */
+  --font-hand: "Noto Serif SC", "Songti SC", "SimSun", Georgia, serif;
 }
 
-/* next/font 注入的变量需 inline 引用；手写体走 Google CSS（CJK 分片），楷体兜底 */
+/* next/font 注入的变量需 inline 引用 */
 @theme inline {
   --font-courier: var(--font-courier-prime), "Courier New", monospace;
 }
-@theme {
-  --font-hand: "Zhi Mang Xing", "Kaiti SC", "KaiTi", "STKaiti", cursive;
-}
 
 :root {
-  --shadow-card: 0 1px 3px rgba(80, 60, 30, 0.18);
-  --shadow-card-lift: 0 3px 9px rgba(80, 60, 30, 0.26);
-  --shadow-sticky: 0 3px 7px rgba(80, 60, 30, 0.28);
+  --shadow-card: 0 1px 2px rgba(60, 50, 30, 0.07);
+  --shadow-card-lift: 0 2px 6px rgba(60, 50, 30, 0.1);
+  --shadow-sticky: 0 1px 2px rgba(60, 50, 30, 0.07);
 }
 
 * {
@@ -61,18 +62,22 @@ body {
   font-family: var(--font-sans);
 }
 
-/* 软木板底纹（应用外壳背景） */
+/* 应用外壳背景（历史命名：曾是软木板底纹，现为安静素纸，无纹理） */
 .corkboard {
-  background:
-    radial-gradient(ellipse at 50% 0%, rgba(255, 250, 235, 0.5), transparent 70%),
-    radial-gradient(rgba(120, 95, 60, 0.13) 1px, transparent 1.5px) 0 0 / 9px 9px,
-    var(--color-kraft);
+  background: var(--color-kraft);
 }
 
-/* 稿纸面：白纸 + 左侧红边线（打字机稿纸） */
+/* 宋体标题（页面 h1/h2 与 .hand 批注共用铅字气质） */
+h1,
+h2 {
+  font-family: var(--font-serif);
+}
+
+/* 稿纸面：纸色 + 发丝线边框 */
 .paper-sheet {
   background: var(--color-paper);
-  box-shadow: var(--shadow-card-lift);
+  border: 1px solid var(--color-line-soft);
+  box-shadow: var(--shadow-card);
   position: relative;
 }
 .paper-sheet-ruled {
@@ -85,36 +90,26 @@ body {
   bottom: 0;
   left: 2rem;
   width: 1px;
-  background: rgba(194, 58, 43, 0.35);
+  background: rgba(176, 52, 28, 0.18);
   pointer-events: none;
 }
 
-/* 索引卡上的图钉 */
+/* 图钉已退役（素纸风不用装饰物）；保留类名兼容既有标记 */
 .pin {
-  position: absolute;
-  top: -3px;
-  left: 50%;
-  width: 8px;
-  height: 8px;
-  margin-left: -4px;
-  border-radius: 50%;
-  background: #9aa3ad;
-  box-shadow: 0 1px 2px rgba(40, 30, 20, 0.5);
+  display: none;
 }
 .pin-red {
-  background: var(--color-vermilion);
+  display: none;
 }
 
-/* 纸胶带标签 */
+/* 小节/章标签（历史命名：曾是纸胶带，现为安静的字距标签） */
 .tape-label {
   display: inline-block;
-  background: rgba(252, 248, 238, 0.72);
-  padding: 2px 12px;
-  box-shadow: 0 1px 3px rgba(80, 60, 30, 0.2);
-  transform: rotate(-0.8deg);
+  letter-spacing: 0.18em;
+  color: var(--color-ink-soft);
 }
 
-/* 手写体（仅用于便签标题/短批注，长文用正文字体） */
+/* 批注体（历史命名：曾是手写体，现为宋体——用于便签标题/短批注） */
 .hand {
   font-family: var(--font-hand);
 }

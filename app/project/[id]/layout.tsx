@@ -199,7 +199,7 @@ export default function ProjectLayout({ children }: { children: React.ReactNode 
               return (
                 <span
                   key={phase.key}
-                  className="text-xs font-medium px-3 py-1.5 rounded-t-sm text-pencil/40 cursor-not-allowed"
+                  className="text-xs font-medium px-3 py-1.5 text-pencil/40 cursor-not-allowed border-b-2 border-transparent"
                 >
                   {i + 1}. {phase.label}
                 </span>
@@ -225,10 +225,10 @@ export default function ProjectLayout({ children }: { children: React.ReactNode 
               <Link
                 key={phase.key}
                 href={`/project/${project.id}/${phase.key}`}
-                className={`relative text-xs font-medium px-3 py-1.5 rounded-t-sm border border-b-0 transition-colors cursor-pointer ${
+                className={`relative text-xs font-medium px-3 py-1.5 border-b-2 transition-colors cursor-pointer ${
                   isActive
-                    ? 'bg-paper text-ink font-semibold border-line shadow-[var(--shadow-card)] before:content-[\'\'] before:absolute before:-top-1 before:left-1/2 before:-translate-x-1/2 before:w-1.5 before:h-1.5 before:rounded-full before:bg-vermilion before:shadow-sm'
-                    : 'bg-paper/60 text-pencil border-line-soft hover:bg-paper hover:text-ink'
+                    ? 'text-ink font-semibold border-vermilion'
+                    : 'text-pencil border-transparent hover:text-ink'
                 }`}
               >
                 {status === 'done' && <span className="text-leaf mr-1">✓</span>}

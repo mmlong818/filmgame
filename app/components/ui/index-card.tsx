@@ -1,13 +1,13 @@
 'use client'
-/** 索引卡：软木板上钉着的卡片，节点/项目等列表项的统一容器 */
+/** 索引卡：节点/项目等列表项的统一容器（素纸风：发丝线 + 当前项朱红左条，无图钉） */
 export function IndexCard({
-  pinned = true,
+  pinned: _pinned = true,
   current = false,
   onClick,
   className = '',
   children,
 }: {
-  /** 是否显示图钉 */
+  /** 已废弃：图钉装饰已退役，参数保留仅为兼容 */
   pinned?: boolean
   /** 当前项：红钉 + 朱红描边 */
   current?: boolean
@@ -31,12 +31,11 @@ export function IndexCard({
             }
           : undefined
       }
-      className={`relative bg-paper border px-3 py-2 ${
-        current ? 'border-vermilion/50' : 'border-line/70'
+      className={`relative bg-paper border border-line-soft px-3 py-2 ${
+        current ? 'border-l-2 border-l-vermilion' : ''
       } ${interactive ? 'cursor-pointer hover:bg-paper-dim' : ''} ${className}`}
-      style={{ boxShadow: current ? 'var(--shadow-card-lift)' : 'var(--shadow-card)' }}
+      style={{ boxShadow: 'var(--shadow-card)' }}
     >
-      {pinned && <span aria-hidden className={`pin ${current ? 'pin-red' : ''}`} />}
       {children}
     </div>
   )
