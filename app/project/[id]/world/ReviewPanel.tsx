@@ -8,7 +8,7 @@ import type { AiReview } from '@/lib/types/project'
 /** AI 专家审查结果：便签呈现 + 「AI 修正」触发器（自带独立 loading/error/取消） */
 export function ReviewPanel({ review, fixAi, onFix }: { review: AiReview; fixAi: AiActionState; onFix: () => void }) {
   return (
-    <StickyNote title="AI 专家审查" tilt={-0.6} className="mt-6 max-w-none">
+    <StickyNote title="AI 专家审查">
       <div className="flex items-center gap-2 mb-3">
         <Tag tone={review.consistency === '通过' ? 'leaf' : 'amberink'}>{review.consistency}</Tag>
         {review.issues?.length > 0 && (

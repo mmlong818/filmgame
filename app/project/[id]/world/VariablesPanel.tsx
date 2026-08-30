@@ -1,29 +1,19 @@
 'use client'
 import { Tag } from '@/app/components/ui/tag'
-import { AiTrigger } from './ai-widgets'
 import { SectionHeading } from './widgets'
-import type { AiActionState } from '@/lib/hooks/useAiAction'
 import type { Variable } from '@/lib/types/project'
 
 const VARIABLE_TONE: Record<Variable['type'], 'inkblue' | 'pencil' | 'vermilion' | 'amberink'> = {
   counter: 'inkblue', flag: 'pencil', relationship: 'vermilion', item: 'amberink',
 }
 
-export function VariablesPanel({ variables, ai, onSuggest, disabled }: {
-  variables: Variable[]
-  ai: AiActionState
-  onSuggest: () => void
-  disabled: boolean
-}) {
+/** 叙事变量（核心产出）。AI 建议入口在右侧辅助区。 */
+export function VariablesPanel({ variables }: { variables: Variable[] }) {
   return (
     <div>
-      <SectionHeading
-        title="叙事变量"
-        hint="追踪玩家选择积累的数值，用于终章解锁不同结局路线"
-        action={<AiTrigger ai={ai} label="AI 建议变量" onRun={onSuggest} disabled={disabled} size="sm" variant="ghost" />}
-      />
+      <SectionHeading title="叙事变量" hint="追踪玩家选择积累的数值，用于终章解锁不同结局路线" />
       {variables.length === 0 ? (
-        <p className="text-xs text-pencil italic">先设计结局线，再点击「AI 建议变量」自动提取需要追踪的变量</p>
+        <p className="text-xs text-pencil italic">尚无变量——先设计结局线，再用右侧「AI 建议变量」自动提取</p>
       ) : (
         <div className="space-y-1.5">
           {variables.map(v => (
