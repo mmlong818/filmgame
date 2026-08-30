@@ -5,6 +5,7 @@ import { useProjectStore } from '@/lib/store/projectStore'
 import { useAiAction } from '@/lib/hooks/useAiAction'
 import { aiJson } from '@/lib/ai/client'
 import { Skeleton } from '@/app/components/ui/skeleton'
+import { AssistRail, AssistSection } from '@/app/components/ui/assist-rail'
 import type { ScalePlan } from '@/lib/types/project'
 
 function PlanCard({
@@ -187,119 +188,133 @@ export default function ScalePage() {
   const selected = project.selectedScalePlanId
   const nodeCount = project.nodes.length
   const loading = Boolean(ai.loading)
+  const endings = project.worldAnchor?.endingsDesign ?? []
+  const typeLabel: Record<string, string> = { good: '好', bad: '坏', neutral: '中立', secret: '隐藏' }
+  const typeColor: Record<string, string> = { good: 'text-leaf', bad: 'text-vermilion', neutral: 'text-pencil', secret: 'text-inkblue' }
 
   return (
-    <div className="max-w-3xl mx-auto px-6 py-8 bg-paper min-h-screen">
-      {project.downstreamStale && (
-        <div className="mb-4 flex items-center gap-3 bg-paper border-l-[3px] border-amberink px-4 py-3">
-          <span className="text-amberink text-sm flex-1">世界锚点已更新，当前方案基于旧版本</span>
-          <button
-            type="button"
-            onClick={() => { clearDownstream('scale'); void generatePlans() }}
-            className="text-xs px-3 py-1.5 bg-vermilion text-paper hover:bg-vermilion-deep"
-          >重新生成</button>
-          <button
-            type="button"
-            onClick={() => clearStaleFlag()}
-            className="text-xs px-3 py-1.5 border border-line text-ink-soft hover:bg-paper-dim"
-          >忽略</button>
-        </div>
-      )}
-
-      <div className="flex items-center justify-between mb-4">
-        <div>
-          <h2 className="text-xl font-semibold text-ink">规模规划</h2>
-          <p className="text-sm text-pencil mt-1">选择适合你的项目体量</p>
-        </div>
-        {loading ? (
-          <button
-            type="button"
-            onClick={() => ai.cancel()}
-            className="text-sm text-vermilion hover:text-vermilion-deep"
-          >中止生成</button>
-        ) : (
-          <button
-            type="button"
-            onClick={() => void generatePlans()}
-            className="text-sm text-inkblue hover:text-vermilion"
-          >重新生成</button>
-        )}
+    <div className="max-w-6xl mx-auto px-6 py-8 bg-paper min-h-screen">
+      <div className="mb-6">
+        <h2 className="text-xl font-semibold text-ink">规模规划</h2>
+        <p className="text-sm text-pencil mt-1">选择适合你的项目体量</p>
       </div>
 
-      {(() => {
-        const endings = project.worldAnchor?.endingsDesign ?? []
-        if (endings.length === 0) return null
-        const typeLabel: Record<string, string> = { good: '好', bad: '坏', neutral: '中立', secret: '隐藏' }
-        const typeColor: Record<string, string> = { good: 'text-leaf', bad: 'text-vermilion', neutral: 'text-pencil', secret: 'text-inkblue' }
-        return (
-          <div className="mb-6 bg-paper-dim border-l-[3px] border-amberink px-4 py-3">
-            <p className="text-xs font-medium text-amberink mb-2">已设计 {endings.length} 条结局线（规模方案需容纳所有分支路径）</p>
-            <div className="flex flex-wrap gap-2">
-              {endings.map((e, i) => (
-                <span key={e.id ?? i} className="text-xs bg-paper border border-line px-3 py-1">
-                  <span className={`font-medium ${typeColor[e.type] ?? 'text-pencil'}`}>[{typeLabel[e.type] ?? e.type}]</span>
-                  <span className="text-ink-soft ml-1">{e.title}</span>
-                </span>
+      <div className="flex flex-col lg:flex-row gap-6 items-start">
+        {/* ── 核心产出区 ── */}
+        <main className="flex-1 min-w-0">
+          {project.downstreamStale && (
+            <div className="mb-4 flex items-center gap-3 bg-paper border-l-[3px] border-amberink px-4 py-3">
+              <span className="text-amberink text-sm flex-1">世界锚点已更新，当前方案基于旧版本</span>
+              <button
+                type="button"
+                onClick={() => { clearDownstream('scale'); void generatePlans() }}
+                className="text-xs px-3 py-1.5 bg-vermilion text-paper hover:bg-vermilion-deep"
+              >重新生成</button>
+              <button
+                type="button"
+                onClick={() => clearStaleFlag()}
+                className="text-xs px-3 py-1.5 border border-line text-ink-soft hover:bg-paper-dim"
+              >忽略</button>
+            </div>
+          )}
+
+          {loading ? (
+            <div className="grid gap-4" role="status" aria-label="AI 正在生成规模方案">
+              {Array.from({ length: 3 }, (_, i) => (
+                <div key={i} className="paper-sheet border border-line/70 px-5 py-4">
+                  <Skeleton className="h-4 w-28 mb-3" />
+                  <Skeleton className="h-3.5 w-full mb-2" />
+                  <Skeleton className="h-3.5 w-3/5" />
+                </div>
               ))}
             </div>
-          </div>
-        )
-      })()}
-
-      {ai.error && (
-        <div className="mb-4 bg-paper border-l-[3px] border-vermilion px-4 py-3 flex items-center justify-between gap-4" role="alert">
-          <span className="text-ink-soft text-sm">{ai.error}</span>
-          <button
-            type="button"
-            onClick={() => ai.retry()}
-            className="text-vermilion hover:text-vermilion-deep underline text-xs ml-4 shrink-0"
-          >重试</button>
-        </div>
-      )}
-
-      {loading ? (
-        <div className="grid gap-4" role="status" aria-label="AI 正在生成规模方案">
-          {Array.from({ length: 3 }, (_, i) => (
-            <div key={i} className="paper-sheet border border-line/70 px-5 py-4">
-              <Skeleton className="h-4 w-28 mb-3" />
-              <Skeleton className="h-3.5 w-full mb-2" />
-              <Skeleton className="h-3.5 w-3/5" />
+          ) : project.scalePlanOptions.length === 0 ? (
+            <div className="text-center py-16 text-pencil">
+              <p className="text-sm">暂无方案，请先完成世界锚点设置</p>
             </div>
-          ))}
-        </div>
-      ) : project.scalePlanOptions.length === 0 ? (
-        <div className="text-center py-16 text-pencil">
-          <p className="text-sm">暂无方案，请先完成世界锚点设置</p>
-        </div>
-      ) : (
-        <>
-          <div className="grid gap-4" role="radiogroup" aria-label="规模方案">
-            {project.scalePlanOptions.map(plan => (
-              <PlanCard
-                key={plan.id}
-                plan={plan}
-                selected={selected === plan.id}
-                onSelect={() => selectScalePlan(plan.id)}
-                nodeCount={nodeCount}
-              />
-            ))}
-          </div>
+          ) : (
+            <>
+              <div className="grid gap-4" role="radiogroup" aria-label="规模方案">
+                {project.scalePlanOptions.map(plan => (
+                  <PlanCard
+                    key={plan.id}
+                    plan={plan}
+                    selected={selected === plan.id}
+                    onSelect={() => selectScalePlan(plan.id)}
+                    nodeCount={nodeCount}
+                  />
+                ))}
+              </div>
 
-          {project.scalePlanOptions.length > 1 && (
-            <CompareTable plans={project.scalePlanOptions} selectedId={selected} />
+              {project.scalePlanOptions.length > 1 && (
+                <CompareTable plans={project.scalePlanOptions} selectedId={selected} />
+              )}
+            </>
           )}
-        </>
-      )}
 
-      <div className="flex justify-end mt-8">
-        <button
-          type="button"
-          onClick={() => { advancePhase(); if (project) router.push(`/project/${project.id}/structure`) }}
-          disabled={!selected}
-          className="px-5 py-2 bg-vermilion text-paper text-sm font-medium hover:bg-vermilion-deep disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-        >
-          下一步：结构设计 →
-        </button>
+          <div className="flex justify-end mt-8">
+            <button
+              type="button"
+              onClick={() => { advancePhase(); if (project) router.push(`/project/${project.id}/structure`) }}
+              disabled={!selected}
+              className="px-5 py-2 bg-vermilion text-paper text-sm font-medium hover:bg-vermilion-deep disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+            >
+              下一步：结构设计 →
+            </button>
+          </div>
+        </main>
+
+        {/* ── 辅助区 ── */}
+        <AssistRail>
+          <AssistSection title="AI 协作">
+            <div className="bg-paper border border-line-soft p-3.5 space-y-3">
+              {loading ? (
+                <button
+                  type="button"
+                  onClick={() => ai.cancel()}
+                  className="text-sm text-vermilion hover:text-vermilion-deep"
+                >中止生成</button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => void generatePlans()}
+                  className="text-sm text-inkblue hover:text-vermilion"
+                >重新生成</button>
+              )}
+              {ai.error && (
+                <div className="bg-paper border-l-[3px] border-vermilion px-3 py-2.5" role="alert">
+                  <p className="text-ink-soft text-xs mb-1.5">{ai.error}</p>
+                  <button
+                    type="button"
+                    onClick={() => ai.retry()}
+                    className="text-vermilion hover:text-vermilion-deep underline text-xs"
+                  >重试</button>
+                </div>
+              )}
+            </div>
+          </AssistSection>
+
+          {endings.length > 0 && (
+            <AssistSection title="结局线摘要">
+              <p className="text-[11px] text-amberink mb-2">已设计 {endings.length} 条结局线（规模方案需容纳所有分支路径）</p>
+              <div className="flex flex-wrap gap-1.5">
+                {endings.map((e, i) => (
+                  <span key={e.id ?? i} className="text-[11px] bg-paper border border-line px-2.5 py-1">
+                    <span className={`font-medium ${typeColor[e.type] ?? 'text-pencil'}`}>[{typeLabel[e.type] ?? e.type}]</span>
+                    <span className="text-ink-soft ml-1">{e.title}</span>
+                  </span>
+                ))}
+              </div>
+            </AssistSection>
+          )}
+
+          <AssistSection title="说明">
+            <div className="text-[11.5px] text-pencil leading-relaxed space-y-1.5">
+              <p>体量方案由「章数 × 幕/章」决定节点总量与分支数，用于估算后续结构设计与写作的工作量。</p>
+              <p>预估工时为粗略估算口径，实际耗时随内容复杂度浮动；已有节点时更换方案需重新生成结构。</p>
+            </div>
+          </AssistSection>
+        </AssistRail>
       </div>
     </div>
   )

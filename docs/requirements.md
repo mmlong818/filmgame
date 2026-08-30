@@ -271,7 +271,8 @@ Next.js 16.2 (App Router) / React 19 / TypeScript 5 / Tailwind v4 / Zustand v5 /
 
 ### NFR-5 视觉与交互体系（v0.6 起）
 
-- 全站唯一视觉语言「编剧房间」：语义 token 经 Tailwind `@theme` 暴露（`app/globals.css`），页面禁止使用 gray/zinc/slate/amber 等字面色类；节点类型的文案与配色只从 `lib/ui/nodeTypes.ts` 取。
+- 全站唯一视觉语言「叙事蓝图」（安静工程图纸：冷调图纸白 + 制图蓝 + 橙红点睛，装饰克制）：语义 token 经 Tailwind `@theme` 暴露（`app/globals.css`），页面禁止使用 gray/zinc/slate/amber 等字面色类；节点类型的文案与配色只从 `lib/ui/nodeTypes.ts` 取。
+- 信息架构约定「核心产出区 + 辅助区」：主栏只放会进入最终剧本数据的内容与主流程按钮；一切 AI 动作与产物、区块级说明、设计原则收进右侧 `AssistRail`（`app/components/ui/assist-rail.tsx`，宽屏吸顶独立滚动，窄屏下落）。工坊中央稿纸只保留故事本体（场景头/场景描述/对白/抉择），情感弧、系统功能、时长、备注一律入辅助区。
 - 共享组件库 `app/components/ui/`（Button / Input / Modal / ConfirmButton / Skeleton / StickyNote / IndexCard / Tag），删除确认统一为两步 `ConfirmButton`；模态统一具备 Esc 关闭 + 焦点圈定 + `aria-modal`。
 - 预览页主题为组件级 CSS 变量（`--pv-*`），不得以覆写 Tailwind 字面类的方式实现主题。
 - a11y 基线：可交互元素键盘可达（button 语义或 role/tabIndex），加载态用骨架屏而非纯文字。

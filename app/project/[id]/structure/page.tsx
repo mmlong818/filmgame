@@ -16,6 +16,7 @@ import { IndexCard } from '@/app/components/ui/index-card'
 import { NodeTypeBadge } from '@/app/components/ui/tag'
 import { SkeletonLines } from '@/app/components/ui/skeleton'
 import { StickyNote } from '@/app/components/ui/sticky-note'
+import { AssistRail, AssistSection } from '@/app/components/ui/assist-rail'
 import FlowView from './FlowView'
 import EndingsSection from './EndingsSection'
 
@@ -516,14 +517,27 @@ export default function StructurePage() {
 
   return (
     <div className={isFlowMode ? 'flex flex-col h-[calc(100vh-112px)]' : ''}>
-      {/* 顶部：标题 + 操作按钮 */}
-      <div className="max-w-3xl mx-auto px-6 py-8 pb-0 flex-shrink-0">
-        <div className="flex items-center justify-between mb-6">
-          <div>
-            <h2 className="text-xl font-semibold text-ink">结构与分支</h2>
-            <p className="text-sm text-pencil mt-1">建立章幕节点与分支连接</p>
-          </div>
-          <div className="flex items-center gap-3">
+      {/* 顶部：标题 */}
+      <div className="max-w-6xl mx-auto px-6 py-8 pb-0 flex-shrink-0 w-full">
+        <h2 className="text-xl font-semibold text-ink">结构与分支</h2>
+        <p className="text-sm text-pencil mt-1">建立章幕节点与分支连接</p>
+      </div>
+
+      <div className={isFlowMode
+        ? 'flex-1 min-h-0 flex flex-col lg:flex-row gap-6 items-start px-4 pt-4 pb-4 w-full'
+        : 'max-w-6xl mx-auto px-6 pt-4 pb-8 w-full flex flex-col lg:flex-row gap-6 items-start'}
+      >
+        {/* ── 核心产出区 ── */}
+        <main className={isFlowMode ? 'flex-1 min-w-0 h-full flex flex-col gap-3' : 'flex-1 min-w-0'}>
+          {project.downstreamStale && (
+            <div className="mb-4 flex items-center gap-3 bg-paper border-l-[3px] border-amberink px-4 py-3" style={{ boxShadow: 'var(--shadow-card)' }}>
+              <span className="text-amberink text-sm flex-1">世界设定已修改，当前结构基于旧版本，建议重新生成</span>
+              <Button size="sm" variant="primary" onClick={() => { clearDownstream('structure'); generateStructure() }}>重新生成</Button>
+              <Button size="sm" variant="secondary" onClick={() => clearStaleFlag()}>继续使用旧版本</Button>
+            </div>
+          )}
+
+          <div className="flex items-center justify-between mb-4">
             {/* 视图切换 */}
             <div className="flex text-xs border border-line">
               <button
@@ -539,171 +553,190 @@ export default function StructurePage() {
                 流程图
               </button>
             </div>
-            <Link href={`/project/${project.id}/branches`}>
-              <Button variant="secondary" size="sm">分支路径分析</Button>
-            </Link>
-            {project.nodes.length > 0 && (
-              <Button variant="primary" size="sm" onClick={() => generateBranches()}>
-                {project.nodes.some(n => n.choices.length > 0) ? '重新生成分支' : 'AI 生成分支选项'}
-              </Button>
-            )}
-            <ConfirmButton
-              variant="danger" size="sm"
-              confirmLabel="确认重新设计？"
-              onConfirm={() => {
-                // 清空结构 + 阶段回退 + 重锁后续阶段收敛在单个 store action（一次保存）里：
-                // 拆成"清空 + goToPhase"两个 action 会各自武装一条带同一 expectedVersion
-                // 的项目级保存，且 goToPhase 不会重新锁定 workshop/validate。
-                resetStructure()
-                generateStructure()
-              }}
-            >重新 AI 设计</ConfirmButton>
             {viewMode === 'list' && (
               <Button variant="primary" size="sm" onClick={() => addChapter(`第${project.chapters.length + 1}章`)}>+ 添加章</Button>
             )}
           </div>
-        </div>
 
-        {project.downstreamStale && (
-          <div className="mb-4 flex items-center gap-3 bg-paper border-l-[3px] border-amberink px-4 py-3" style={{ boxShadow: 'var(--shadow-card)' }}>
-            <span className="text-amberink text-sm flex-1">世界设定已修改，当前结构基于旧版本，建议重新生成</span>
-            <Button size="sm" variant="primary" onClick={() => { clearDownstream('structure'); generateStructure() }}>重新生成</Button>
-            <Button size="sm" variant="secondary" onClick={() => clearStaleFlag()}>继续使用旧版本</Button>
-          </div>
-        )}
-        {currentAiError && (
-          <div className="mb-4 flex items-start gap-3 bg-paper border-l-[3px] border-vermilion px-4 py-3" style={{ boxShadow: 'var(--shadow-card)' }}>
-            <p className="text-sm text-vermilion flex-1">{currentAiError}</p>
-            <Button size="sm" variant="danger" onClick={retryCurrentError}>重试</Button>
-          </div>
-        )}
-        {structWarnings.length > 0 && (
-          <div className="mb-4 text-xs text-amberink bg-paper border-l-[3px] border-amberink px-3 py-2 space-y-1">
-            {structWarnings.map((w, i) => <p key={i}>{w}</p>)}
-          </div>
-        )}
-      </div>
-
-      {/* 内容区 */}
-      {isFlowMode ? (
-        <div className="flex-1 min-h-0 mx-4 mb-4">
-          <FlowView project={project} />
-        </div>
-      ) : (
-        <div className="max-w-3xl mx-auto px-6 pb-8 w-full">
-          {project.chapters.length === 0 ? (
-            <div className="text-center py-16 border border-dashed border-line text-pencil">
-              <p className="text-sm">点击「添加章」开始构建，或「重新 AI 设计」</p>
+          {isFlowMode ? (
+            <div className="flex-1 min-h-0">
+              <FlowView project={project} />
             </div>
           ) : (
-            <div className="space-y-3">
-              {project.chapters.sort((a, b) => a.order - b.order).map(chapter => {
-                const isOpen = expandedChapters.has(chapter.id)
-                const acts = project.acts.filter(a => a.chapterId === chapter.id)
-                return (
-                  <div key={chapter.id} className="bg-paper border border-line" style={{ boxShadow: 'var(--shadow-card)' }}>
-                    <div className="flex items-center gap-2 px-4 py-3 cursor-pointer hover:bg-paper-dim" onClick={() => toggleChapter(chapter.id)}>
-                      <span className="text-pencil text-xs">{isOpen ? '▼' : '▶'}</span>
-                      <span className="tape-label text-sm text-ink">{chapter.title}</span>
-                      <span className="text-xs text-pencil ml-auto">{acts.length} 幕 · {acts.reduce((a, act) => a + act.nodeIds.length, 0)} 节点</span>
-                    </div>
-                    {isOpen && (
-                      <div className="border-t border-line-soft px-4 py-3 space-y-2">
-                        {acts.sort((a, b) => a.order - b.order).map(act => {
-                          const isActOpen = expandedActs.has(act.id)
-                          const nodes = project.nodes.filter(n => act.nodeIds.includes(n.id))
-                          return (
-                            <div key={act.id} className="bg-paper-dim border border-line-soft">
-                              <div className="flex items-center gap-2 px-3 py-2 cursor-pointer hover:bg-kraft/30" onClick={() => toggleAct(act.id)}>
-                                <span className="text-pencil text-xs">{isActOpen ? '▼' : '▶'}</span>
-                                <span className="text-xs font-medium text-ink-soft">{act.title}</span>
-                                <select
-                                  value={act.dramaticFunction ?? ''}
-                                  onChange={e => updateAct(act.id, { dramaticFunction: e.target.value as Act['dramaticFunction'] || undefined })}
-                                  onClick={e => e.stopPropagation()}
-                                  className="text-xs border border-line px-1.5 py-1 bg-paper text-pencil focus:outline-none cursor-pointer"
-                                >
-                                  <option value="">功能</option>
-                                  <option value="setup">建置</option>
-                                  <option value="conflict">冲突</option>
-                                  <option value="turn">转折</option>
-                                  <option value="resolution">解决</option>
-                                </select>
-                                <span className="text-xs text-pencil ml-auto">{nodes.length} 节点</span>
-                              </div>
-                              {isActOpen && (
-                                <div className="px-3 pb-2 space-y-1.5">
-                                  {nodes.map(node => (
-                                    <IndexCard key={node.id} pinned={false} className="flex items-center gap-2">
-                                      <NodeTypeBadge type={node.type} />
-                                      <input value={node.title} onChange={e => updateNode(node.id, { title: e.target.value })} className="flex-1 text-sm text-ink bg-transparent border-none outline-none" />
-                                      <select value={node.type} onChange={e => updateNode(node.id, { type: e.target.value as NodeType })} className="text-xs text-pencil border-none bg-transparent outline-none cursor-pointer">
-                                        {Object.entries(NODE_TYPES).map(([value, s]) => <option key={value} value={value}>{s.label}</option>)}
-                                      </select>
-                                      <button onClick={() => deleteNode(node.id)} className="text-pencil/60 hover:text-vermilion text-xs cursor-pointer">✕</button>
-                                    </IndexCard>
-                                  ))}
-                                  <button onClick={() => addNode(act.id)} className="w-full text-xs text-vermilion hover:text-vermilion-deep py-1.5 border border-dashed border-vermilion/40 cursor-pointer">+ 添加节点</button>
+            <>
+              {project.chapters.length === 0 ? (
+                <div className="text-center py-16 border border-dashed border-line text-pencil">
+                  <p className="text-sm">点击「添加章」开始构建，或「重新 AI 设计」</p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {project.chapters.sort((a, b) => a.order - b.order).map(chapter => {
+                    const isOpen = expandedChapters.has(chapter.id)
+                    const acts = project.acts.filter(a => a.chapterId === chapter.id)
+                    return (
+                      <div key={chapter.id} className="bg-paper border border-line" style={{ boxShadow: 'var(--shadow-card)' }}>
+                        <div className="flex items-center gap-2 px-4 py-3 cursor-pointer hover:bg-paper-dim" onClick={() => toggleChapter(chapter.id)}>
+                          <span className="text-pencil text-xs">{isOpen ? '▼' : '▶'}</span>
+                          <span className="tape-label text-sm text-ink">{chapter.title}</span>
+                          <span className="text-xs text-pencil ml-auto">{acts.length} 幕 · {acts.reduce((a, act) => a + act.nodeIds.length, 0)} 节点</span>
+                        </div>
+                        {isOpen && (
+                          <div className="border-t border-line-soft px-4 py-3 space-y-2">
+                            {acts.sort((a, b) => a.order - b.order).map(act => {
+                              const isActOpen = expandedActs.has(act.id)
+                              const nodes = project.nodes.filter(n => act.nodeIds.includes(n.id))
+                              return (
+                                <div key={act.id} className="bg-paper-dim border border-line-soft">
+                                  <div className="flex items-center gap-2 px-3 py-2 cursor-pointer hover:bg-kraft/30" onClick={() => toggleAct(act.id)}>
+                                    <span className="text-pencil text-xs">{isActOpen ? '▼' : '▶'}</span>
+                                    <span className="text-xs font-medium text-ink-soft">{act.title}</span>
+                                    <select
+                                      value={act.dramaticFunction ?? ''}
+                                      onChange={e => updateAct(act.id, { dramaticFunction: e.target.value as Act['dramaticFunction'] || undefined })}
+                                      onClick={e => e.stopPropagation()}
+                                      className="text-xs border border-line px-1.5 py-1 bg-paper text-pencil focus:outline-none cursor-pointer"
+                                    >
+                                      <option value="">功能</option>
+                                      <option value="setup">建置</option>
+                                      <option value="conflict">冲突</option>
+                                      <option value="turn">转折</option>
+                                      <option value="resolution">解决</option>
+                                    </select>
+                                    <span className="text-xs text-pencil ml-auto">{nodes.length} 节点</span>
+                                  </div>
+                                  {isActOpen && (
+                                    <div className="px-3 pb-2 space-y-1.5">
+                                      {nodes.map(node => (
+                                        <IndexCard key={node.id} pinned={false} className="flex items-center gap-2">
+                                          <NodeTypeBadge type={node.type} />
+                                          <input value={node.title} onChange={e => updateNode(node.id, { title: e.target.value })} className="flex-1 text-sm text-ink bg-transparent border-none outline-none" />
+                                          <select value={node.type} onChange={e => updateNode(node.id, { type: e.target.value as NodeType })} className="text-xs text-pencil border-none bg-transparent outline-none cursor-pointer">
+                                            {Object.entries(NODE_TYPES).map(([value, s]) => <option key={value} value={value}>{s.label}</option>)}
+                                          </select>
+                                          <button onClick={() => deleteNode(node.id)} className="text-pencil/60 hover:text-vermilion text-xs cursor-pointer">✕</button>
+                                        </IndexCard>
+                                      ))}
+                                      <button onClick={() => addNode(act.id)} className="w-full text-xs text-vermilion hover:text-vermilion-deep py-1.5 border border-dashed border-vermilion/40 cursor-pointer">+ 添加节点</button>
+                                    </div>
+                                  )}
                                 </div>
-                              )}
-                            </div>
-                          )
-                        })}
-                        <button onClick={() => addAct(chapter.id, `第${acts.length + 1}幕`)} className="w-full text-xs text-pencil py-2 border border-dashed border-line hover:border-ink-soft cursor-pointer">+ 添加幕</button>
+                              )
+                            })}
+                            <button onClick={() => addAct(chapter.id, `第${acts.length + 1}幕`)} className="w-full text-xs text-pencil py-2 border border-dashed border-line hover:border-ink-soft cursor-pointer">+ 添加幕</button>
+                          </div>
+                        )}
                       </div>
-                    )}
-                  </div>
-                )
-              })}
-            </div>
-          )}
+                    )
+                  })}
+                </div>
+              )}
 
-          <div className="mt-4 bg-paper border border-line p-4" style={{ boxShadow: 'var(--shadow-card)' }}>
-            <div className="flex items-center justify-between mb-3">
-              <h3 className="text-sm font-semibold text-ink-soft">变量系统</h3>
-              <Button variant="link" size="sm" onClick={() => addVariable('新变量')}>+ 添加变量</Button>
+              <div className="mt-4 bg-paper border border-line p-4" style={{ boxShadow: 'var(--shadow-card)' }}>
+                <div className="flex items-center justify-between mb-3">
+                  <h3 className="text-sm font-semibold text-ink-soft">变量系统</h3>
+                  <Button variant="link" size="sm" onClick={() => addVariable('新变量')}>+ 添加变量</Button>
+                </div>
+                {project.variables.length === 0 ? (
+                  <p className="text-xs text-pencil italic">暂无变量。变量用于追踪玩家选择对故事的影响。</p>
+                ) : (
+                  <div className="space-y-2">
+                    {project.variables.map(v => (
+                      <div key={v.id} className="flex items-center gap-2">
+                        <Input value={v.name} onChange={e => updateVariable(v.id, { name: e.target.value })} className="flex-1" />
+                        <select value={v.type} onChange={e => updateVariable(v.id, { type: e.target.value as VariableType })} className="text-xs border border-line px-2 py-2 bg-paper text-ink cursor-pointer">
+                          <option value="flag">开关</option>
+                          <option value="counter">计数</option>
+                          <option value="relationship">关系值</option>
+                          <option value="item">道具</option>
+                        </select>
+                        <Input value={v.description} onChange={e => updateVariable(v.id, { description: e.target.value })} placeholder="描述" className="w-32 text-xs" />
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              <div className="mt-4">
+                <EndingsSection
+                  project={project}
+                  addEnding={addEnding}
+                  updateEnding={updateEnding}
+                  deleteEnding={deleteEnding}
+                />
+              </div>
+
+              <div className="flex justify-between items-center mt-8">
+                <div className="text-sm text-pencil">共 {project.chapters.length} 章 · {project.acts.length} 幕 · {project.nodes.length} 节点</div>
+                <Button
+                  variant="primary"
+                  onClick={() => { advancePhase(); router.push(`/project/${project!.id}/workshop`) }}
+                  disabled={project.nodes.length === 0}
+                >
+                  下一步：场景填充 →
+                </Button>
+              </div>
+            </>
+          )}
+        </main>
+
+        {/* ── 辅助区 ── */}
+        <AssistRail>
+          <AssistSection title="AI 协作">
+            <div className="bg-paper border border-line-soft p-3.5 space-y-3">
+              {project.nodes.length > 0 && (
+                <Button variant="primary" size="sm" className="w-full" onClick={() => generateBranches()}>
+                  {project.nodes.some(n => n.choices.length > 0) ? '重新生成分支' : 'AI 生成分支选项'}
+                </Button>
+              )}
+              <ConfirmButton
+                variant="danger" size="sm" className="w-full"
+                confirmLabel="确认重新设计？"
+                onConfirm={() => {
+                  // 清空结构 + 阶段回退 + 重锁后续阶段收敛在单个 store action（一次保存）里：
+                  // 拆成"清空 + goToPhase"两个 action 会各自武装一条带同一 expectedVersion
+                  // 的项目级保存，且 goToPhase 不会重新锁定 workshop/validate。
+                  resetStructure()
+                  generateStructure()
+                }}
+              >重新 AI 设计</ConfirmButton>
+              {currentAiError && (
+                <div className="text-xs text-vermilion bg-vermilion/5 border-l-[3px] border-vermilion px-2.5 py-2 space-y-1.5">
+                  <p>{currentAiError}</p>
+                  <Button size="sm" variant="danger" className="w-full" onClick={retryCurrentError}>重试</Button>
+                </div>
+              )}
+              {structWarnings.length > 0 && (
+                <div className="text-[11px] text-amberink bg-amberink/5 border-l-[3px] border-amberink px-2.5 py-2 space-y-1">
+                  {structWarnings.map((w, i) => <p key={i}>{w}</p>)}
+                </div>
+              )}
             </div>
-            {project.variables.length === 0 ? (
-              <p className="text-xs text-pencil italic">暂无变量。变量用于追踪玩家选择对故事的影响。</p>
-            ) : (
-              <div className="space-y-2">
-                {project.variables.map(v => (
-                  <div key={v.id} className="flex items-center gap-2">
-                    <Input value={v.name} onChange={e => updateVariable(v.id, { name: e.target.value })} className="flex-1" />
-                    <select value={v.type} onChange={e => updateVariable(v.id, { type: e.target.value as VariableType })} className="text-xs border border-line px-2 py-2 bg-paper text-ink cursor-pointer">
-                      <option value="flag">开关</option>
-                      <option value="counter">计数</option>
-                      <option value="relationship">关系值</option>
-                      <option value="item">道具</option>
-                    </select>
-                    <Input value={v.description} onChange={e => updateVariable(v.id, { description: e.target.value })} placeholder="描述" className="w-32 text-xs" />
+          </AssistSection>
+
+          <AssistSection title="分析">
+            <Link href={`/project/${project.id}/branches`}>
+              <Button variant="secondary" size="sm" className="w-full">分支路径分析</Button>
+            </Link>
+          </AssistSection>
+
+          <AssistSection title="说明">
+            <div className="bg-paper border border-line-soft p-3.5 space-y-3">
+              <div className="space-y-1.5">
+                {Object.entries(NODE_TYPES).map(([value, s]) => (
+                  <div key={value} className="flex items-center gap-2 text-xs text-ink-soft">
+                    <span className="w-2 h-2 shrink-0 rounded-full" style={{ backgroundColor: s.hex }} />
+                    <span>{s.label}</span>
                   </div>
                 ))}
               </div>
-            )}
-          </div>
-
-          <div className="mt-4">
-            <EndingsSection
-              project={project}
-              addEnding={addEnding}
-              updateEnding={updateEnding}
-              deleteEnding={deleteEnding}
-            />
-          </div>
-
-          <div className="flex justify-between items-center mt-8">
-            <div className="text-sm text-pencil">共 {project.chapters.length} 章 · {project.acts.length} 幕 · {project.nodes.length} 节点</div>
-            <Button
-              variant="primary"
-              onClick={() => { advancePhase(); router.push(`/project/${project!.id}/workshop`) }}
-              disabled={project.nodes.length === 0}
-            >
-              下一步：场景填充 →
-            </Button>
-          </div>
-        </div>
-      )}
+              <div className="text-[11.5px] text-pencil leading-relaxed space-y-1.5 pt-2 border-t border-line-soft">
+                <p>本阶段产出：章、幕、节点树及其分支连接、变量系统、结局定义——共同构成完整的分支剧情结构。</p>
+                <p>变量用于追踪玩家选择对故事的影响；结局节点可在「结局定义」中绑定类型与触发条件。</p>
+              </div>
+            </div>
+          </AssistSection>
+        </AssistRail>
+      </div>
     </div>
   )
 }

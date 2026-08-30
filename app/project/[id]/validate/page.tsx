@@ -13,6 +13,7 @@ import { Button } from '@/app/components/ui/button'
 import { StickyNote } from '@/app/components/ui/sticky-note'
 import { Tag } from '@/app/components/ui/tag'
 import { SkeletonPage } from '@/app/components/ui/skeleton'
+import { AssistRail, AssistSection } from '@/app/components/ui/assist-rail'
 import type { ValidationReport, ValidationIssue, IssueLevel, DirectorReview, Project, StoryNode, NodeType } from '@/lib/types/project'
 
 interface AiReportResult { summary: string; priority_issues: string[]; suggestions: string[] }
@@ -82,95 +83,137 @@ export default function ValidatePage() {
   }
 
   return (
-    <div className="max-w-3xl mx-auto px-6 py-8">
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <h2 className="text-xl font-semibold text-ink">全局校验</h2>
-          <p className="text-sm text-pencil mt-1">检测结构问题，生成可执行报告</p>
-        </div>
-        <div className="flex gap-2">
-          <Button variant="primary" onClick={handleValidate}>运行校验</Button>
-          {report && (
-            <>
-              <Button variant="secondary" onClick={() => { exportProjectJson(project); toast('JSON 已导出', 'info') }}>
-                导出 JSON
-              </Button>
-              <Button variant="secondary" onClick={() => { exportInk(project); toast('.ink 文件已导出', 'info') }}>
-                导出 .ink
-              </Button>
-            </>
-          )}
-        </div>
+    <div className="max-w-6xl mx-auto px-6 py-8">
+      <div className="mb-6">
+        <h2 className="text-xl font-semibold text-ink">全局校验</h2>
+        <p className="text-sm text-pencil mt-1">检测结构问题，生成可执行报告</p>
       </div>
 
-      {!report ? (
-        <div className="paper-sheet border border-dashed border-line text-center py-16 text-pencil">
-          <p className="text-sm">点击「运行校验」开始检测</p>
-        </div>
-      ) : (
-        <>
-          <ScorePanel report={report} />
+      <div className="flex flex-col lg:flex-row gap-6 items-start">
+        {/* ── 核心产出区 ── */}
+        <main className="flex-1 min-w-0">
+          <div className="flex justify-end gap-2 mb-4">
+            <Button variant="primary" onClick={handleValidate}>运行校验</Button>
+            {report && (
+              <>
+                <Button variant="secondary" onClick={() => { exportProjectJson(project); toast('JSON 已导出', 'info') }}>
+                  导出 JSON
+                </Button>
+                <Button variant="secondary" onClick={() => { exportInk(project); toast('.ink 文件已导出', 'info') }}>
+                  导出 .ink
+                </Button>
+              </>
+            )}
+          </div>
 
-          {(report.issues?.length ?? 0) === 0 ? (
-            <div className="bg-paper border-l-4 border-leaf px-5 py-4 mb-4" style={{ boxShadow: 'var(--shadow-card)' }}>
-              <p className="text-leaf font-medium text-sm">✓ 校验通过，没有发现结构问题</p>
+          {!report ? (
+            <div className="paper-sheet border border-dashed border-line text-center py-16 text-pencil">
+              <p className="text-sm">点击「运行校验」开始检测</p>
             </div>
           ) : (
-            <div className="mb-4">
-              {(['error', 'warning', 'info'] as const).map(level => {
-                const items = (report.issues ?? []).filter(i => i.level === level)
-                if (items.length === 0) return null
-                return (
-                  <IssueGroup key={level} level={level} items={items} projectId={project.id} />
-                )
-              })}
-            </div>
-          )}
+            <>
+              <ScorePanel report={report} />
 
-          <EmotionArcChart project={project} />
-          <PathDurationTable project={project} />
-          <NarrativeMap project={project} />
+              {(report.issues?.length ?? 0) === 0 ? (
+                <div className="bg-paper border-l-4 border-leaf px-5 py-4 mb-4" style={{ boxShadow: 'var(--shadow-card)' }}>
+                  <p className="text-leaf font-medium text-sm">✓ 校验通过，没有发现结构问题</p>
+                </div>
+              ) : (
+                <div className="mb-4">
+                  {(['error', 'warning', 'info'] as const).map(level => {
+                    const items = (report.issues ?? []).filter(i => i.level === level)
+                    if (items.length === 0) return null
+                    return (
+                      <IssueGroup key={level} level={level} items={items} projectId={project.id} />
+                    )
+                  })}
+                </div>
+              )}
 
-          {aiReport.loading ? (
-            <div className="flex items-center gap-2 mb-4">
-              <Button variant="secondary" className="flex-1 justify-center py-2.5" disabled loading>
-                生成中…
-              </Button>
-              <Button variant="ghost" size="sm" onClick={aiReport.cancel}>取消</Button>
-            </div>
-          ) : (
-            <Button variant="secondary" className="w-full justify-center py-2.5 mb-4" onClick={handleAiReport}>
-              {aiSuggestions ? '重新生成' : 'AI 生成改进建议'}
-            </Button>
+              <EmotionArcChart project={project} />
+              <PathDurationTable project={project} />
+              <NarrativeMap project={project} />
+            </>
           )}
+        </main>
 
-          {aiReport.error && (
-            <div className="mb-4 flex items-center justify-between gap-3 bg-paper border-l-4 border-vermilion px-3 py-2 text-xs text-ink">
-              <span>{aiReport.error}</span>
-              <Button variant="link" size="sm" onClick={aiReport.retry}>重试</Button>
+        {/* ── 辅助区 ── */}
+        <AssistRail>
+          <AssistSection title="AI 协作">
+            <div className="bg-paper border border-line-soft p-3.5 space-y-3">
+              <AiTriggerButton ai={aiReport} label={aiSuggestions ? '重新生成改进建议' : 'AI 改进建议'} onRun={handleAiReport} disabled={!report} />
+              <AiTriggerButton ai={aiDirector} label={directorReview ? '重新召唤终审' : '五位导演终审'} onRun={handleDirectorReview} disabled={!report} />
+              {!report && <p className="text-[11px] text-pencil">运行校验后可用</p>}
             </div>
-          )}
+          </AssistSection>
 
           {aiSuggestions && (
-            <StickyNote title="AI 改进建议" className="mb-4">
-              <p className="mb-2">{aiSuggestions.summary}</p>
-              {aiSuggestions.priority_issues?.length > 0 && (
-                <div className="mb-2">
-                  <p className="font-semibold mb-1">优先修复</p>
-                  {aiSuggestions.priority_issues.map((issue, i) => <p key={i}>・{issue}</p>)}
-                </div>
-              )}
-              {aiSuggestions.suggestions?.length > 0 && (
-                <div>
-                  <p className="font-semibold mb-1">优化建议</p>
-                  {aiSuggestions.suggestions.map((s, i) => <p key={i}>・{s}</p>)}
-                </div>
-              )}
-            </StickyNote>
+            <AssistSection title="AI 报告">
+              <StickyNote title="AI 改进建议">
+                <p className="mb-2">{aiSuggestions.summary}</p>
+                {aiSuggestions.priority_issues?.length > 0 && (
+                  <div className="mb-2">
+                    <p className="font-semibold mb-1">优先修复</p>
+                    {aiSuggestions.priority_issues.map((issue, i) => <p key={i}>・{issue}</p>)}
+                  </div>
+                )}
+                {aiSuggestions.suggestions?.length > 0 && (
+                  <div>
+                    <p className="font-semibold mb-1">优化建议</p>
+                    {aiSuggestions.suggestions.map((s, i) => <p key={i}>・{s}</p>)}
+                  </div>
+                )}
+              </StickyNote>
+            </AssistSection>
           )}
 
-          <DirectorReviewPanel review={directorReview} ai={aiDirector} onRequest={handleDirectorReview} />
-        </>
+          {directorReview && (
+            <AssistSection title="导演终审">
+              <DirectorReviewPanel review={directorReview} />
+            </AssistSection>
+          )}
+
+          <AssistSection title="说明">
+            <div className="text-[11.5px] text-pencil leading-relaxed space-y-1.5">
+              <p>通过率 = 100 − 错误数×20 − 警告数×8 − 提示数×2（下限 0）。</p>
+              <p>「运行校验」重新扫描当前项目结构；导出的 JSON / .ink 基于最近一次校验后的项目数据。</p>
+            </div>
+          </AssistSection>
+        </AssistRail>
+      </div>
+    </div>
+  )
+}
+
+/** 辅助区通用：AI 动作按钮 + 运行中中止 + 失败重试 */
+function AiTriggerButton({ ai, label, onRun, disabled }: {
+  ai: AiActionState
+  label: string
+  onRun: () => void
+  disabled?: boolean
+}) {
+  const isLoading = ai.loading !== null
+  return (
+    <div className="space-y-1.5">
+      <div className="flex items-center gap-2">
+        <Button variant="secondary" loading={isLoading} disabled={disabled} onClick={onRun} className="flex-1 justify-center">
+          {label}
+        </Button>
+        {isLoading && (
+          <button
+            type="button"
+            onClick={ai.cancel}
+            className="cursor-pointer text-xs text-pencil hover:text-vermilion underline underline-offset-2 shrink-0"
+          >
+            中止
+          </button>
+        )}
+      </div>
+      {ai.error && (
+        <div className="flex items-center justify-between gap-3 bg-paper border-l-4 border-vermilion px-3 py-2 text-xs text-ink">
+          <span>{ai.error}</span>
+          <Button variant="link" size="sm" onClick={ai.retry}>重试</Button>
+        </div>
       )}
     </div>
   )
@@ -429,79 +472,39 @@ function scoreTextClass(s: number) {
   return s >= 8 ? 'text-leaf' : s >= 6 ? 'text-amberink' : 'text-vermilion'
 }
 
-function DirectorReviewPanel({ review, ai, onRequest }: {
-  review: DirectorReview | null
-  ai: AiActionState
-  onRequest: () => void
-}) {
-  if (!review) return (
-    <div className="mb-4">
-      {ai.loading ? (
-        <div className="flex items-center gap-2">
-          <Button variant="secondary" className="flex-1 justify-center py-3" disabled loading>
-            五位导演评审中…
-          </Button>
-          <Button variant="ghost" size="sm" onClick={ai.cancel}>取消</Button>
-        </div>
-      ) : (
-        <Button variant="secondary" className="w-full justify-center py-3" onClick={onRequest}>
-          召唤五位专家终审
-        </Button>
-      )}
-      {ai.error && (
-        <div className="mt-2 flex items-center justify-between gap-3 bg-paper border-l-4 border-vermilion px-3 py-2 text-xs text-ink">
-          <span>{ai.error}</span>
-          <Button variant="link" size="sm" onClick={ai.retry}>重试</Button>
-        </div>
-      )}
-    </div>
-  )
-
+function DirectorReviewPanel({ review }: { review: DirectorReview }) {
   return (
-    <div className="paper-sheet mb-4 overflow-hidden">
-      <div className="flex items-start justify-between gap-4 px-5 py-4 border-b border-line-soft">
-        <div className="flex-1">
-          <p className="text-xs font-semibold text-pencil uppercase tracking-wide mb-1.5">创作总监终审</p>
-          <p className="text-sm text-ink">{review.executiveSummary}</p>
-        </div>
-        <div className="text-right shrink-0">
-          <div className={`courier text-3xl font-bold ${scoreTextClass(review.overallScore)}`}>
-            {review.overallScore}<span className="text-base font-normal text-pencil">/10</span>
+    <div className="bg-paper border border-line-soft overflow-hidden">
+      <div className="px-3.5 py-3 border-b border-line-soft">
+        <p className="text-sm text-ink mb-2">{review.executiveSummary}</p>
+        <div className="flex items-center gap-3">
+          <div className={`courier text-2xl font-bold ${scoreTextClass(review.overallScore)}`}>
+            {review.overallScore}<span className="text-sm font-normal text-pencil">/10</span>
           </div>
-          <Tag tone={review.greenlit ? 'leaf' : 'vermilion'} className="mt-1.5">
+          <Tag tone={review.greenlit ? 'leaf' : 'vermilion'}>
             {review.greenlit ? '绿灯通过' : '需修订'}
           </Tag>
         </div>
       </div>
 
       {review.mustFix?.length > 0 && (
-        <div className="px-5 py-3 border-b border-line-soft bg-paper border-l-4 border-vermilion">
+        <div className="px-3.5 py-3 border-b border-line-soft bg-paper border-l-4 border-vermilion">
           <p className="text-xs font-semibold text-vermilion mb-1.5">绿灯前必须修复</p>
-          {review.mustFix.map((item, i) => <p key={i} className="text-sm text-ink">・{item}</p>)}
+          {review.mustFix.map((item, i) => <p key={i} className="text-xs text-ink">・{item}</p>)}
         </div>
       )}
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 p-5">
+      <div className="p-3.5 space-y-3">
         {(review.verdicts ?? []).map((v, i) => (
           <StickyNote key={i} title={v.lens} tilt={NOTE_TILT[i % NOTE_TILT.length]}>
-            <div className={`courier text-2xl font-bold mb-1 ${scoreTextClass(v.score)}`}>{v.score}</div>
+            <div className={`courier text-xl font-bold mb-1 ${scoreTextClass(v.score)}`}>{v.score}</div>
             <p className="mb-1">{v.observation}</p>
             <p className="opacity-80">→ {v.note}</p>
           </StickyNote>
         ))}
       </div>
 
-      <div className="flex justify-between items-center px-5 py-3 border-t border-line-soft">
-        <p className="text-xs text-pencil">{new Date(review.generatedAt).toLocaleString('zh-CN')}</p>
-        <Button variant="link" size="sm" onClick={onRequest} disabled={!!ai.loading}>重新评审</Button>
-      </div>
-
-      {ai.error && (
-        <div className="mx-5 mb-4 flex items-center justify-between gap-3 bg-paper border-l-4 border-vermilion px-3 py-2 text-xs text-ink">
-          <span>{ai.error}</span>
-          <Button variant="link" size="sm" onClick={ai.retry}>重试</Button>
-        </div>
-      )}
+      <p className="px-3.5 pb-3 text-[11px] text-pencil">{new Date(review.generatedAt).toLocaleString('zh-CN')}</p>
     </div>
   )
 }

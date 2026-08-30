@@ -16,12 +16,12 @@ export interface NodeTypeStyle {
 }
 
 export const NODE_TYPES: Record<NodeType, NodeTypeStyle> = {
-  start: { label: '开场', hex: '#4e7a48', text: 'text-leaf', border: 'border-leaf', bg: 'bg-leaf/10' },
-  normal: { label: '推进', hex: '#7a6f5c', text: 'text-pencil', border: 'border-pencil', bg: 'bg-pencil/10' },
-  branch: { label: '分支', hex: '#c23a2b', text: 'text-vermilion', border: 'border-vermilion', bg: 'bg-vermilion/10' },
-  explore: { label: '探索', hex: '#2c4a68', text: 'text-inkblue', border: 'border-inkblue', bg: 'bg-inkblue/10' },
-  merge: { label: '汇合', hex: '#6d5a86', text: 'text-[#6d5a86]', border: 'border-[#6d5a86]', bg: 'bg-[#6d5a86]/10' },
-  ending: { label: '结局', hex: '#8a5a24', text: 'text-amberink', border: 'border-amberink', bg: 'bg-amberink/10' },
+  start: { label: '开场', hex: '#2e7d4f', text: 'text-leaf', border: 'border-leaf', bg: 'bg-leaf/10' },
+  normal: { label: '推进', hex: '#6b7c90', text: 'text-pencil', border: 'border-pencil', bg: 'bg-pencil/10' },
+  branch: { label: '分支', hex: '#cf5527', text: 'text-vermilion', border: 'border-vermilion', bg: 'bg-vermilion/10' },
+  explore: { label: '探索', hex: '#23507f', text: 'text-inkblue', border: 'border-inkblue', bg: 'bg-inkblue/10' },
+  merge: { label: '汇合', hex: '#5c6e9c', text: 'text-[#5c6e9c]', border: 'border-[#5c6e9c]', bg: 'bg-[#5c6e9c]/10' },
+  ending: { label: '结局', hex: '#a4652a', text: 'text-amberink', border: 'border-amberink', bg: 'bg-amberink/10' },
 }
 
 export function nodeTypeStyle(type: NodeType): NodeTypeStyle {
