@@ -1,6 +1,7 @@
 'use client'
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
+import Link from 'next/link'
 import { useProjectStore } from '@/lib/store/projectStore'
 import { runValidation } from '@/lib/validation/engine'
 import { exportProjectJson, exportInk } from '@/lib/persistence'
@@ -120,6 +121,14 @@ export default function ValidatePage() {
                 </div>
               ) : (
                 <div className="mb-4">
+                  <div className="flex justify-end mb-2">
+                    <Link
+                      href={`/project/${project.id}/structure`}
+                      className="text-xs text-inkblue hover:text-vermilion underline underline-offset-2 cursor-pointer"
+                    >
+                      → 去结构页定向重构
+                    </Link>
+                  </div>
                   {(['error', 'warning', 'info'] as const).map(level => {
                     const items = (report.issues ?? []).filter(i => i.level === level)
                     if (items.length === 0) return null

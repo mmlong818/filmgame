@@ -8,6 +8,10 @@ import { Skeleton } from '@/app/components/ui/skeleton'
 import { AssistRail, AssistSection } from '@/app/components/ui/assist-rail'
 import type { ScalePlan } from '@/lib/types/project'
 
+// A2 展示端：分支节点数对应 lib/ai/schemas.ts ScalePlanSchema 的可选字段 branchCount
+// （lib/types/project.ts 的 ScalePlan 尚未补上该字段，这里按结构兼容的扩展类型读取，不阻塞渲染）。
+type ScalePlanWithBranchNodes = ScalePlan & { branchCount?: number }
+
 function PlanCard({
   plan,
   selected,
@@ -21,6 +25,7 @@ function PlanCard({
 }) {
   const [chaptersOpen, setChaptersOpen] = useState(false)
   const hasChapters = (plan.chapters?.length ?? 0) > 0
+  const branchNodeCount = (plan as ScalePlanWithBranchNodes).branchCount
 
   return (
     <div
@@ -54,6 +59,12 @@ function PlanCard({
         {plan.chapterCount} 章 × {plan.actCountPerChapter} 幕/章 = {plan.totalNodes} 节点
         <span className="text-pencil mx-1">·</span>
         {plan.totalBranches} 个分支
+        {typeof branchNodeCount === 'number' && (
+          <>
+            <span className="text-pencil mx-1">·</span>
+            预估分支节点 {branchNodeCount}
+          </>
+        )}
         <span className="text-pencil mx-1">·</span>
         预估 {plan.estimatedHours}h
       </p>
@@ -105,9 +116,10 @@ function CompareTable({
   plans: ScalePlan[]
   selectedId: string | null
 }) {
-  const rows: { label: string; key: keyof ScalePlan }[] = [
+  const rows: { label: string; key: keyof ScalePlanWithBranchNodes }[] = [
     { label: '章数', key: 'chapterCount' },
     { label: '总节点数', key: 'totalNodes' },
+    { label: '分支节点数', key: 'branchCount' },
     { label: '分支数', key: 'totalBranches' },
     { label: '预估工时', key: 'estimatedHours' },
   ]
@@ -133,8 +145,8 @@ function CompareTable({
             <tr key={row.key} className={ri % 2 === 0 ? 'bg-paper' : 'bg-paper-dim/50'}>
               <td className="px-4 py-2.5 text-pencil border-b border-line-soft">{row.label}</td>
               {plans.map(plan => {
-                const val = plan[row.key]
-                const display = row.key === 'estimatedHours' ? `${val}h` : val
+                const val = (plan as ScalePlanWithBranchNodes)[row.key]
+                const display = val === undefined ? '—' : row.key === 'estimatedHours' ? `${val}h` : val
                 return (
                   <td
                     key={plan.id}

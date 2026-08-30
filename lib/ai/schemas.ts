@@ -76,6 +76,7 @@ export const ScalePlanSchema = z.object({
   actCountPerChapter: z.number().optional(),
   totalNodes: z.number(),
   totalBranches: z.number().optional(),
+  branchCount: z.number().optional(),
   chapters: z.array(z.object({
     title: z.string(),
     brief: z.string(),
@@ -242,6 +243,91 @@ export const DirectorReviewSchema = z.object({
 })
 export type DirectorReview = z.infer<typeof DirectorReviewSchema>
 
+// ─── Targeted Fix（FR-19，structure:targeted_fix）──────────────────
+// 与 lib/ai/targetedFixTypes.ts 的 TargetedFixResult 一一对应，两边不得各自扩展。
+
+export const NodeRefSchema = z.object({
+  nodeId: z.string().optional(),
+  nodeTitle: z.string().optional(),
+})
+
+const NodeTypeSchema = z.enum(['normal', 'branch', 'merge', 'ending', 'start', 'explore'])
+
+const TargetedFixNewNodeSchema = z.object({
+  title: z.string(),
+  type: NodeTypeSchema,
+  notes: z.string().optional(),
+})
+
+const TargetedFixNewChoiceSchema = z.object({
+  text: z.string(),
+  target: NodeRefSchema,
+  conditions: z.string().optional(),
+  variableEffects: z.string().optional(),
+  consequence: z.string().optional(),
+})
+
+const TargetedFixOpSchema = z.discriminatedUnion('op', [
+  z.object({
+    op: z.literal('add_node'),
+    after: NodeRefSchema,
+    node: TargetedFixNewNodeSchema,
+    reason: z.string(),
+  }),
+  z.object({
+    op: z.literal('update_node'),
+    target: NodeRefSchema,
+    patch: z.object({
+      title: z.string().optional(),
+      type: NodeTypeSchema.optional(),
+      notes: z.string().optional(),
+    }),
+    reason: z.string(),
+  }),
+  z.object({
+    op: z.literal('add_choice'),
+    target: NodeRefSchema,
+    choice: TargetedFixNewChoiceSchema,
+    reason: z.string(),
+  }),
+  z.object({
+    op: z.literal('update_choice'),
+    target: NodeRefSchema,
+    choiceText: z.string(),
+    patch: z.object({
+      text: z.string().optional(),
+      conditions: z.string().optional(),
+      variableEffects: z.string().optional(),
+      consequence: z.string().optional(),
+      targetRef: NodeRefSchema.optional(),
+    }),
+    reason: z.string(),
+  }),
+  z.object({
+    op: z.literal('set_explore_return'),
+    target: NodeRefSchema,
+    returnTo: NodeRefSchema,
+    reason: z.string(),
+  }),
+  z.object({
+    op: z.literal('bind_ending'),
+    target: NodeRefSchema,
+    ending: z.object({
+      title: z.string(),
+      type: z.enum(['good', 'bad', 'neutral', 'secret']),
+      description: z.string().optional(),
+      conditions: z.string().optional(),
+    }),
+    reason: z.string(),
+  }),
+])
+
+export const TargetedFixResultSchema = z.object({
+  summary: z.string(),
+  ops: z.array(TargetedFixOpSchema).max(25),
+})
+export type TargetedFixResult = z.infer<typeof TargetedFixResultSchema>
+
 // ─── Schema Registry ─────────────────────────────────────────────
 
 export const SCHEMA_REGISTRY: Record<string, z.ZodTypeAny> = {
@@ -253,6 +339,7 @@ export const SCHEMA_REGISTRY: Record<string, z.ZodTypeAny> = {
   'scale:generate': ScaleGenerateSchema,
   'structure:spine': SpineSchema,
   'structure:chapter': ChapterDraftSchema,
+  'structure:targeted_fix': TargetedFixResultSchema,
   'branches:generate': BranchesGenerateSchema,
   'workshop:fill_emotion': FillEmotionSchema,
   'workshop:write_dialogue': WriteDialogueSchema,

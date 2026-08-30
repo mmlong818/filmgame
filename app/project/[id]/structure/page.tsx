@@ -19,6 +19,10 @@ import { StickyNote } from '@/app/components/ui/sticky-note'
 import { AssistRail, AssistSection } from '@/app/components/ui/assist-rail'
 import FlowView from './FlowView'
 import EndingsSection from './EndingsSection'
+import { TargetedFixPanel } from './TargetedFixPanel'
+import { TargetedFixTrigger } from './TargetedFixTrigger'
+import { SelfCheckPanel } from './SelfCheckPanel'
+import { useTargetedFix } from './useTargetedFix'
 import { useToast } from '@/app/components/toast'
 
 // 结局线自动携带：把世界锚点阶段设计的结局线绑定到同名结局节点，补全「结局定义」。
@@ -114,6 +118,7 @@ export default function StructurePage() {
 
   const structAi = useAiAction()
   const branchAi = useAiAction()
+  const { fixAi, fixDraft, selfCheck, runTargetedFix, applyFix, closeFixDraft } = useTargetedFix(project, stage, toast)
 
   useEffect(() => {
     if (!project) return
@@ -757,7 +762,12 @@ export default function StructurePage() {
                   {structWarnings.map((w, i) => <p key={i}>{w}</p>)}
                 </div>
               )}
+              <TargetedFixTrigger hasValidation={!!project.lastValidation} fixAi={fixAi} onRun={runTargetedFix} />
             </div>
+          </AssistSection>
+
+          <AssistSection title="结构体检">
+            <SelfCheckPanel selfCheck={selfCheck} />
           </AssistSection>
 
           <AssistSection title="分析">
@@ -784,6 +794,7 @@ export default function StructurePage() {
           </AssistSection>
         </AssistRail>
       </div>
+      <TargetedFixPanel draft={fixDraft} nodes={project.nodes} onClose={closeFixDraft} onApply={applyFix} />
     </div>
   )
 }

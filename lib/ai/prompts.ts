@@ -162,10 +162,15 @@ type只能是：good、bad、neutral、secret之一。secret结局需要特别�
 【世界设定输入】
 ${JSON.stringify(c, null, 2)}
 
-【输出模板】字段名固定，值替换为根据世界设定推算的真实数字和内容：
-{"plans":[{"id":"plan_a","label":"精简版","chapterCount":2,"actCountPerChapter":2,"totalNodes":12,"totalBranches":6,"estimatedHours":50,"aiRationale":"适合首次尝试，低成本快速验证","chapters":[{"title":"第一章：开端","brief":"主角登场，核心矛盾浮现"},{"title":"第二章：终局","brief":"矛盾爆发，走向结局"}]},{"id":"plan_b","label":"标准版","chapterCount":3,"actCountPerChapter":3,"totalNodes":24,"totalBranches":12,"estimatedHours":100,"aiRationale":"推荐方案，结构完整，复杂度适中","chapters":[{"title":"第一章：引入","brief":"世界建立，角色登场"},{"title":"第二章：对抗","brief":"矛盾激化，选择分叉"},{"title":"第三章：结局","brief":"多线收束，命运揭晓"}]},{"id":"plan_c","label":"史诗版","chapterCount":5,"actCountPerChapter":4,"totalNodes":45,"totalBranches":28,"estimatedHours":220,"aiRationale":"高复杂度，适合有经验的团队","chapters":[{"title":"第一章：序章","brief":"铺垫伏笔"},{"title":"第二章：上升","brief":"矛盾扩大"},{"title":"第三章：转折","brief":"核心反转"},{"title":"第四章：高潮","brief":"全面对决"},{"title":"第五章：尾声","brief":"多结局展开"}]}]}
+【规模方案硬性约束——分支网络结构规范（FR-18）】
+- 每幕节点数（totalNodes ÷ (chapterCount × actCountPerChapter)）不得低于4（入口+branch+2路径的最小骨架）
+- 体量小的方案（如精简版）要通过减少chapterCount或actCountPerChapter降低总量，禁止靠压低"每幕节点数"到4以下来凑小体量——这是v0.6精简版退化为单线的根源
+- 每套方案需给出branchCount：该方案预估的branch类型节点数（中段菱形分支/章内平行路线的branch节点+终章门控），用于对比表展示分支密度，必须随规模递增
 
-注意：三套方案的章数（chapterCount）、幕数（actCountPerChapter）、节点数（totalNodes）必须随规模递增；chapters数组长度必须等于chapterCount；章节标题和brief要贴合输入的故事设定。
+【输出模板】字段名固定，值替换为根据世界设定推算的真实数字和内容：
+{"plans":[{"id":"plan_a","label":"精简版","chapterCount":2,"actCountPerChapter":2,"totalNodes":16,"totalBranches":6,"branchCount":4,"estimatedHours":60,"aiRationale":"适合首次尝试，低成本快速验证","chapters":[{"title":"第一章：开端","brief":"主角登场，核心矛盾浮现"},{"title":"第二章：终局","brief":"矛盾爆发，走向结局"}]},{"id":"plan_b","label":"标准版","chapterCount":3,"actCountPerChapter":3,"totalNodes":40,"totalBranches":12,"branchCount":9,"estimatedHours":110,"aiRationale":"推荐方案，结构完整，复杂度适中","chapters":[{"title":"第一章：引入","brief":"世界建立，角色登场"},{"title":"第二章：对抗","brief":"矛盾激化，选择分叉"},{"title":"第三章：结局","brief":"多线收束，命运揭晓"}]},{"id":"plan_c","label":"史诗版","chapterCount":5,"actCountPerChapter":4,"totalNodes":90,"totalBranches":28,"branchCount":20,"estimatedHours":240,"aiRationale":"高复杂度，适合有经验的团队","chapters":[{"title":"第一章：序章","brief":"铺垫伏笔"},{"title":"第二章：上升","brief":"矛盾扩大"},{"title":"第三章：转折","brief":"核心反转"},{"title":"第四章：高潮","brief":"全面对决"},{"title":"第五章：尾声","brief":"多结局展开"}]}]}
+
+注意：三套方案的章数（chapterCount）、幕数（actCountPerChapter）、节点数（totalNodes）必须随规模递增，且每套方案totalNodes ÷ (chapterCount × actCountPerChapter) ≥ 4；chapters数组长度必须等于chapterCount；章节标题和brief要贴合输入的故事设定。
 
 输出：`,
 
@@ -239,13 +244,52 @@ ${chapters.map((ch, i) => `第${i+1}章：${ch.title} — ${ch.brief}`).join('\n
 
       type SkelNode = { title: string; type: string; notes: string }
 
+      // 跨幕合并：把本章内连续出现的"预算(perActTarget)<4"的非终章幕分组，由组内最后一幕（host）
+      // 合并组内全部预算搭建完整菱形分支，组内其余幕（donor）退化为1个纯推进节点；落单的小预算幕
+      // 并入相邻幕（只增加对方容量，不改变对方结构判定）。目的：杜绝"每幕预算不足→整章无分支→
+      // 全片单线"（v0.6精简版单线问题的根源）。终章末幕不参与合并，始终维持门控扇出模板。
+      const isTerminalActIdx = (ai: number) => isLast && ai === actCount - 1
+      const donorOf: Array<number | null> = new Array(actCount).fill(null)
+      const hostExtraBudget: number[] = new Array(actCount).fill(0)
+      {
+        let i = 0
+        while (i < actCount) {
+          if (isTerminalActIdx(i) || perActTarget[i] >= 4) { i++; continue }
+          let j = i
+          while (j < actCount && !isTerminalActIdx(j) && perActTarget[j] < 4) j++
+          if (j - i >= 2) {
+            // 连续小预算幕区间 [i, j)：最后一幕当host，其余当donor（各保留1个推进节点，其余预算转出）
+            const host = j - 1
+            for (let k = i; k < host; k++) {
+              donorOf[k] = host
+              hostExtraBudget[host] += perActTarget[k] - 1
+            }
+          } else {
+            // 落单小预算幕：优先并入下一幕，找不到（如紧邻终章）则并入上一幕
+            const host = j < actCount && !isTerminalActIdx(j)
+              ? j
+              : (i - 1 >= 0 && !isTerminalActIdx(i - 1) && donorOf[i - 1] === null ? i - 1 : -1)
+            if (host >= 0) {
+              donorOf[i] = host
+              hostExtraBudget[host] += perActTarget[i] - 1
+            }
+          }
+          i = j
+        }
+      }
+
+      let chapterExploreUsed = false // 每章至多插入1个explore节点（本章总预算≥10时才允许）
+
       const buildActNodes = (ai: number): SkelNode[] => {
         const isFirstAct = isFirst && ai === 0
         const isLastActOfAll = isLast && ai === actCount - 1
+        const isDonorAct = donorOf[ai] !== null
         const nodes: SkelNode[] = []
 
         if (isFirstAct) {
           nodes.push({ title: '开场', type: 'start', notes: '主角登场，世界现状建立，触发事件' })
+        } else if (isDonorAct) {
+          nodes.push({ title: '节点名', type: 'normal', notes: `跨幕合并：本幕预算已并入第${(donorOf[ai] as number) + 1}幕用于搭建完整菱形分支，此处只承担剧情推进` })
         } else {
           nodes.push({ title: '节点名', type: 'normal', notes: '核心冲突推进' })
         }
@@ -271,21 +315,46 @@ ${chapters.map((ch, i) => `第${i+1}章：${ch.title} — ${ch.brief}`).join('\n
               notes: design ? `${design.type}结局：${design.triggerCondition}` : `结局${e + 1}`,
             })
           }
+        } else if (isDonorAct) {
+          // donor幕：预算已转给host幕，仅保留上方的entry节点本身，不再补足到自身原预算
         } else {
-          // 非终章：预算（本幕目标节点数）决定要不要放得下一个完整菱形分支——
-          // 旧版本无论预算大小都无条件塞入"branch+多路径+merge+explore"的固定模板，
-          // 是63节点/24节点(2.6倍超标)问题的根源之一；现在按剩余预算动态伸缩结构。
-          const budget = perActTarget[ai] - nodes.length // 开场节点已占1个位置，这是留给本幕其余内容的预算
+          // host/独立幕：actSize=本幕自身预算+跨幕合并转入的预算，决定用哪种结构模式——
+          // 预算<4（合并后仍不足）退化为纯推进；4-7为标准菱形分支-汇合；≥8升级为章内平行路线。
+          const actSize = perActTarget[ai] + hostExtraBudget[ai]
+          const budget = actSize - nodes.length // 开场节点已占1个位置，这是留给本幕其余内容的预算
           if (budget < 3) {
-            // 预算容不下"branch+至少2条路径"（最少需要3个节点位），改为纯推进节点占位，不引入分支
+            // 合并后仍不足以支撑"branch+至少2条路径"（极端小体量方案），退化为纯推进节点占位
             const fillCount = Math.max(1, budget)
             for (let f = 0; f < fillCount; f++) {
               nodes.push({ title: '节点名', type: 'normal', notes: '剧情推进：聚焦人物关系或线索揭示，为后续张力做铺垫（本幕预算较小，暂不设关键分支）' })
             }
+          } else if (actSize >= 8) {
+            // 章内平行路线：预算充裕时，branch后每条路径各自独立推进2个以上节点，再汇回主线
+            const pathCount = Math.min(3, Math.max(2, endingsDesign.length || endingCount))
+            const perPathNodes = Math.max(2, Math.floor((budget - 2) / pathCount)) // -2：留给branch自身与末尾merge
+            nodes.push({ title: '节点名', type: 'branch', notes: `关键选择（章内平行路线）：${pathCount}条路径各自独立推进${perPathNodes}个节点后再汇回主线；每个选项必须填写variableEffects记录对变量的影响，且至少保留一个无条件保底选项` })
+            for (let p = 0; p < pathCount; p++) {
+              const label = ['A', 'B', 'C'][p]
+              for (let s = 0; s < perPathNodes; s++) {
+                const hint = endingsDesign[p]
+                  ? `与「${endingsDesign[p].title}」结局相关的路线，第${s + 1}段：情节与其他路径明显不同`
+                  : `路径${label}第${s + 1}段：与此路线角色的专属场景，情节与其他路径明显不同`
+                nodes.push({ title: '节点名', type: 'normal', notes: `[路径${label}] ${hint}` })
+              }
+            }
+            const remainAfterPaths = actSize - nodes.length
+            if (remainAfterPaths >= 1) {
+              nodes.push({ title: '续接', type: 'merge', notes: '各路径汇回主线，故事继续向前推进' })
+            }
+            if (!isLast && !chapterExploreUsed && chapterTargetNodes >= 10 && remainAfterPaths >= 2) {
+              nodes.push({ title: '探索：槽位名', type: 'explore', notes: '可选隐藏内容：角色秘密、线索物品或世界背景' })
+              chapterExploreUsed = true
+            }
           } else {
+            // 标准菱形分支-汇合（预算4-7）：branch → 2-3条路径 → merge
             const maxPaths = Math.min(3, budget - 1) // 给branch本身留1个节点位，其余留给各路径
             const pathCount = Math.min(Math.max(2, endingsDesign.length || endingCount), maxPaths)
-            nodes.push({ title: '节点名', type: 'branch', notes: `关键选择：${pathCount}条路径各有专属场景，结束后汇回；variableEffects必须记录此选择对变量的影响` })
+            nodes.push({ title: '节点名', type: 'branch', notes: `关键选择：${pathCount}条路径各有专属场景，结束后汇回；每个选项必须填写variableEffects记录对变量的影响，且至少保留一个无条件保底选项` })
             for (let p = 0; p < pathCount; p++) {
               const label = ['A', 'B', 'C'][p]
               const hint = endingsDesign[p]
@@ -293,19 +362,21 @@ ${chapters.map((ch, i) => `第${i+1}章：${ch.title} — ${ch.brief}`).join('\n
                 : `路径${label}：与此路线角色的专属场景，情节与其他路径明显不同`
               nodes.push({ title: '节点名', type: 'normal', notes: `[路径${label}] ${hint}` })
             }
-            const remainAfterPaths = perActTarget[ai] - nodes.length
+            const remainAfterPaths = actSize - nodes.length
             if (remainAfterPaths >= 1) {
               nodes.push({ title: '续接', type: 'merge', notes: '各路径汇回主线，故事继续向前推进' })
             }
-            if (!isLast && remainAfterPaths >= 2) {
+            if (!isLast && !chapterExploreUsed && chapterTargetNodes >= 10 && remainAfterPaths >= 2) {
               nodes.push({ title: '探索：槽位名', type: 'explore', notes: '可选隐藏内容：角色秘密、线索物品或世界背景' })
+              chapterExploreUsed = true
             }
           }
         }
 
-        // 补足到本幕规模方案要求的节点数：结构性骨架（开场/分支/结局等）不足时插入内容推进节点；
-        // 若结局数量等结构性下限已超过目标（如小规模方案+多结局），保留结构完整性，不强行裁剪。
-        const target = perActTarget[ai]
+        // 补足到本幕目标节点数：donor幕补到1（即只保留entry，预算已转出）；host/独立幕补到
+        // actSize。结构性骨架（开场/分支/结局等）不足时插入内容推进节点；若结局数量等结构性下限
+        // 已超过目标（如小规模方案+多结局），保留结构完整性，不强行裁剪。
+        const target = isDonorAct ? 1 : perActTarget[ai] + hostExtraBudget[ai]
         let guard = 0
         while (nodes.length < target && guard < 30) {
           nodes.splice(1, 0, { title: '节点名', type: 'normal', notes: '剧情推进节点：补充本幕内容密度，承接前文并为后续做铺垫，可展开人物互动或信息揭示' })
@@ -357,14 +428,78 @@ ${outgoingHandoff ? `【本章结束时】需为下章铺垫：${outgoingHandoff
 ${endingsSummary}
 【本章在全剧中的位置】第${chapterIndex + 1}章 / 共${chapterCount}章${isFirst ? '（开篇：建立世界、触发事件、第一个道德选择）' : ''}${isLast ? '（终章：最黑暗时刻 → 内心蜕变 → 最终抉择 → 多结局）' : ''}
 
-【节点type规则】start=开场(唯一) | ending=结局 | branch=关键选择点 | normal=主线推进 | explore=可选旁支（不再使用merge节点）
-【分支规则】非终章：branch → [A路径 normal] + [B路径 normal] → 两条路径各自独立推进到本幕末尾，不设汇聚节点；终章：branch → 多个ending节点（每个结局对应一条路径）
-【变量规则】branch节点的每个选项必须在variableEffects字段写出修改了哪个变量（例：trust+1，0-10整数量表，不用百分比），后续节点可根据变量值限制选项
+【节点type规则】start=开场(唯一) | ending=结局 | branch=关键选择点 | normal=主线推进 | merge=多路径汇回主线（骨架已按需插入，必须保留原位置与类型） | explore=可选旁支
+【分支规则】非终章·菱形分支-汇合（默认）：branch → 2-3条路径(normal) → merge（各路径汇回主线后继续推进）；非终章·章内平行路线（预算充裕的幕）：branch → 每条路径各自独立推进2个以上节点 → merge；终章：branch(路线门控) → 各路线专属场景 → 多个ending节点（每个结局对应一条路径，永不汇合）
+【变量规则】中段branch节点的每个选项必须在variableEffects字段写出修改了哪个变量（例：trust+1，0-10整数量表，不用百分比），且至少保留一个无条件选项作为保底出口，避免玩家被条件卡死；终章门控节点的选项用conditions读取这些变量决定开放哪条路线
 
 【骨架（填充后输出，节点数量已按规模方案精确计算，见上方硬性约束）】
 ${JSON.stringify(chapterSkeleton, null, 2)}
 
-输出（结构必须与骨架完全一致：节点数量（本章共${actualChapterTotal}个，逐幕数量见上）、顺序、type均不可更改；仅替换title/notes值；严禁出现merge类型节点；严禁将branch降为normal）：`
+输出（结构必须与骨架完全一致：节点数量（本章共${actualChapterTotal}个，逐幕数量见上）、顺序、type均不可更改；仅替换title/notes值；merge节点必须保留，不得删除或改type；严禁将branch降为normal）：`
+    },
+
+    // structure:targeted_fix（FR-19）：只产出"节点级补丁"，不做整体重生成——
+    // 输出schema与lib/ai/targetedFixTypes.ts的TargetedFixResult一一对应，两边不得各自扩展。
+    'structure:targeted_fix': (c) => {
+      const structureSummary = (c.structureSummary as string | undefined) ?? ''
+      const issues = (c.issues as Array<{level?: string; code?: string; message?: string}> | undefined) ?? []
+      const mustFix = (c.mustFix as string[] | undefined) ?? []
+      const variables = (c.variables as Array<{name:string; description?: string}> | undefined) ?? []
+      const endingsDesign = (c.endingsDesign as Array<{title:string; type?:string; triggerCondition?:string; keyVariable?:string}> | undefined) ?? []
+
+      // issues按error>warning>info排序展示，配合下方"修复优先级"约束，引导AI先修硬伤
+      const levelRank: Record<string, number> = { error: 0, warning: 1, info: 2 }
+      const sortedIssues = [...issues].sort((a, b) => (levelRank[a.level ?? 'info'] ?? 3) - (levelRank[b.level ?? 'info'] ?? 3))
+      const issuesText = sortedIssues.map((it, i) => `${i + 1}. [${it.level ?? '?'}/${it.code ?? '?'}] ${it.message ?? ''}`).join('\n') || '（本地校验无问题）'
+      const mustFixText = mustFix.map((m, i) => `${i + 1}. ${m}`).join('\n') || '（导演终审无必改项）'
+      const varText = variables.map(v => `${v.name}${v.description ? `（${v.description}）` : ''}`).join('、') || '（未定义变量）'
+      const endingsText = endingsDesign.map((e, i) => `结局${i + 1}「${e.title}」(${e.type ?? ''})：触发条件=${e.triggerCondition ?? ''}${e.keyVariable ? `，关键变量=${e.keyVariable}` : ''}`).join('\n') || '（未设计结局）'
+
+      return `你是互动影游结构医生，只做"节点级补丁"，不做整体重写，输出JSON。
+禁止输出JSON以外的任何内容，禁止Markdown代码块，字段名必须与模板完全一致。
+
+【当前结构摘要】
+${structureSummary}
+
+【本地校验问题（已按error>warning>info排序）】
+${issuesText}
+
+【导演终审必改项】
+${mustFixText}
+
+【叙事变量】${varText}
+【结局设计】
+${endingsText}
+
+【修复优先级——严格按此顺序分配ops】
+1. 先解决error级问题（如UNSATISFIABLE_CONDITION：条件永不可满足；断链/死路）
+2. 再解决导演终审mustFix
+3. 最后解决warning级问题（如ALL_CHOICES_GATED：节点缺无条件保底出口）
+
+【硬性约束】
+- 禁止删除或改写已有对白/场景内容：update_node只能补note或改title/type，不得用来清空或覆盖已有内容
+- 新增节点（add_node）的notes必须写明剧情意图——为什么加这个节点、承接什么、通向什么
+- 每个op的reason字段必须指明对应哪一条issue或mustFix（引用其编号或原文关键词），不得空泛
+- 修复ALL_CHOICES_GATED：用add_choice为该节点补一个无条件（conditions留空）的保底选项
+- 修复UNSATISFIABLE_CONDITION：用update_choice把条件阈值降到该变量理论可达上界以内，或改用更早已生效的变量
+- 新增/修改选项若带conditions，该节点必须仍保留至少一个无条件选项，不得让节点整体被条件锁死
+- ops总数不超过25条；优先修复影响面大、级别高的问题，其余留给下一轮
+
+【节点引用规则】target/after优先用nodeId；引用本次补丁中新增的节点时用其title（nodeTitle）
+
+【六种op的字段形状】
+- add_node：{"op":"add_node","after":{节点引用},"node":{"title":"","type":"normal|branch|merge|ending|start|explore","notes":"剧情意图"},"reason":""}
+- update_node：{"op":"update_node","target":{节点引用},"patch":{"title":"","type":"","notes":""},"reason":""}（patch字段只填需要改的）
+- add_choice：{"op":"add_choice","target":{节点引用},"choice":{"text":"","target":{节点引用},"conditions":"","variableEffects":"","consequence":""},"reason":""}
+- update_choice：{"op":"update_choice","target":{节点引用},"choiceText":"原选项文字（只写选项本身的文字，不要带「→ 目标」「效果:xx」等摘要标注）","patch":{"text":"","conditions":"","variableEffects":"","consequence":"","targetRef":{节点引用}},"reason":""}
+- set_explore_return：{"op":"set_explore_return","target":{节点引用},"returnTo":{节点引用},"reason":""}
+- bind_ending：{"op":"bind_ending","target":{节点引用},"ending":{"title":"","type":"good|bad|neutral|secret","description":"","conditions":""},"reason":""}
+节点引用格式统一为 {"nodeId":"..."} 或 {"nodeTitle":"..."}
+
+【输出模板】
+{"summary":"本轮修复思路，1-2句","ops":[{"op":"add_choice","target":{"nodeId":"节点id"},"choice":{"text":"选项文字","target":{"nodeId":"目标节点id"},"conditions":"","variableEffects":"","consequence":"后果描述"},"reason":"修复第1条issue：ALL_CHOICES_GATED"}]}
+
+输出：`
     },
 
     'branches:generate': (c) => {
@@ -534,6 +669,13 @@ ${endingsSummary}
 
 【变量机制约定】所有变量为0-10的小整数量表，通过variableEffects以+1（少数+2）累积，禁止使用百分比。conditions中的阈值必须是3-6之间的小整数，且路线门控/终章直通的每个选项必须使用其对应结局的keyVariable（见上表），不得自行发明新变量名或改用其他变量。
 
+【校验规则对齐——生成时必须遵守，否则本地校验会直接标红】
+- 保底出口（对应校验 ALL_CHOICES_GATED）：任何节点如果有选项带conditions，该节点必须至少保留一个conditions为空的无条件选项，不能让所有选项都设条件——否则玩家到达时可能被卡死
+- 阈值可达性（对应校验 UNSATISFIABLE_CONDITION）：某选项conditions里用到的变量阈值，不能超过"从开局到这个节点为止、该变量所有variableEffects理论最大累计值"；比如某变量此前最多只被+1过两次，后面节点就不能要求它>=5
+- 结局的触发条件同样只能用玩家实际能积累到的变量区间，不能设一个全图任何路径都凑不出来的阈值
+
+【菱形分支路径差异化】同一个branch/diamond节点下的各条路径，选项的variableEffects应各自使用不同的变量（如路径A用courage+1，路径B用trust+1），不要让多条路径都只改同一个变量——这样终章门控才能通过变量组合真正区分玩家走的是哪条路线
+
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 【连接拓扑——targetNodeId必须完全按此填写，禁止更改】
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -545,7 +687,7 @@ ${topoLines}
 ${needChoices.map((n, i) => `${i+1}. [${n.type}] id="${n.id}" "${n.title}"`).join('\n')}
 
 【选项设计规则（严格按branch类型区分）】
-- branch/diamond（菱形分支）：每个选项指向不同的专属路径节点（内容各不相同），variableEffects必须写出此选择对变量的影响（如"affection_A+1"），choiceWeight="heavy"
+- branch/diamond（菱形分支）：每个选项指向不同的专属路径节点（内容各不相同），variableEffects必须写出此选择对变量的影响（如"affection_A+1"），且不同路径尽量使用不同变量以便后续区分路线，choiceWeight="heavy"
 - branch/variable（变量积累型）：2-3个选项，所有选项targetNodeId相同，但variableEffects各不同，choiceWeight="heavy"
 - branch/route（路线门控）：每个选项指向不同路线入口，conditions必须使用对应结局的keyVariable（见结局关键变量对照表），阈值为0-10量表下的3-6整数（如"courage>=4"），禁止百分比或自造变量，choiceWeight="critical"
 - branch/terminal（终章直通）：每个选项指向结局节点，conditions同样必须使用该结局的keyVariable和3-6整数阈值，choiceWeight="critical"
