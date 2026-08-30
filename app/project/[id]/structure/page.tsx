@@ -1,5 +1,6 @@
 'use client'
 import { useState, useEffect, useRef } from 'react'
+import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { nanoid } from 'nanoid'
 import { useProjectStore } from '@/lib/store/projectStore'
@@ -538,6 +539,9 @@ export default function StructurePage() {
                 流程图
               </button>
             </div>
+            <Link href={`/project/${project.id}/branches`}>
+              <Button variant="secondary" size="sm">分支路径分析</Button>
+            </Link>
             {project.nodes.length > 0 && (
               <Button variant="primary" size="sm" onClick={() => generateBranches()}>
                 {project.nodes.some(n => n.choices.length > 0) ? '重新生成分支' : 'AI 生成分支选项'}

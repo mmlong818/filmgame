@@ -2,9 +2,9 @@
 
 | 项 | 内容 |
 |----|------|
-| 文档版本 | 1.0 |
-| 对应产品版本 | v0.5.0 |
-| 日期 | 2026-07-18 |
+| 文档版本 | 1.1（新增 FR-15/16/17、NFR-5，对应「驾驶舱 × 编剧房间」升级，实施计划见 `docs/plans/2026-08-30-cockpit-redesign.md`） |
+| 对应产品版本 | v0.6.0 |
+| 日期 | 2026-08-30 |
 | 性质 | 基线需求文档：由 v0.5.0 已实现功能反推整理，作为后续迭代的需求基准 |
 | 事实来源 | 代码实现（`lib/`、`app/`）优先于本文档；发现冲突时以代码为准并回改本文档 |
 
@@ -200,6 +200,23 @@
 - 断网写入进入本地队列，网络恢复后指数退避自动续传。
 - 页面关闭前（unload）冲刷所有未落库改动。
 
+### FR-15 撤销 / 重做（v0.6 起）
+
+- 破坏性与批量覆盖动作（删除节点/角色/选项/结局、清空下游、重新设计结构、AI 批量覆盖角色/变量/结构/结局设计）执行前自动压入项目快照栈（上限 30，`lib/store/history.ts`）。
+- `⌘Z / Ctrl+Z` 撤销、`⇧⌘Z` 重做，全局生效（输入框内放行原生行为）；删除类操作的 toast 附「撤销」按钮。
+- 高频输入不产生快照（NFR-1）；恢复走整档保存管线，乐观锁 version 基线沿用服务端确认值；切换项目时清空历史。
+
+### FR-16 命令面板与全局快捷键（v0.6 起）
+
+- `⌘K / Ctrl+K` 呼出命令面板：阶段跳转（锁定阶段不出现）、预览、节点检索（跳转 `/workshop?node=<id>` 并选中）、撤销/重做、中止运行中 AI 任务、项目列表 / 新建项目（`/projects?new=1`）。
+- 工坊保留 `j/k/↑/↓/Esc` 节点导航；预览页数字/字母键直选可用选项。
+
+### FR-17 AI 动作的可取消与错误引导（v0.6 起，扩展 FR-11）
+
+- 全部客户端 AI 请求经 AbortController 可中止：单节点动作、批量精修（取消同时中止在飞请求）、结构流式生成（30 分钟上限内任意时刻可停）。
+- AI 失败必须对用户可见：按服务端 `errorType`（no_cli / timeout / parse_failed）给差异化中文引导 + 重试按钮（`lib/ai/errors.ts`）；用户主动取消不显示为错误。
+- 运行中任务登记于 `lib/ai/taskStore.ts`，命令面板可查看并中止。
+
 ---
 
 ## 7. 数据模型概要
@@ -251,6 +268,13 @@ Project
 ### NFR-4 技术栈约束
 
 Next.js 16.2 (App Router) / React 19 / TypeScript 5 / Tailwind v4 / Zustand v5 / @xyflow/react v12 / LangChain + LangGraph / PostgreSQL 17 + Drizzle ORM。新增依赖须逐个说明理由（见工作区「谨慎引入依赖」原则）。
+
+### NFR-5 视觉与交互体系（v0.6 起）
+
+- 全站唯一视觉语言「编剧房间」：语义 token 经 Tailwind `@theme` 暴露（`app/globals.css`），页面禁止使用 gray/zinc/slate/amber 等字面色类；节点类型的文案与配色只从 `lib/ui/nodeTypes.ts` 取。
+- 共享组件库 `app/components/ui/`（Button / Input / Modal / ConfirmButton / Skeleton / StickyNote / IndexCard / Tag），删除确认统一为两步 `ConfirmButton`；模态统一具备 Esc 关闭 + 焦点圈定 + `aria-modal`。
+- 预览页主题为组件级 CSS 变量（`--pv-*`），不得以覆写 Tailwind 字面类的方式实现主题。
+- a11y 基线：可交互元素键盘可达（button 语义或 role/tabIndex），加载态用骨架屏而非纯文字。
 
 ---
 

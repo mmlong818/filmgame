@@ -1,7 +1,8 @@
 'use client'
 import { useState, FormEvent } from 'react'
 import { useRouter } from 'next/navigation'
-import { ShellWordmark, ArtDecoRule } from '@/app/components/art-deco'
+import { Button } from '@/app/components/ui/button'
+import { Input } from '@/app/components/ui/input'
 
 export default function LoginPage() {
   const router = useRouter()
@@ -34,50 +35,32 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: '#060408' }}>
-      <div className="w-full max-w-sm px-8">
-        <div className="flex flex-col items-center mb-10">
-          <ShellWordmark size="lg" />
+    <div className="corkboard min-h-screen flex items-center justify-center p-6">
+      <div className="w-full max-w-sm">
+        <div className="flex justify-center mb-8">
+          <span className="tape-label hand text-2xl text-ink-soft px-6">猫叔的互动影游创作系统</span>
         </div>
 
-        <form
-          onSubmit={handleSubmit}
-          className="p-8"
-          style={{ background: 'var(--shell-mid)', border: '2px solid var(--gold-dim)' }}
-        >
-          <h1 className="text-lg font-bold tracking-widest uppercase mb-1 text-center" style={{ color: 'var(--shell-fg)' }}>
-            访问验证
-          </h1>
-          <div className="mb-6"><ArtDecoRule /></div>
+        <form onSubmit={handleSubmit} className="paper-sheet paper-sheet-ruled px-8 py-8">
+          <h1 className="text-[15px] font-semibold tracking-[0.4em] text-ink mb-6">访问验证</h1>
 
-          <label className="text-xs uppercase tracking-[0.3em] mb-2 block" style={{ color: 'var(--shell-fg-3)' }}>
+          <label className="block text-xs tracking-[0.25em] text-pencil mb-2" htmlFor="login-password">
             密码
           </label>
-          <input
+          <Input
+            id="login-password"
             autoFocus
             type="password"
             value={password}
             onChange={e => { setPassword(e.target.value); setError('') }}
             placeholder="请输入访问密码"
-            className="w-full px-4 py-3 text-sm focus:outline-none mb-2"
-            style={{ background: 'var(--shell-raised)', border: `1px solid ${error ? 'rgba(220,38,38,0.6)' : 'var(--shell-border)'}`, color: 'var(--shell-fg)' }}
-            onFocus={e => { e.currentTarget.style.borderColor = 'var(--gold-mid)' }}
-            onBlur={e => { e.currentTarget.style.borderColor = error ? 'rgba(220,38,38,0.6)' : 'var(--shell-border)' }}
+            className={error ? 'border-vermilion/60' : ''}
           />
-          {error && (
-            <p className="text-xs mb-4" style={{ color: 'rgba(220,38,38,0.85)' }}>{error}</p>
-          )}
+          {error && <p className="text-xs text-vermilion mt-2">{error}</p>}
 
-          <button
-            type="submit"
-            disabled={!password || loading}
-            className="w-full py-3 mt-4 text-sm font-medium tracking-wider transition-all disabled:opacity-40 disabled:cursor-not-allowed"
-            style={{ background: 'var(--gold-mid)', color: 'var(--shell)' }}
-            onMouseEnter={e => { if (password && !loading) e.currentTarget.style.background = 'var(--gold-bright)' }}
-            onMouseLeave={e => { e.currentTarget.style.background = 'var(--gold-mid)' }}
-          >
-            {loading ? '验证中…' : '进入'}
-          </button>
+          <Button type="submit" variant="primary" className="w-full mt-6" disabled={!password} loading={loading}>
+            {loading ? '验证中…' : '进入档案室'}
+          </Button>
         </form>
       </div>
     </div>

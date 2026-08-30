@@ -3,26 +3,15 @@ import Link from 'next/link'
 import { useParams } from 'next/navigation'
 import { useProjectStore } from '@/lib/store/projectStore'
 import { enumeratePaths } from '@/lib/graph'
+import { nodeTypeStyle } from '@/lib/ui/nodeTypes'
 import type { NodeType } from '@/lib/types/project'
+import { Button } from '@/app/components/ui/button'
+import { Skeleton, SkeletonLines } from '@/app/components/ui/skeleton'
 
-// ── Type config ────────────────────────────────────────────────────────────
+// ── Type config（图标本地维护，文案与配色一律取自 lib/ui/nodeTypes） ──────────
 
-const TYPE_CONFIG: Record<NodeType, { icon: string; label: string; color: string }> = {
-  start:   { icon: '○', label: '开场',   color: 'text-emerald-600' },
-  normal:  { icon: '▷', label: '普通',   color: 'text-zinc-500' },
-  branch:  { icon: '◇', label: '分支',   color: 'text-violet-600' },
-  merge:   { icon: '◁', label: '汇聚',   color: 'text-rose-500' },
-  ending:  { icon: '★', label: '结局',   color: 'text-amber-500' },
-  explore: { icon: '◎', label: '探索',   color: 'text-cyan-600' },
-}
-
-const TYPE_BAR_COLOR: Record<NodeType, string> = {
-  start:   'bg-emerald-400',
-  normal:  'bg-zinc-300',
-  branch:  'bg-violet-400',
-  merge:   'bg-rose-400',
-  ending:  'bg-amber-400',
-  explore: 'bg-cyan-400',
+const TYPE_ICON: Record<NodeType, string> = {
+  start: '○', normal: '▷', branch: '◇', merge: '◁', ending: '★', explore: '◎',
 }
 
 // ── Stat card ──────────────────────────────────────────────────────────────
@@ -31,12 +20,12 @@ function StatCard({ label, value, sub, accent }: {
   label: string; value: string | number; sub?: string; accent: string
 }) {
   return (
-    <div className="bg-white border border-zinc-100 rounded-xl overflow-hidden flex">
+    <div className="paper-sheet border border-line flex overflow-hidden">
       <div className={`w-1 shrink-0 ${accent}`} />
       <div className="px-4 py-4 flex-1">
-        <div className="text-2xl font-bold text-zinc-800 leading-tight">{value}</div>
-        {sub && <div className="text-xs text-zinc-400 mt-0.5">{sub}</div>}
-        <div className="text-xs text-zinc-500 mt-1">{label}</div>
+        <div className="text-2xl font-bold text-ink leading-tight">{value}</div>
+        {sub && <div className="text-xs text-pencil mt-0.5">{sub}</div>}
+        <div className="text-xs text-ink-soft mt-1">{label}</div>
       </div>
     </div>
   )
@@ -50,20 +39,23 @@ export default function BranchesPage() {
   const project = useProjectStore(s => s.project)
 
   if (!project) return (
-    <div className="flex items-center justify-center h-64 text-zinc-400 text-sm">加载中...</div>
+    <div className="max-w-4xl mx-auto px-6 py-8 space-y-6">
+      <Skeleton className="h-4 w-24" />
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+        {Array.from({ length: 4 }, (_, i) => <Skeleton key={i} className="h-20" />)}
+      </div>
+      <SkeletonLines lines={5} />
+    </div>
   )
 
   const nodes = project.nodes ?? []
 
   if (nodes.length === 0) return (
     <div className="max-w-4xl mx-auto px-6 py-16 text-center">
-      <div className="text-5xl mb-4">◇</div>
-      <p className="text-zinc-500 text-sm mb-6">还没有节点，请先在结构编辑中创建节点。</p>
-      <Link
-        href={`/project/${id}/structure`}
-        className="inline-flex items-center gap-1.5 px-4 py-2 bg-violet-50 text-violet-700 border border-violet-200 rounded-lg text-sm hover:bg-violet-100 transition-colors"
-      >
-        ← 前往结构编辑
+      <div className="text-5xl mb-4 text-pencil">◇</div>
+      <p className="text-ink-soft text-sm mb-6">还没有节点，请先在结构编辑中创建节点。</p>
+      <Link href={`/project/${id}/structure`}>
+        <Button variant="secondary">← 前往结构编辑</Button>
       </Link>
     </div>
   )
@@ -137,16 +129,16 @@ export default function BranchesPage() {
     : 100
 
   return (
-    <div className="bg-white min-h-full">
+    <div className="min-h-full">
       {/* Breadcrumb */}
-      <div className="border-b border-zinc-100 px-6 py-3 flex items-center gap-3 text-xs text-zinc-400">
-        <Link href={`/project/${id}/structure`} className="hover:text-zinc-700 transition-colors">
-          ← 结构编辑
+      <div className="bg-paper border-b border-line-soft px-6 py-3 flex items-center gap-3 text-xs text-pencil">
+        <Link href={`/project/${id}/structure`} className="hover:text-ink transition-colors cursor-pointer">
+          ← 返回结构
         </Link>
-        <span className="text-zinc-200">|</span>
-        <span className="text-zinc-700 font-medium">分支分析</span>
-        <span className="text-zinc-200">|</span>
-        <Link href={`/project/${id}/preview`} className="hover:text-zinc-700 transition-colors">
+        <span className="text-line">|</span>
+        <span className="text-ink font-medium">分支分析</span>
+        <span className="text-line">|</span>
+        <Link href={`/project/${id}/preview`} className="hover:text-ink transition-colors cursor-pointer">
           ▶ 预览
         </Link>
       </div>
@@ -155,20 +147,20 @@ export default function BranchesPage() {
 
         {/* Module 1: Stat cards */}
         <section>
-          <h2 className="text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-3">总览</h2>
+          <h2 className="text-xs font-semibold text-pencil uppercase tracking-wider mb-3">总览</h2>
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-            <StatCard label="总节点数"   value={nodes.length}        accent="bg-zinc-300" />
-            <StatCard label="分支节点"   value={branchNodes.length}  sub={`占 ${branchPct}%`} accent="bg-violet-400" />
-            <StatCard label="总选项数"   value={totalChoices}        accent="bg-blue-300" />
-            <StatCard label="结局数"     value={endingNodes.length}  accent="bg-amber-400" />
-            <StatCard label="路径差异化" value={`${differentiationPct}%`} sub="路径独占节点比例" accent={differentiationPct >= 40 ? 'bg-emerald-400' : 'bg-red-300'} />
-            <StatCard label="变量覆盖率" value={allVarNames.size === 0 ? '—' : `${varCoverage}%`} sub={allVarNames.size > 0 ? `${usedVarNames.size}/${allVarNames.size} 变量在选项中使用` : '暂无变量'} accent={varCoverage >= 80 || allVarNames.size === 0 ? 'bg-emerald-400' : 'bg-orange-300'} />
+            <StatCard label="总节点数"   value={nodes.length}        accent="bg-pencil" />
+            <StatCard label="分支节点"   value={branchNodes.length}  sub={`占 ${branchPct}%`} accent="bg-vermilion" />
+            <StatCard label="总选项数"   value={totalChoices}        accent="bg-inkblue" />
+            <StatCard label="结局数"     value={endingNodes.length}  accent="bg-amberink" />
+            <StatCard label="路径差异化" value={`${differentiationPct}%`} sub="路径独占节点比例" accent={differentiationPct >= 40 ? 'bg-leaf' : 'bg-vermilion'} />
+            <StatCard label="变量覆盖率" value={allVarNames.size === 0 ? '—' : `${varCoverage}%`} sub={allVarNames.size > 0 ? `${usedVarNames.size}/${allVarNames.size} 变量在选项中使用` : '暂无变量'} accent={varCoverage >= 80 || allVarNames.size === 0 ? 'bg-leaf' : 'bg-amberink'} />
             {fakeBranchNodes.length > 0 && (
-              <StatCard label="假分支数" value={fakeBranchNodes.length} sub="所有选项指向同一节点" accent="bg-red-400" />
+              <StatCard label="假分支数" value={fakeBranchNodes.length} sub="所有选项指向同一节点" accent="bg-vermilion" />
             )}
           </div>
           {fakeBranchNodes.length > 0 && (
-            <div className="mt-3 p-3 bg-red-50 border border-red-100 rounded-xl text-xs text-red-700">
+            <div className="mt-3 p-3 bg-vermilion/10 border border-vermilion/30 text-xs text-vermilion">
               <span className="font-semibold">⚠ 发现假分支：</span> {fakeBranchNodes.map(n => `「${n.title}」`).join('、')}——玩家的选择没有实际效果，请在工坊中修复。
             </div>
           )}
@@ -177,44 +169,44 @@ export default function BranchesPage() {
         {/* Replay differentiation breakdown */}
         {paths.length >= 2 && (
         <section>
-          <h2 className="text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-3">重玩差异化分析</h2>
-          <div className="bg-white border border-zinc-100 rounded-xl p-4 space-y-3 text-xs text-zinc-600">
+          <h2 className="text-xs font-semibold text-pencil uppercase tracking-wider mb-3">重玩差异化分析</h2>
+          <div className="paper-sheet border border-line p-4 space-y-3 text-xs text-ink-soft">
             <div className="flex items-center justify-between">
               <span>所有路径共享节点（无差异内容）</span>
-              <span className="font-mono text-zinc-400">{sharedCount} 个</span>
+              <span className="font-mono text-pencil">{sharedCount} 个</span>
             </div>
             <div className="flex items-center justify-between">
               <span>路径差异化指数</span>
-              <span className={`font-mono font-bold ${differentiationPct >= 40 ? 'text-emerald-600' : 'text-red-500'}`}>{differentiationPct}%</span>
+              <span className={`font-mono font-bold ${differentiationPct >= 40 ? 'text-leaf' : 'text-vermilion'}`}>{differentiationPct}%</span>
             </div>
-            <div className="h-1.5 bg-zinc-100 rounded-full overflow-hidden">
-              <div className={`h-full rounded-full transition-all ${differentiationPct >= 40 ? 'bg-emerald-400' : 'bg-red-400'}`} style={{ width: `${differentiationPct}%` }} />
+            <div className="h-1.5 bg-paper-dim overflow-hidden">
+              <div className={`h-full transition-all ${differentiationPct >= 40 ? 'bg-leaf' : 'bg-vermilion'}`} style={{ width: `${differentiationPct}%` }} />
             </div>
-            <p className="text-zinc-400 italic">{differentiationPct >= 60 ? '优秀：二周目体验高度差异化' : differentiationPct >= 40 ? '良好：路径有明显差别' : '警告：路径同质化严重，二周目体验较差'}</p>
+            <p className="text-pencil italic">{differentiationPct >= 60 ? '优秀：二周目体验高度差异化' : differentiationPct >= 40 ? '良好：路径有明显差别' : '警告：路径同质化严重，二周目体验较差'}</p>
           </div>
         </section>
         )}
 
         {/* Module 2: Type distribution */}
         <section>
-          <h2 className="text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-3">节点类型分布</h2>
-          <div className="bg-white border border-zinc-100 rounded-xl divide-y divide-zinc-50 overflow-hidden">
+          <h2 className="text-xs font-semibold text-pencil uppercase tracking-wider mb-3">节点类型分布</h2>
+          <div className="paper-sheet border border-line divide-y divide-line-soft overflow-hidden">
             {typeOrder.map(type => {
               const count = typeCounts.get(type) ?? 0
-              const cfg = TYPE_CONFIG[type]
+              const style = nodeTypeStyle(type)
               const pct = nodes.length > 0 ? Math.round(count / nodes.length * 100) : 0
               return (
                 <div key={type} className="flex items-center gap-3 px-4 py-3">
-                  <span className={`text-base w-5 text-center ${cfg.color}`}>{cfg.icon}</span>
-                  <span className="text-sm text-zinc-600 w-10">{cfg.label}</span>
-                  <div className="flex-1 h-2 bg-zinc-100 rounded-full overflow-hidden">
+                  <span className={`text-base w-5 text-center ${style.text}`}>{TYPE_ICON[type]}</span>
+                  <span className="text-sm text-ink-soft w-10">{style.label}</span>
+                  <div className="flex-1 h-2 bg-paper-dim overflow-hidden">
                     <div
-                      className={`h-full rounded-full ${TYPE_BAR_COLOR[type]} transition-all`}
-                      style={{ width: `${pct}%` }}
+                      className="h-full transition-all"
+                      style={{ width: `${pct}%`, background: style.hex }}
                     />
                   </div>
-                  <span className="text-sm text-zinc-700 w-6 text-right">{count}</span>
-                  <span className="text-xs text-zinc-400 w-9 text-right">{pct}%</span>
+                  <span className="text-sm text-ink w-6 text-right">{count}</span>
+                  <span className="text-xs text-pencil w-9 text-right">{pct}%</span>
                 </div>
               )
             })}
@@ -223,35 +215,35 @@ export default function BranchesPage() {
 
         {/* Module 3: Path analysis */}
         <section>
-          <h2 className="text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-3">路径分析</h2>
+          <h2 className="text-xs font-semibold text-pencil uppercase tracking-wider mb-3">路径分析</h2>
           {!startNode ? (
-            <p className="text-sm text-zinc-400">未找到开场节点，无法进行路径分析。</p>
+            <p className="text-sm text-pencil">未找到开场节点，无法进行路径分析。</p>
           ) : (
-            <div className="bg-white border border-zinc-100 rounded-xl overflow-hidden">
-              <div className="grid grid-cols-3 divide-x divide-zinc-100 border-b border-zinc-100">
+            <div className="paper-sheet border border-line overflow-hidden">
+              <div className="grid grid-cols-3 divide-x divide-line-soft border-b border-line-soft">
                 {[
                   { label: '路径总数', value: paths.length },
                   { label: '最短路径', value: `${minSteps} 步` },
                   { label: '最长路径', value: `${maxSteps} 步` },
                 ].map(({ label, value }) => (
                   <div key={label} className="px-4 py-3 text-center">
-                    <div className="text-xl font-bold text-zinc-800">{value}</div>
-                    <div className="text-xs text-zinc-400 mt-0.5">{label}</div>
+                    <div className="text-xl font-bold text-ink">{value}</div>
+                    <div className="text-xs text-pencil mt-0.5">{label}</div>
                   </div>
                 ))}
               </div>
 
               {paths.length === 0 ? (
-                <p className="text-sm text-zinc-400 px-4 py-3">没有找到通向结局的路径。</p>
+                <p className="text-sm text-pencil px-4 py-3">没有找到通向结局的路径。</p>
               ) : (
-                <div className="divide-y divide-zinc-50">
+                <div className="divide-y divide-line-soft">
                   {displayPaths.map((path, i) => (
-                    <div key={i} className="px-4 py-2.5 text-xs text-zinc-600 font-mono leading-relaxed">
-                      <span className="text-zinc-300 mr-2 select-none">{i + 1}.</span>
+                    <div key={i} className="px-4 py-2.5 text-xs text-ink-soft font-mono leading-relaxed">
+                      <span className="text-pencil mr-2 select-none">{i + 1}.</span>
                       {path.map((nid, j) => (
                         <span key={nid}>
-                          {j > 0 && <span className="text-zinc-300 mx-1">→</span>}
-                          <span className={nodeMap.get(nid)?.type === 'ending' ? 'text-amber-600 font-semibold' : ''}>
+                          {j > 0 && <span className="text-pencil mx-1">→</span>}
+                          <span className={nodeMap.get(nid)?.type === 'ending' ? `${nodeTypeStyle('ending').text} font-semibold` : ''}>
                             {nodeName(nid)}
                           </span>
                         </span>
@@ -259,7 +251,7 @@ export default function BranchesPage() {
                     </div>
                   ))}
                   {extraPaths > 0 && (
-                    <div className="px-4 py-2.5 text-xs text-zinc-400 italic">
+                    <div className="px-4 py-2.5 text-xs text-pencil italic">
                       + {extraPaths} 条更多路径...
                     </div>
                   )}
@@ -272,41 +264,41 @@ export default function BranchesPage() {
         {/* Module 4: Branch node detail table */}
         {branchNodes.length > 0 && (
           <section>
-            <h2 className="text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-3">分支节点详情</h2>
-            <div className="bg-white border border-zinc-100 rounded-xl overflow-hidden">
+            <h2 className="text-xs font-semibold text-pencil uppercase tracking-wider mb-3">分支节点详情</h2>
+            <div className="paper-sheet border border-line overflow-hidden">
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="bg-zinc-50 border-b border-zinc-100 text-xs text-zinc-400">
+                  <tr className="bg-paper-dim border-b border-line-soft text-xs text-pencil">
                     <th className="px-4 py-2.5 text-left font-medium">节点标题</th>
                     <th className="px-4 py-2.5 text-center font-medium w-16">选项数</th>
                     <th className="px-4 py-2.5 text-left font-medium">选项预览</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-zinc-50">
+                <tbody className="divide-y divide-line-soft">
                   {branchNodes.map(node => {
                     const choices = node.choices ?? []
                     const preview = choices.slice(0, 2)
                     const extra = choices.length - preview.length
                     return (
-                      <tr key={node.id} className="hover:bg-zinc-50 transition-colors">
+                      <tr key={node.id} className="hover:bg-paper-dim transition-colors">
                         <td className="px-4 py-2.5">
                           <Link
                             href={`/project/${id}/structure`}
-                            className="text-violet-700 hover:text-violet-900 hover:underline font-medium"
+                            className="text-vermilion hover:text-vermilion-deep hover:underline font-medium cursor-pointer"
                           >
                             {node.title || '（无标题）'}
                           </Link>
                         </td>
-                        <td className="px-4 py-2.5 text-center text-zinc-500">{choices.length}</td>
+                        <td className="px-4 py-2.5 text-center text-pencil">{choices.length}</td>
                         <td className="px-4 py-2.5">
                           <div className="flex flex-wrap gap-1.5 items-center">
                             {preview.map(c => (
                               <span
                                 key={c.id}
-                                className={`inline-flex items-center px-2 py-0.5 rounded text-xs border ${
+                                className={`inline-flex items-center px-2 py-0.5 text-xs border ${
                                   c.choiceWeight === 'critical'
-                                    ? 'bg-red-50 text-red-700 border-red-200'
-                                    : 'bg-zinc-100 text-zinc-600 border-zinc-200'
+                                    ? 'bg-vermilion/10 text-vermilion border-vermilion/30'
+                                    : 'bg-paper-dim text-ink-soft border-line'
                                 }`}
                               >
                                 {c.choiceWeight === 'critical' && (
@@ -316,7 +308,7 @@ export default function BranchesPage() {
                               </span>
                             ))}
                             {extra > 0 && (
-                              <span className="text-xs text-zinc-400">+{extra}</span>
+                              <span className="text-xs text-pencil">+{extra}</span>
                             )}
                           </div>
                         </td>
@@ -331,41 +323,41 @@ export default function BranchesPage() {
 
         {/* Module 5: Network health */}
         <section>
-          <h2 className="text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-3">网络健康检测</h2>
+          <h2 className="text-xs font-semibold text-pencil uppercase tracking-wider mb-3">网络健康检测</h2>
           {deadEndNodes.length === 0 && unreachableNodes.length === 0 ? (
-            <div className="flex items-center gap-2 px-4 py-3 bg-emerald-50 border border-emerald-100 rounded-xl text-sm text-emerald-700">
+            <div className="flex items-center gap-2 px-4 py-3 bg-leaf/10 border border-leaf/30 text-sm text-leaf">
               <span>✓</span>
               <span className="font-medium">分支网络健康</span>
             </div>
           ) : (
             <div className="space-y-3">
               {deadEndNodes.length > 0 && (
-                <div className="bg-red-50 border border-red-100 rounded-xl px-4 py-3">
-                  <div className="text-sm font-medium text-red-700 mb-2">
+                <div className="bg-vermilion/10 border border-vermilion/30 px-4 py-3">
+                  <div className="text-sm font-medium text-vermilion mb-2">
                     死路节点（{deadEndNodes.length} 个）— 非结局节点但无选项
                   </div>
                   <ul className="space-y-1">
                     {deadEndNodes.map(n => (
-                      <li key={n.id} className="text-xs text-red-600 flex items-center gap-1.5">
-                        <span className="w-1.5 h-1.5 rounded-full bg-red-400 shrink-0" />
+                      <li key={n.id} className="text-xs text-vermilion flex items-center gap-1.5">
+                        <span className="w-1.5 h-1.5 rounded-full bg-vermilion shrink-0" />
                         {n.title || '（无标题）'}
-                        <span className="text-red-400 ml-1">[{TYPE_CONFIG[n.type].label}]</span>
+                        <span className="text-vermilion/70 ml-1">[{nodeTypeStyle(n.type).label}]</span>
                       </li>
                     ))}
                   </ul>
                 </div>
               )}
               {unreachableNodes.length > 0 && (
-                <div className="bg-amber-50 border border-amber-100 rounded-xl px-4 py-3">
-                  <div className="text-sm font-medium text-amber-700 mb-2">
+                <div className="bg-amberink/10 border border-amberink/30 px-4 py-3">
+                  <div className="text-sm font-medium text-amberink mb-2">
                     无法到达节点（{unreachableNodes.length} 个）— 没有任何选项指向它
                   </div>
                   <ul className="space-y-1">
                     {unreachableNodes.map(n => (
-                      <li key={n.id} className="text-xs text-amber-700 flex items-center gap-1.5">
-                        <span className="w-1.5 h-1.5 rounded-full bg-amber-400 shrink-0" />
+                      <li key={n.id} className="text-xs text-amberink flex items-center gap-1.5">
+                        <span className="w-1.5 h-1.5 rounded-full bg-amberink shrink-0" />
                         {n.title || '（无标题）'}
-                        <span className="text-amber-500 ml-1">[{TYPE_CONFIG[n.type].label}]</span>
+                        <span className="text-amberink/70 ml-1">[{nodeTypeStyle(n.type).label}]</span>
                       </li>
                     ))}
                   </ul>

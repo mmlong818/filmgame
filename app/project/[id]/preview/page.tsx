@@ -166,7 +166,7 @@ export default function PreviewPage() {
 
   if (nodes.length === 0) {
     return (
-      <div data-pv-theme={theme} style={pvVars} className="min-h-full bg-[var(--pv-bg)] text-[var(--pv-text)] flex items-center justify-center">
+      <div data-pv-theme={theme} style={pvVars} className="min-h-screen bg-[var(--pv-bg)] text-[var(--pv-text)] flex items-center justify-center">
         <div className="text-center">
           <div className="text-5xl mb-6 opacity-40">🎬</div>
           <h2 className="text-lg font-medium mb-2 text-[var(--pv-text-soft)]">暂无内容可预览</h2>
@@ -196,7 +196,7 @@ export default function PreviewPage() {
   const showDebugPanel = !isEnding && (mode === 'author' || project.variables.length > 0)
 
   return (
-    <div data-pv-theme={theme} style={pvVars} className="min-h-full bg-[var(--pv-bg)] text-[var(--pv-text)] flex flex-col">
+    <div data-pv-theme={theme} style={pvVars} className="min-h-screen bg-[var(--pv-bg)] text-[var(--pv-text)] flex flex-col">
       <TopBar
         backHref={backHref}
         nodeTitle={currentNode.title}

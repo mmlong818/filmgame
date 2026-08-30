@@ -55,15 +55,15 @@
 
 - [x] 阶段 0：token 系统 + ui 组件库 + nodeTypes 单一来源 + Toast 升级
 - [x] 阶段 1：AbortController 全线 + errorType 引导 + ⌘K + undo/redo
-- [ ] 项目壳 `app/project/[id]/layout.tsx` + 首页 + save-status + ai-settings-modal
-- [ ] 项目列表 `app/projects/page.tsx`（卡片墙 + 搜索 + ?new=1）
-- [ ] world（6 个 AI 动作错误可见化 + 角色输入缓冲 + 骨架屏）
-- [ ] scale（卡片键盘可达 + useAiAction + 骨架屏）
-- [ ] structure（流式进度条 + 生成可取消 + FlowView 配色接 nodeTypes）
-- [ ] workshop（软木板侧栏 + 稿纸编辑区 + 便签 AI + ?node= + 8 动作接 useAiAction）
-- [ ] validate（director_review 补 catch + 严重度分组折叠 + 图表配色）
-- [ ] preview（组件级真主题替换 globals.css 的 62 行覆写 hack）
-- [ ] 收尾：删除 globals.css 遗留区与 art-deco.tsx、`/branches` 接入入口、响应式基线、验收
+- [x] 项目壳 `app/project/[id]/layout.tsx` + 首页 + save-status + ai-settings-modal
+- [x] 项目列表 `app/projects/page.tsx`（卡片墙 + 搜索 + ?new=1）
+- [x] world（6 个 AI 动作错误可见化 + 角色输入缓冲 + 骨架屏）
+- [x] scale（卡片键盘可达 + useAiAction + 骨架屏）
+- [x] structure（流式进度条 + 生成可取消 + FlowView 配色接 nodeTypes）
+- [x] workshop（软木板侧栏 + 稿纸编辑区 + 便签 AI + ?node= + 8 动作接 useAiAction）
+- [x] validate（director_review 补 catch + 严重度分组折叠 + 图表配色）
+- [x] preview（组件级真主题替换 globals.css 的 62 行覆写 hack）
+- [x] 收尾：删除 globals.css 遗留区与 art-deco.tsx、登录页换装、`/branches` 接入入口、验收
 
 ## 验收基准
 
