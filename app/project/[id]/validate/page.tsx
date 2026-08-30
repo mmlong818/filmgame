@@ -91,7 +91,7 @@ export default function ValidatePage() {
 
       <div className="flex flex-col lg:flex-row gap-6 items-start">
         {/* ── 核心产出区 ── */}
-        <main className="flex-1 min-w-0">
+        <section aria-label="核心产出区" className="flex-1 min-w-0">
           <div className="flex justify-end gap-2 mb-4">
             <Button variant="primary" onClick={handleValidate}>运行校验</Button>
             {report && (
@@ -135,7 +135,7 @@ export default function ValidatePage() {
               <NarrativeMap project={project} />
             </>
           )}
-        </main>
+        </section>
 
         {/* ── 辅助区 ── */}
         <AssistRail>

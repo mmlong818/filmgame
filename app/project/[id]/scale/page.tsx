@@ -201,7 +201,7 @@ export default function ScalePage() {
 
       <div className="flex flex-col lg:flex-row gap-6 items-start">
         {/* ── 核心产出区 ── */}
-        <main className="flex-1 min-w-0">
+        <section aria-label="核心产出区" className="flex-1 min-w-0">
           {project.downstreamStale && (
             <div className="mb-4 flex items-center gap-3 bg-paper border-l-[3px] border-amberink px-4 py-3">
               <span className="text-amberink text-sm flex-1">世界锚点已更新，当前方案基于旧版本</span>
@@ -262,7 +262,7 @@ export default function ScalePage() {
               下一步：结构设计 →
             </button>
           </div>
-        </main>
+        </section>
 
         {/* ── 辅助区 ── */}
         <AssistRail>

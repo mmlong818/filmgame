@@ -19,6 +19,37 @@ import { StickyNote } from '@/app/components/ui/sticky-note'
 import { AssistRail, AssistSection } from '@/app/components/ui/assist-rail'
 import FlowView from './FlowView'
 import EndingsSection from './EndingsSection'
+import { useToast } from '@/app/components/toast'
+
+// 结局线自动携带：把世界锚点阶段设计的结局线绑定到同名结局节点，补全「结局定义」。
+// 此前二者互不相通，编剧要手动重复录入（校验 ENDING_NO_DEF），预览结局画面也会退化为中性兜底。
+function importEndingDefinitions(): number {
+  const store = useProjectStore.getState()
+  const p = store.project
+  const designs = p?.worldAnchor?.endingsDesign ?? []
+  if (!p || designs.length === 0) return 0
+  let imported = 0
+  for (const design of designs) {
+    const node = p.nodes.find(n =>
+      n.type === 'ending' && (n.title === design.title || n.title.includes(design.title) || design.title.includes(n.title)),
+    )
+    if (!node) continue
+    const current = useProjectStore.getState().project
+    if (current?.endings.some(e => e.nodeId === node.id)) continue
+    store.addEnding(node.id)
+    const created = useProjectStore.getState().project?.endings.find(e => e.nodeId === node.id)
+    if (created) {
+      store.updateEnding(created.id, {
+        title: design.title,
+        type: design.type,
+        description: design.description ?? '',
+        conditions: design.triggerCondition ?? '',
+      })
+      imported++
+    }
+  }
+  return imported
+}
 
 type AiNodeDraft = { title: string; type: string; notes: string }
 type AiActDraft = { title: string; nodes: AiNodeDraft[] }
@@ -64,6 +95,7 @@ function draftNodeType(t: string): NodeType {
 
 export default function StructurePage() {
   const router = useRouter()
+  const { toast } = useToast()
   const { project, updateNode, deleteNode, addNode, addChapter, addAct, updateAct, addVariable, updateVariable, bulkSetStructure, advancePhase, resetStructure, clearDownstream, clearStaleFlag, addEnding, updateEnding, deleteEnding } = useProjectStore()
 
   const [stage, setStage] = useState<Stage>(() => {
@@ -470,7 +502,13 @@ export default function StructurePage() {
           <Button variant="secondary" size="sm" onClick={() => { setBranchDraft(null); setStage('edit') }}>修改</Button>
           <Button
             variant="primary" size="sm"
-            onClick={() => { commitBranches(branchDraft); setBranchDraft(null); setStage('edit') }}
+            onClick={() => {
+              commitBranches(branchDraft)
+              setBranchDraft(null)
+              setStage('edit')
+              const n = importEndingDefinitions()
+              if (n > 0) toast(`已从世界锚点自动导入 ${n} 条结局定义`)
+            }}
           >通过</Button>
         </div>
       </div>
@@ -528,7 +566,7 @@ export default function StructurePage() {
         : 'max-w-6xl mx-auto px-6 pt-4 pb-8 w-full flex flex-col lg:flex-row gap-6 items-start'}
       >
         {/* ── 核心产出区 ── */}
-        <main className={isFlowMode ? 'flex-1 min-w-0 h-full flex flex-col gap-3' : 'flex-1 min-w-0'}>
+        <section aria-label="核心产出区" className={isFlowMode ? 'flex-1 min-w-0 h-full flex flex-col gap-3' : 'flex-1 min-w-0'}>
           {project.downstreamStale && (
             <div className="mb-4 flex items-center gap-3 bg-paper border-l-[3px] border-amberink px-4 py-3" style={{ boxShadow: 'var(--shadow-card)' }}>
               <span className="text-amberink text-sm flex-1">世界设定已修改，当前结构基于旧版本，建议重新生成</span>
@@ -657,6 +695,15 @@ export default function StructurePage() {
               </div>
 
               <div className="mt-4">
+                {project.endings.length === 0 && (project.worldAnchor?.endingsDesign?.length ?? 0) > 0 && (
+                  <div className="bg-paper border-l-[3px] border-inkblue px-3 py-2 mb-3 flex items-center gap-3 text-[12.5px] text-ink-soft">
+                    <span className="flex-1">世界锚点已设计 {project.worldAnchor!.endingsDesign!.length} 条结局线，可直接绑定到同名结局节点</span>
+                    <Button size="sm" variant="secondary" onClick={() => {
+                      const n = importEndingDefinitions()
+                      toast(n > 0 ? `已导入 ${n} 条结局定义` : '未找到可匹配的结局节点', n > 0 ? 'success' : 'info')
+                    }}>从世界锚点导入</Button>
+                  </div>
+                )}
                 <EndingsSection
                   project={project}
                   addEnding={addEnding}
@@ -677,7 +724,7 @@ export default function StructurePage() {
               </div>
             </>
           )}
-        </main>
+        </section>
 
         {/* ── 辅助区 ── */}
         <AssistRail>

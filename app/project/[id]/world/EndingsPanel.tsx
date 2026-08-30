@@ -24,10 +24,8 @@ export function EndingsPanel({ endings }: { endings: EndingDesign[] }) {
               {e.keyVariable && <span className="ml-auto text-[11px] font-mono text-inkblue">{e.keyVariable}</span>}
             </div>
             <p className="text-xs text-ink-soft leading-relaxed mt-1.5">{e.description}</p>
-            <div className="text-[11px] text-pencil mt-1">
-              触发：{e.triggerCondition}
-              {e.avoidCondition && <span className="ml-3">偏离：{e.avoidCondition}</span>}
-            </div>
+            <div className="text-[11px] text-pencil mt-1">触发：{e.triggerCondition}</div>
+            {e.avoidCondition && <div className="text-[11px] text-pencil mt-0.5">偏离：{e.avoidCondition}</div>}
           </div>
         )
       })}

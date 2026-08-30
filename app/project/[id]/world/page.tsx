@@ -79,7 +79,7 @@ export default function WorldPage() {
 
         <div className="flex flex-col lg:flex-row gap-6 items-start">
           {/* ── 核心产出区 ── */}
-          <main className="flex-1 min-w-0">
+          <section aria-label="核心产出区" className="flex-1 min-w-0">
             <div className="paper-sheet paper-sheet-ruled p-8 space-y-6">
               <Field label="故事核" required hint="用一句话：主人公想要什么？什么阻止了他？">
                 <Textarea value={form.storyCore} onChange={e => update('storyCore', e.target.value)} rows={3}
@@ -140,7 +140,7 @@ export default function WorldPage() {
                 下一步：规模规划 →
               </Button>
             </div>
-          </main>
+          </section>
 
           {/* ── 辅助区 ── */}
           <AssistRail>

@@ -242,6 +242,10 @@ function buildFlowData(project: Project, hoveredNodeId: string | null, manualPos
       id: node.id,
       type: 'storyNode',
       position: getPos(node),
+      // 初始尺寸：受控 nodes（无 onNodesChange 回写）下 MiniMap 依赖节点尺寸，
+      // 缺失时 MiniMap 过滤掉全部节点渲染为空白；initialWidth/Height 只在测量前生效，不裁切卡片
+      initialWidth: NODE_W,
+      initialHeight: 74,
       data: {
         label: node.title || '（无标题）',
         nodeType: node.type,
@@ -364,9 +368,10 @@ export default function FlowView({ project }: { project: Project }) {
         />
         <MiniMap
           nodeColor={n => nodeTypeStyle((n.data as { nodeType: NodeType }).nodeType).hex}
-          maskColor="color-mix(in srgb, var(--color-paper) 75%, transparent)"
+          nodeStrokeColor={n => nodeTypeStyle((n.data as { nodeType: NodeType }).nodeType).hex}
+          maskColor="color-mix(in srgb, var(--color-paper) 60%, transparent)"
           style={{ background: 'var(--color-paper)', border: '1px solid var(--color-line)', borderRadius: 2 }}
-          nodeStrokeWidth={0}
+          nodeStrokeWidth={6}
         />
       </ReactFlow>
 
