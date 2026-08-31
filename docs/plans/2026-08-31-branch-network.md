@@ -67,3 +67,22 @@ structure/validate 两页与 `lib/validation` 只读消费。
 - 对带 issues 的项目跑定向重构：预览-勾选-应用后 issues 数下降、通过率上升、
   已填对白未丢失、⌘Z 可整体回滚
 - 真实检查回归：重跑 checklist 第 5 节 + 8.1（新结构可玩性走查）
+
+## 阶段 C · 结构模板 v2（FR-18 修订，依据 docs/genre-baseline.md，2026-08-31 确认）
+
+### C1 骨架模板（prompts.ts · buildActNodes）
+- [x] 每个非终章章植入 1-2 个即死岔口：分支的一条路径为 1 节点 bad ending（notes 强制"死法呼应人物弱点/世界规则，短而有戏"）
+- [x] 菱形路径拉长 ≥2 节点；预算不足优先裁剪推进节点而非路径
+- [x] merge 后首节点 notes 强制"按路线变量写差异化开场台词"
+- [x] 每章最后一个非结局节点 notes 强制章末钩子（悬念/反转/倒计时）
+
+### C2 分支拓扑（prompts.ts · branches:generate）
+- [x] normal 推进节点生成 2-3 个同目标、不同 variableEffects/语气的对话选项；「继续」自动补全降级为兜底
+- [x] 即死岔口：所在 branch 节点必须有一个选项通向本章 BE 节点
+
+### C3 结局定义联动（structure 页 importEndingDefinitions）
+- [x] 中途 BE 节点（未匹配世界锚点结局线的 ending 节点）自动生成 bad 类型结局定义（标题=节点标题，描述取 notes）
+
+### C4 验收
+- [x] 新建项目真跑：推进节点 ≥2 选项占比 >80%；每非终章章有 ≥1 中途 BE；菱形路径 ≥2 节点
+- [x] 真玩命中一次中途 BE（剧情戛然而止→回溯重选）；校验无新增 error

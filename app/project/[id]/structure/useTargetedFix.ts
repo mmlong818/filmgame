@@ -19,12 +19,14 @@ export function useTargetedFix(project: Project | null, stage: string, toast: (m
   const selfCheckSignatureRef = useRef<string | null>(null)
 
   // A4：结构「通过」应用后（含分支通过与结局定义导入）以及编辑态进入时若已有节点，
-  // 自动跑一次本地校验引擎产出体检速报；用节点/幕数签名去重，避免生成流程内重复触发。
+  // 自动跑一次本地校验引擎产出体检速报；签名去重避免生成流程内重复触发。
+  // 签名必须包含连接数与更新时间——只看节点/幕数会漏掉"节点数不变但连接被修复"的变更（曾导致速报陈旧）。
   useEffect(() => {
     if (!project) return
     if (stage !== 'edit') return
     if (project.nodes.length === 0) { setSelfCheck(null); selfCheckSignatureRef.current = null; return }
-    const signature = `${project.nodes.length}:${project.acts.length}`
+    const choiceCount = project.nodes.reduce((s, n) => s + n.choices.length, 0)
+    const signature = `${project.nodes.length}:${project.acts.length}:${choiceCount}:${project.updatedAt}`
     if (selfCheckSignatureRef.current === signature) return
     selfCheckSignatureRef.current = signature
     setSelfCheck(selfCheckFromReport(project, runValidation(project)))
@@ -70,7 +72,7 @@ export function useTargetedFix(project: Project | null, stage: string, toast: (m
     const projectAfter: Project = { ...project, chapters: result.chapters, acts: result.acts, nodes: result.nodes, endings: result.endings }
     const after = runValidation(projectAfter)
     setSelfCheck({ ...selfCheckFromReport(projectAfter, after), fixDelta: { before: before.passRate, after: after.passRate } })
-    selfCheckSignatureRef.current = `${projectAfter.nodes.length}:${projectAfter.acts.length}`
+    selfCheckSignatureRef.current = `${projectAfter.nodes.length}:${projectAfter.acts.length}:${projectAfter.nodes.reduce((s, n) => s + n.choices.length, 0)}:${projectAfter.updatedAt}`
     setFixDraft(null)
     toast(`已应用 ${result.appliedCount} 处修复，通过率 ${before.passRate}% → ${after.passRate}%`, 'success')
   }

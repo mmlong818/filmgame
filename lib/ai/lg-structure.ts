@@ -151,7 +151,12 @@ async function generateChapter(state: StructureStateType): Promise<Partial<Struc
       const extracted = extractJson(raw)
       if (extracted !== null) {
         const parsed = ChapterDraftSchema.safeParse(extracted)
-        if (parsed.success) return { chapters: [parsed.data], warnings: checkNodeCountDeviation(state, parsed.data) }
+        // 并行扇出的章按完成顺序进入 reducer，必须携带 chapterIndex 供最终排序——
+        // 否则章序全凭各章生成快慢（曾导致第二章排到第一章之前、跨章连接整体断裂）
+        if (parsed.success) {
+          const withIndex = { ...parsed.data, chapterIndex } as ChapterDraft
+          return { chapters: [withIndex], warnings: checkNodeCountDeviation(state, parsed.data) }
+        }
       }
     }
     return { errors: [`第${chapterIndex + 1}章解析失败`] }
@@ -207,5 +212,9 @@ export async function runStructureGraph(
     options?.callbacks ? { callbacks: options.callbacks } : undefined
   )
 
-  return { spine: result.spine, chapters: result.chapters, errors: result.errors, warnings: result.warnings }
+  // 按 chapterIndex 恢复剧本章序（reducer 收集顺序 = 并行完成顺序，不可依赖）
+  const orderedChapters = [...result.chapters].sort(
+    (a, b) => ((a as { chapterIndex?: number }).chapterIndex ?? 0) - ((b as { chapterIndex?: number }).chapterIndex ?? 0),
+  )
+  return { spine: result.spine, chapters: orderedChapters, errors: result.errors, warnings: result.warnings }
 }

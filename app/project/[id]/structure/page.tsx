@@ -27,30 +27,49 @@ import { useToast } from '@/app/components/toast'
 
 // 结局线自动携带：把世界锚点阶段设计的结局线绑定到同名结局节点，补全「结局定义」。
 // 此前二者互不相通，编剧要手动重复录入（校验 ENDING_NO_DEF），预览结局画面也会退化为中性兜底。
+// 第二遍扫描：未匹配结局线的 ending 节点是章中即死 BE（FR-18 v2 骨架产物），
+// 自动生成 bad 类型定义（标题=节点标题，描述取骨架 notes），保证预览结局画面完整。
 function importEndingDefinitions(): number {
   const store = useProjectStore.getState()
   const p = store.project
-  const designs = p?.worldAnchor?.endingsDesign ?? []
-  if (!p || designs.length === 0) return 0
+  if (!p) return 0
+  const designs = p.worldAnchor?.endingsDesign ?? []
   let imported = 0
+
+  const bindEnding = (nodeId: string, patch: { title: string; type: 'good' | 'bad' | 'neutral' | 'secret'; description: string; conditions: string }) => {
+    const current = useProjectStore.getState().project
+    if (current?.endings.some(e => e.nodeId === nodeId)) return
+    store.addEnding(nodeId)
+    const created = useProjectStore.getState().project?.endings.find(e => e.nodeId === nodeId)
+    if (created) {
+      store.updateEnding(created.id, patch)
+      imported++
+    }
+  }
+
+  const matchedNodeIds = new Set<string>()
   for (const design of designs) {
     const node = p.nodes.find(n =>
       n.type === 'ending' && (n.title === design.title || n.title.includes(design.title) || design.title.includes(n.title)),
     )
     if (!node) continue
-    const current = useProjectStore.getState().project
-    if (current?.endings.some(e => e.nodeId === node.id)) continue
-    store.addEnding(node.id)
-    const created = useProjectStore.getState().project?.endings.find(e => e.nodeId === node.id)
-    if (created) {
-      store.updateEnding(created.id, {
-        title: design.title,
-        type: design.type,
-        description: design.description ?? '',
-        conditions: design.triggerCondition ?? '',
-      })
-      imported++
-    }
+    matchedNodeIds.add(node.id)
+    bindEnding(node.id, {
+      title: design.title,
+      type: design.type,
+      description: design.description ?? '',
+      conditions: design.triggerCondition ?? '',
+    })
+  }
+
+  for (const node of p.nodes) {
+    if (node.type !== 'ending' || matchedNodeIds.has(node.id)) continue
+    bindEnding(node.id, {
+      title: node.title,
+      type: 'bad',
+      description: node.notes || '一步踏错，故事在此戛然而止。',
+      conditions: '',
+    })
   }
   return imported
 }

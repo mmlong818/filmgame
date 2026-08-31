@@ -279,6 +279,9 @@ ${chapters.map((ch, i) => `第${i+1}章：${ch.title} — ${ch.brief}`).join('\n
       }
 
       let chapterExploreUsed = false // 每章至多插入1个explore节点（本章总预算≥10时才允许）
+      // C1-1（FR-18 v2）：非终章每章植入即死BE岔口，数量随章预算浮动——出处 docs/genre-baseline.md 守则3
+      const chapterBETarget = isLast ? 0 : (chapterTargetNodes >= 12 ? 2 : 1)
+      let chapterBEUsed = 0
 
       const buildActNodes = (ai: number): SkelNode[] => {
         const isFirstAct = isFirst && ai === 0
@@ -329,12 +332,19 @@ ${chapters.map((ch, i) => `第${i+1}章：${ch.title} — ${ch.brief}`).join('\n
               nodes.push({ title: '节点名', type: 'normal', notes: '剧情推进：聚焦人物关系或线索揭示，为后续张力做铺垫（本幕预算较小，暂不设关键分支）' })
             }
           } else if (actSize >= 8) {
-            // 章内平行路线：预算充裕时，branch后每条路径各自独立推进2个以上节点，再汇回主线
+            // 章内平行路线：预算充裕时，branch后每条路径各自独立推进2个以上节点，再汇回主线；
+            // 若本章即死BE配额未用完，其中一条路径改为1节点BE ending（C1-1），其余路径维持≥2节点（C1-2）。
+            // BE节点notes同样打[路径X]标签——branches:generate靠这个标签而非type序列还原路径归属。
             const pathCount = Math.min(3, Math.max(2, endingsDesign.length || endingCount))
             const perPathNodes = Math.max(2, Math.floor((budget - 2) / pathCount)) // -2：留给branch自身与末尾merge
-            nodes.push({ title: '节点名', type: 'branch', notes: `关键选择（章内平行路线）：${pathCount}条路径各自独立推进${perPathNodes}个节点后再汇回主线；每个选项必须填写variableEffects记录对变量的影响，且至少保留一个无条件保底选项` })
+            const includeBE = chapterBEUsed < chapterBETarget
+            nodes.push({ title: '节点名', type: 'branch', notes: `关键选择（章内平行路线）：${pathCount}条路径各自独立推进${perPathNodes}个节点后再汇回主线；每个选项必须填写variableEffects记录对变量的影响，且至少保留一个无条件保底选项${includeBE ? '；其中一条路径改为即死结局（BE），需给出一个有吸引力/危险诱惑的选项让玩家可能选中它' : ''}` })
             for (let p = 0; p < pathCount; p++) {
               const label = ['A', 'B', 'C'][p]
+              if (includeBE && p === pathCount - 1) {
+                nodes.push({ title: `路径${label}·即死结局`, type: 'ending', notes: `[路径${label}] 即死结局（BAD END）：死法必须呼应主角弱点或世界规则，是一次性格测验而非随机惩罚；短而有戏，有专属画面感` })
+                continue
+              }
               for (let s = 0; s < perPathNodes; s++) {
                 const hint = endingsDesign[p]
                   ? `与「${endingsDesign[p].title}」结局相关的路线，第${s + 1}段：情节与其他路径明显不同`
@@ -342,6 +352,7 @@ ${chapters.map((ch, i) => `第${i+1}章：${ch.title} — ${ch.brief}`).join('\n
                 nodes.push({ title: '节点名', type: 'normal', notes: `[路径${label}] ${hint}` })
               }
             }
+            if (includeBE) chapterBEUsed++
             const remainAfterPaths = actSize - nodes.length
             if (remainAfterPaths >= 1) {
               nodes.push({ title: '续接', type: 'merge', notes: '各路径汇回主线，故事继续向前推进' })
@@ -351,17 +362,27 @@ ${chapters.map((ch, i) => `第${i+1}章：${ch.title} — ${ch.brief}`).join('\n
               chapterExploreUsed = true
             }
           } else {
-            // 标准菱形分支-汇合（预算4-7）：branch → 2-3条路径 → merge
+            // 标准菱形分支-汇合（预算4-7）：branch → 2-3条路径 → merge；非BE路径拉长为≥2节点
+            // （路径入口+路径深化，C1-2），预算不足时优先保路径长度与BE岔口（C1-1），要裁剪就裁剪
+            // 下方"补足到本幕目标节点数"环节的填充节点，不压缩这里的结构节点；若因此实际节点数
+            // 超出规划预算，交由既有跨幕合并机制在预算阶段吸收，此处不为凑数而牺牲路径。
             const maxPaths = Math.min(3, budget - 1) // 给branch本身留1个节点位，其余留给各路径
             const pathCount = Math.min(Math.max(2, endingsDesign.length || endingCount), maxPaths)
-            nodes.push({ title: '节点名', type: 'branch', notes: `关键选择：${pathCount}条路径各有专属场景，结束后汇回；每个选项必须填写variableEffects记录对变量的影响，且至少保留一个无条件保底选项` })
+            const includeBE = chapterBEUsed < chapterBETarget
+            nodes.push({ title: '节点名', type: 'branch', notes: `关键选择：${pathCount}条路径各有专属场景，结束后汇回；每个选项必须填写variableEffects记录对变量的影响，且至少保留一个无条件保底选项${includeBE ? '；其中一条路径改为即死结局（BE），需给出一个有吸引力/危险诱惑的选项让玩家可能选中它' : ''}` })
             for (let p = 0; p < pathCount; p++) {
               const label = ['A', 'B', 'C'][p]
+              if (includeBE && p === pathCount - 1) {
+                nodes.push({ title: `路径${label}·即死结局`, type: 'ending', notes: `[路径${label}] 即死结局（BAD END）：死法必须呼应主角弱点或世界规则，是一次性格测验而非随机惩罚；短而有戏，有专属画面感` })
+                continue
+              }
               const hint = endingsDesign[p]
                 ? `与「${endingsDesign[p].title}」结局相关的选择，affection或变量+1`
                 : `路径${label}：与此路线角色的专属场景，情节与其他路径明显不同`
-              nodes.push({ title: '节点名', type: 'normal', notes: `[路径${label}] ${hint}` })
+              nodes.push({ title: '节点名', type: 'normal', notes: `[路径${label}] 路径入口：${hint}` })
+              nodes.push({ title: '节点名', type: 'normal', notes: `[路径${label}] 路径深化：延续路径${label}的情节走向，与其他路径的差异要具体可感` })
             }
+            if (includeBE) chapterBEUsed++
             const remainAfterPaths = actSize - nodes.length
             if (remainAfterPaths >= 1) {
               nodes.push({ title: '续接', type: 'merge', notes: '各路径汇回主线，故事继续向前推进' })
@@ -390,6 +411,35 @@ ${chapters.map((ch, i) => `第${i+1}章：${ch.title} — ${ch.brief}`).join('\n
         title: `第${ai + 1}幕：幕名`,
         nodes: buildActNodes(ai),
       }))
+
+      // C1-3/C1-4（FR-18 v2）：骨架产出后统一做跨幕后处理——merge回响与章末钩子都要看"整章拼接后
+      // 的顺序"而非单幕内部，所以放在所有幕都生成完之后统一扫描，而不是塞进buildActNodes内部。
+      {
+        const flat: Array<{ ai: number; ni: number }> = []
+        acts.forEach((act, ai) => act.nodes.forEach((_, ni) => flat.push({ ai, ni })))
+        const nodeAt = (ref: { ai: number; ni: number }) => acts[ref.ai].nodes[ref.ni]
+        const appendNote = (node: SkelNode, extra: string) => {
+          node.notes = node.notes ? `${node.notes}；${extra}` : extra
+        }
+        // merge节点之后的第一个节点（或merge本身若无后继）：按路线变量写差异化开场台词
+        flat.forEach((ref, idx) => {
+          const node = nodeAt(ref)
+          if (node.type !== 'merge') return
+          const nextRef = flat[idx + 1]
+          appendNote(nextRef ? nodeAt(nextRef) : node, '开场台词必须按玩家来路（本幕路线变量）写出差异化版本')
+        })
+        // 本章最后一个非ending节点：强制章末钩子（终章没有"下一章"，不加）
+        if (!isLast) {
+          for (let idx = flat.length - 1; idx >= 0; idx--) {
+            const node = nodeAt(flat[idx])
+            if (node.type !== 'ending') {
+              appendNote(node, '本章末钩子：以悬念/反转/倒计时收束，给观众继续看下一章的理由')
+              break
+            }
+          }
+        }
+      }
+
       const chapterSkeleton = {
         title: chapterOutline[chapterIndex]?.title ?? `第${chapterIndex + 1}章`,
         acts,
@@ -428,14 +478,14 @@ ${outgoingHandoff ? `【本章结束时】需为下章铺垫：${outgoingHandoff
 ${endingsSummary}
 【本章在全剧中的位置】第${chapterIndex + 1}章 / 共${chapterCount}章${isFirst ? '（开篇：建立世界、触发事件、第一个道德选择）' : ''}${isLast ? '（终章：最黑暗时刻 → 内心蜕变 → 最终抉择 → 多结局）' : ''}
 
-【节点type规则】start=开场(唯一) | ending=结局 | branch=关键选择点 | normal=主线推进 | merge=多路径汇回主线（骨架已按需插入，必须保留原位置与类型） | explore=可选旁支
-【分支规则】非终章·菱形分支-汇合（默认）：branch → 2-3条路径(normal) → merge（各路径汇回主线后继续推进）；非终章·章内平行路线（预算充裕的幕）：branch → 每条路径各自独立推进2个以上节点 → merge；终章：branch(路线门控) → 各路线专属场景 → 多个ending节点（每个结局对应一条路径，永不汇合）
-【变量规则】中段branch节点的每个选项必须在variableEffects字段写出修改了哪个变量（例：trust+1，0-10整数量表，不用百分比），且至少保留一个无条件选项作为保底出口，避免玩家被条件卡死；终章门控节点的选项用conditions读取这些变量决定开放哪条路线
+【节点type规则】start=开场(唯一) | ending=结局（含非终章中途的即死BE小结局，骨架已按需插入，属正常结构，禁止把它改成其他type或删除） | branch=关键选择点 | normal=主线推进 | merge=多路径汇回主线（骨架已按需插入，必须保留原位置与类型） | explore=可选旁支
+【分支规则】非终章·菱形分支-汇合（默认）：branch → 2-3条路径 → merge；路径中若有一条是1节点的ending（即死BE），其余路径各≥2节点（路径入口+路径深化）后再汇回merge；非终章·章内平行路线（预算充裕的幕）：branch → 每条路径各自独立推进2个以上节点（同样可能有一条是1节点即死BE） → merge；终章：branch(路线门控) → 各路线专属场景 → 多个ending节点（每个结局对应一条路径，永不汇合）
+【变量规则】中段branch节点的每个选项必须在variableEffects字段写出修改了哪个变量（例：trust+1，0-10整数量表，不用百分比），且至少保留一个无条件选项作为保底出口，避免玩家被条件卡死；终章门控节点的选项用conditions读取这些变量决定开放哪条路线；通向中途即死BE的选项不写variableEffects（选中即死，无需变量记录）
 
 【骨架（填充后输出，节点数量已按规模方案精确计算，见上方硬性约束）】
 ${JSON.stringify(chapterSkeleton, null, 2)}
 
-输出（结构必须与骨架完全一致：节点数量（本章共${actualChapterTotal}个，逐幕数量见上）、顺序、type均不可更改；仅替换title/notes值；merge节点必须保留，不得删除或改type；严禁将branch降为normal）：`
+输出（结构必须与骨架完全一致：节点数量（本章共${actualChapterTotal}个，逐幕数量见上）、顺序、type均不可更改；仅替换title/notes值；merge节点必须保留，不得删除或改type；严禁将branch降为normal；中途ending（即死BE）节点必须保留，不得改type、删除或误当作笔误"修正"回normal）：`
     },
 
     // structure:targeted_fix（FR-19）：只产出"节点级补丁"，不做整体重生成——
@@ -509,43 +559,84 @@ ${endingsText}
       const varNames = variables.map(v => v.name).join('、')
 
       // ── 第一步：预计算每个 branch 的类型和路线块 ────────────────────────
-      // 路线块：branch 之后 [normal, ending] 交替出现的分组
-      //   - 多个路线块 (>=2) → 路线门控（每块有专属内容 + 结局）
-      //   - 一个路线块且有结局 → 终章直接到结局
-      //   - 无结局 → 变量积累型（所有选项→同一下一节点）
+      // C2-3（FR-18 v2）兼容性修复：旧算法纯按type序列切块（遇ending就切一刀），有两个问题——
+      // ①C1新规则要求菱形非BE路径拉长到≥2节点后，多条路径的normal会被连续排列、中间没有ending
+      //   分隔，旧算法会把它们误判成同一个块里的"一串路径"，逐节点拆成路径而不是按路径分组；
+      // ②章中即死BE（单节点ending）夹在其他路径中间时，旧算法会把BE前面的路径normal和BE的ending
+      //   强行拼成"一个块"，导致blocks.length算错，菱形分支被误判为终章路线门控（route/terminal）。
+      // 修复：buildActNodes产出的菱形/平行路线节点，notes统一带[路径X]标签（含BE节点）——
+      // 优先按标签分组还原真实路径归属，标签缺失时（终章路线门控等旧结构）才退回旧的按ending切块。
+      // 另外用"扫描到的下一个merge节点"区分"汇回主线"（菱形/平行路线）与"永不汇合"（终章路线门控）。
       type RouteBlock = { normals: N[]; ending: N | null }
-      const branchRouteBlocks = new Map<string, RouteBlock[]>()
-      const routeNodeNext = new Map<string, N>()   // 路线内节点→其在路线内的下一节点（含结局）
+      type BranchScan = { blocks: RouteBlock[]; mergeNode: N | null; tagged: boolean }
+      const PATH_TAG_RE = /^\[路径([A-Za-z0-9]+)\]/
+      const pathTagOf = (node: N): string | null => PATH_TAG_RE.exec(node.notes ?? '')?.[1] ?? null
+
+      const branchScans = new Map<string, BranchScan>()
+      const routeNodeNext = new Map<string, N>()   // 路线内节点→其在路线内的下一节点（含结局/merge）
 
       for (let i = 0; i < nodes.length; i++) {
         if (nodes[i].type !== 'branch') continue
-        const blocks: RouteBlock[] = []
-        let curNormals: N[] = []
 
+        // 扫描branch之后的连续区段，直到遇到merge（路径收束，记下来）或下一个branch/start（区段
+        // 到此为止，说明各路径各自不汇合——典型如终章路线门控）
+        const region: N[] = []
+        let mergeNode: N | null = null
         for (let j = i + 1; j < nodes.length; j++) {
           const x = nodes[j]
           if (x.type === 'explore') continue
-          if (x.type === 'ending') {
-            blocks.push({ normals: curNormals, ending: x })
-            curNormals = []
-          } else if (x.type === 'normal') {
-            curNormals.push(x)
-          } else {
-            break
-          }
+          if (x.type === 'merge') { mergeNode = x; break }
+          if (x.type === 'branch' || x.type === 'start') break
+          if (x.type === 'normal' || x.type === 'ending') { region.push(x); continue }
+          break
         }
-        if (curNormals.length > 0) blocks.push({ normals: curNormals, ending: null })
+        if (region.length === 0 && !mergeNode) continue
 
-        if (blocks.length > 0) {
-          branchRouteBlocks.set(nodes[i].id, blocks)
-          // 预计算路线内节点的下一目标
-          for (const block of blocks) {
-            for (let k = 0; k < block.normals.length; k++) {
-              const target = k < block.normals.length - 1
-                ? block.normals[k + 1]
-                : (block.ending ?? null)
-              if (target) routeNodeNext.set(block.normals[k].id, target)
+        const tags = region.map(pathTagOf)
+        const tagged = region.length > 0 && tags.every(t => t !== null)
+
+        let blocks: RouteBlock[]
+        if (tagged) {
+          // 按[路径X]标签分组还原路径，保持首次出现顺序；组内唯一节点若是ending即为BE路径
+          const order: string[] = []
+          const groups = new Map<string, N[]>()
+          region.forEach((x, idx) => {
+            const t = tags[idx] as string
+            if (!groups.has(t)) { groups.set(t, []); order.push(t) }
+            groups.get(t)!.push(x)
+          })
+          blocks = order.map(t => {
+            const groupNodes = groups.get(t)!
+            if (groupNodes.length === 1 && groupNodes[0].type === 'ending') {
+              return { normals: [], ending: groupNodes[0] }
             }
+            return { normals: groupNodes.filter(x => x.type === 'normal'), ending: null }
+          })
+        } else {
+          // 无标签：沿用旧版按ending切块（终章路线门控等旧结构），仅在region范围内扫描
+          blocks = []
+          let curNormals: N[] = []
+          for (const x of region) {
+            if (x.type === 'ending') {
+              blocks.push({ normals: curNormals, ending: x })
+              curNormals = []
+            } else {
+              curNormals.push(x)
+            }
+          }
+          if (curNormals.length > 0) blocks.push({ normals: curNormals, ending: null })
+        }
+
+        if (blocks.length === 0) continue
+        branchScans.set(nodes[i].id, { blocks, mergeNode, tagged })
+
+        // 路径内部连接：每条路径的节点按序连接；路径末尾——有ending则连到ending（死路/结局路径），
+        // 否则若本branch有mergeNode则汇回merge，都没有则不设下一跳（交由下方通用fallback兜底）
+        for (const block of blocks) {
+          for (let k = 0; k < block.normals.length; k++) {
+            const isLastInBlock = k === block.normals.length - 1
+            const target = !isLastInBlock ? block.normals[k + 1] : (block.ending ?? mergeNode ?? null)
+            if (target) routeNodeNext.set(block.normals[k].id, target)
           }
         }
       }
@@ -578,35 +669,31 @@ ${endingsText}
         }
 
         if (n.type === 'branch') {
-          const blocks = branchRouteBlocks.get(n.id)
-          if (!blocks || blocks.length === 0) {
+          const scan = branchScans.get(n.id)
+          if (!scan || scan.blocks.length === 0) {
             // 无路线块也无紧跟 normal：variable 型，所有选项→下一节点
             const next = nodes.slice(i + 1).find(x => x.type !== 'explore' && x.type !== 'ending')
             if (next) conns.push({ from: n, targets: [next], role: 'branch', branchKind: 'variable' })
-          } else if (blocks.length >= 2) {
-            // 多路线门控（多个 [normal+ending] 块）：终章路线门控
-            const routeEntries = blocks.map(b => b.normals[0] ?? b.ending).filter(Boolean) as N[]
-            const routeEndings = blocks.map(b => b.ending)
+          } else if (scan.mergeNode) {
+            // 有merge收束 → 菱形分支/章内平行路线（可能含1条即死BE路径）。标签分组时blocks数量
+            // 就是真实路径数；未打标签的兜底扫描退回旧逻辑（1个块内多个normal=多条单节点路径）。
+            const targets = (scan.tagged
+              ? scan.blocks.map(b => b.normals[0] ?? b.ending)
+              : (scan.blocks.length === 1 ? scan.blocks[0].normals : scan.blocks.map(b => b.normals[0] ?? b.ending))
+            ).filter(Boolean) as N[]
+            if (targets.length > 0) conns.push({ from: n, targets, role: 'branch', branchKind: 'diamond' })
+          } else if (scan.blocks.length >= 2) {
+            // 无merge + 多路线块：终章路线门控（各选项进入不同路线，永不汇合）
+            const routeEntries = scan.blocks.map(b => b.normals[0] ?? b.ending).filter(Boolean) as N[]
+            const routeEndings = scan.blocks.map(b => b.ending)
             conns.push({ from: n, targets: routeEntries, role: 'branch', branchKind: 'route', endings: routeEndings })
-          } else if (blocks.length === 1 && blocks[0].ending && blocks[0].normals.length === 0) {
-            // 单个无内容块：终章直通结局（不常见）
-            const endings = blocks.map(b => b.ending).filter(Boolean) as N[]
+          } else if (scan.blocks.length === 1 && scan.blocks[0].ending && scan.blocks[0].normals.length === 0) {
+            // 无merge + 单个无内容块：终章直通结局（不常见）
+            const endings = scan.blocks.map(b => b.ending).filter(Boolean) as N[]
             conns.push({ from: n, targets: endings, role: 'branch', branchKind: 'terminal', endings })
-          } else if (blocks.length === 1 && blocks[0].normals.length >= 2) {
-            // 菱形分支：同一块内多个 normal = 多条路径，之后接 merge
-            const paths = blocks[0].normals
-            conns.push({ from: n, targets: paths, role: 'branch', branchKind: 'diamond' })
-            // 找 merge（或路径组结束后第一个非 explore 节点）
-            const afterIdx = i + 1 + paths.length
-            const merge = nodes.slice(afterIdx).find(x => x.type === 'merge' || (x.type !== 'explore' && x.type !== 'ending' && !paths.includes(x)))
-            if (merge) {
-              for (const pn of paths) {
-                routeNodeNext.set(pn.id, merge)
-              }
-            }
           } else {
-            // 单条 normal（变量积累型）
-            const next = blocks[0].normals[0] ?? blocks[0].ending
+            // 无merge、单条normal：变量积累型
+            const next = scan.blocks[0].normals[0] ?? scan.blocks[0].ending
             if (next) conns.push({ from: n, targets: [next], role: 'branch', branchKind: 'variable' })
           }
           continue
@@ -632,9 +719,12 @@ ${endingsText}
           const kind = conn.branchKind ?? 'variable'
           const kindLabel = kind === 'route' ? '路线门控（每个选项进入专属路线，永不汇合）'
             : kind === 'terminal' ? '终章直通结局（永久分叉）'
-            : kind === 'diamond' ? '菱形分支（每个选项有独立专属场景，之后汇回续接节点）'
+            : kind === 'diamond' ? '菱形分支（每个选项有独立专属场景，之后汇回续接节点；若某选项目标标了[结局/即死BE]，选中即立刻触发该BE）'
             : '变量积累（所有选项指向同一节点，仅variableEffects不同）'
           const targetsStr = conn.targets.map((t, idx) => {
+            if (kind === 'diamond' && t.type === 'ending') {
+              return `    选项${idx + 1}: "${t.title}"[id:${t.id}] [结局/即死BE]（文案必须有吸引力或危险诱惑、不能一眼看出是死路；选中后立刻触发该结局，不写variableEffects/conditions）`
+            }
             const relatedEnding = kind === 'route' ? (conn.endings?.[idx] ?? null) : (kind === 'terminal' ? t : null)
             const hint = (kind === 'route' || kind === 'terminal') && relatedEnding ? endingHint(relatedEnding.title) : ''
             return `    选项${idx + 1}: "${t.title}"[id:${t.id}]${t.type === 'ending' ? ' [结局]' : ''}${hint}`
@@ -648,6 +738,10 @@ ${endingsText}
           return `${fromStr} → 【可选】可加一个轻量选项指向explore: "${conn.targets[0].title}"[id:${conn.targets[0].id}]`
         }
         const tag = routeNodeIds.has(conn.from.id) ? '[路线节点]' : ''
+        if (conn.from.type === 'normal') {
+          // C2-1（FR-18 v2）：normal推进节点也要2-3个真选择——同一目标，不同variableEffects/语气
+          return `${fromStr}${tag} → 【必须，2-3个选项】所有选项均指向同一节点: "${conn.targets[0].title}"[id:${conn.targets[0].id}]（选项间variableEffects/语气不同，至少一个选项带具体variableEffects）`
+        }
         return `${fromStr}${tag} → 【必须】推进选项指向: "${conn.targets[0].title}"[id:${conn.targets[0].id}]`
       }).join('\n')
 
@@ -687,14 +781,16 @@ ${topoLines}
 ${needChoices.map((n, i) => `${i+1}. [${n.type}] id="${n.id}" "${n.title}"`).join('\n')}
 
 【选项设计规则（严格按branch类型区分）】
-- branch/diamond（菱形分支）：每个选项指向不同的专属路径节点（内容各不相同），variableEffects必须写出此选择对变量的影响（如"affection_A+1"），且不同路径尽量使用不同变量以便后续区分路线，choiceWeight="heavy"
+- branch/diamond（菱形分支）：每个选项指向不同的专属路径节点（内容各不相同），variableEffects必须写出此选择对变量的影响（如"affection_A+1"），且不同路径尽量使用不同变量以便后续区分路线，choiceWeight="heavy"；若某个选项目标节点标了[结局/即死BE]，该选项文案必须有吸引力/危险诱惑、不能一眼看出是错误选项，且不写variableEffects（选中即死）
 - branch/variable（变量积累型）：2-3个选项，所有选项targetNodeId相同，但variableEffects各不同，choiceWeight="heavy"
 - branch/route（路线门控）：每个选项指向不同路线入口，conditions必须使用对应结局的keyVariable（见结局关键变量对照表），阈值为0-10量表下的3-6整数（如"courage>=4"），禁止百分比或自造变量，choiceWeight="critical"
 - branch/terminal（终章直通）：每个选项指向结局节点，conditions同样必须使用该结局的keyVariable和3-6整数阈值，choiceWeight="critical"
-- 菱形路径节点[路线节点]：1个推进选项指向续接节点（汇回主线），choiceWeight="light"
-- normal/start节点：1个推进选项(choiceWeight="light") + 可选探索触发
+- normal节点（含菱形/平行路径内的[路线节点]）：生成2-3个选项，targetNodeId全部相同（拓扑图标注的同一后继节点）；选项之间用不同态度/策略（强硬/圆滑/回避等）呈现语气差异，且至少一个选项写具体variableEffects——这是"主线不变，但选择是真的"，不是重复文案的伪选项，choiceWeight="light"
+- start节点：1个推进选项(choiceWeight="light") + 可选探索触发
+- merge节点：1个推进选项(choiceWeight="light")，承接多路径汇回后继续主线
 - explore节点：choices=[]，只填exploreReturnNodeId（按拓扑）
 - 所有targetNodeId必须从拓扑图中直接复制，禁止捏造或修改
+- 前端在AI未生成任何选项时会自动补一个"继续"式单选项兜底（structure页逻辑，不在本次生成范围内）——那只是兜底，本环节应尽量按上述规则把选项设计到位，不要依赖它
 
 【输出格式】
 {
