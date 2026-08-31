@@ -90,10 +90,13 @@ type StructStreamEvent =
   | { type: 'error'; error: string; errorType: string }
 
 function normalizeChapters(chapters: AiChapterDraft[]): AiChapterDraft[] {
-  return (chapters ?? []).map(ch => ({
-    ...ch,
-    acts: (ch.acts ?? []).map(act => ({ ...act, nodes: act.nodes ?? [] })),
-  }))
+  // 双保险排序：草稿可能来自未排序的通道（并行完成顺序），带 chapterIndex 就按它恢复章序
+  return (chapters ?? [])
+    .map(ch => ({
+      ...ch,
+      acts: (ch.acts ?? []).map(act => ({ ...act, nodes: act.nodes ?? [] })),
+    }))
+    .sort((a, b) => ((a as { chapterIndex?: number }).chapterIndex ?? 0) - ((b as { chapterIndex?: number }).chapterIndex ?? 0))
 }
 
 const KNOWN_ERROR_TYPES: readonly AiErrorType[] = ['no_cli', 'timeout', 'parse_failed', 'unknown']
@@ -134,6 +137,7 @@ export default function StructurePage() {
   const runIdRef = useRef<string | null>(null)
   const [expandedChapters, setExpandedChapters] = useState<Set<string>>(new Set())
   const [expandedActs, setExpandedActs] = useState<Set<string>>(new Set())
+  const [branchProgress, setBranchProgress] = useState<{ done: number; total: number } | null>(null)
 
   const structAi = useAiAction()
   const branchAi = useAiAction()
@@ -167,7 +171,21 @@ export default function StructurePage() {
       return false
     }
     if (evt.type === 'done') {
-      setStructDraft(normalizeChapters(evt.chapters))
+      const chapters = normalizeChapters(evt.chapters)
+      // done ≠ 成功：并行章生成可能部分/全部失败（errors 随 done 帧返回）。
+      // 空章或缺章都不得进预览态——曾先后导致「空草稿被通过后清空项目」与
+      // 「三章只成功一章、部分结构被静默应用」两起事故。
+      const expectedChapters = project?.scalePlanOptions.find(pl => pl.id === project.selectedScalePlanId)?.chapterCount ?? chapters.length
+      if (chapters.length === 0 || chapters.length < expectedChapters) {
+        throw new AiActionError(
+          `结构生成不完整（${chapters.length}/${expectedChapters} 章）：${(evt.errors ?? []).join('；') || '部分章节未生成'}——请点击"重新生成"重试`,
+          'unknown', runIdRef.current ?? undefined,
+        )
+      }
+      if (evt.errors && evt.errors.length > 0) {
+        setStructWarnings(prev => [...prev, ...evt.errors].filter((w, i, arr) => arr.indexOf(w) === i))
+      }
+      setStructDraft(chapters)
       if (evt.warnings && evt.warnings.length > 0) {
         setStructWarnings(prev => [...prev, ...evt.warnings!].filter((w, i, arr) => arr.indexOf(w) === i))
       }
@@ -260,6 +278,11 @@ export default function StructurePage() {
   }
 
   function commitStructure(draft: AiChapterDraft[]) {
+    // 空草稿防线：绝不能用空结构覆盖项目（bulkSetStructure 会清空全部章幕节点）
+    if (!draft || draft.length === 0 || draft.every(ch => (ch.acts ?? []).every(a => (a.nodes ?? []).length === 0))) {
+      toast('结构草稿为空，已取消应用——请重新生成', 'error')
+      return null
+    }
     const chapters: Chapter[] = []
     const acts: Act[] = []
     const nodes: StoryNode[] = []
@@ -287,24 +310,46 @@ export default function StructurePage() {
     return nodes
   }
 
+  // 按章分块生成：分支拓扑是章内自洽的（跨章连接由「继续」自动补全承担）。
+  // v2 每个推进节点产 2-3 选项后，整体单次生成在 26 节点时已需约 17 分钟，
+  // 40+ 节点（标准版）必然超时——逐章调用并展示进度，规模只受章数线性影响。
   async function generateBranches(nodes?: StoryNode[]) {
     setStage('branch_loading')
-    const nodeList = nodes ?? project!.nodes
+    const fresh = useProjectStore.getState().project!
+    const nodeList = nodes ?? fresh.nodes
+    const byId = new Map(nodeList.map(n => [n.id, n]))
+    const chapterChunks = [...fresh.chapters]
+      .sort((a, b) => a.order - b.order)
+      .map(ch => fresh.acts
+        .filter(a => a.chapterId === ch.id)
+        .sort((a, b) => a.order - b.order)
+        .flatMap(a => a.nodeIds)
+        .map(id => byId.get(id))
+        .filter((n): n is StoryNode => Boolean(n)))
+      .filter(chunk => chunk.length > 0)
+    const chunks = chapterChunks.length > 0 ? chapterChunks : [nodeList]
+    setBranchProgress({ done: 0, total: chunks.length })
 
     const result = await branchAi.run('生成分支', async (signal) => {
-      const data = await aiJson<{ result?: { nodeChoices?: AiNodeChoices[] } }>('branches', 'generate', {
-        worldAnchor: project!.worldAnchor,
-        characters: project!.characters,
-        variables: project!.variables,
-        nodes: nodeList.map(n => ({ id: n.id, title: n.title, type: n.type, notes: n.notes })),
-      }, signal)
-      const nodeChoices = data.result?.nodeChoices
-      if (!Array.isArray(nodeChoices)) throw new AiActionError('AI 分支返回格式错误')
-      setBranchDraft(nodeChoices)
+      const all: AiNodeChoices[] = []
+      for (let i = 0; i < chunks.length; i++) {
+        const data = await aiJson<{ result?: { nodeChoices?: AiNodeChoices[] } }>('branches', 'generate', {
+          worldAnchor: fresh.worldAnchor,
+          characters: fresh.characters,
+          variables: fresh.variables,
+          nodes: chunks[i].map(n => ({ id: n.id, title: n.title, type: n.type, notes: n.notes })),
+        }, signal)
+        const nodeChoices = data.result?.nodeChoices
+        if (!Array.isArray(nodeChoices)) throw new AiActionError(`AI 分支返回格式错误（第 ${i + 1}/${chunks.length} 章）`)
+        all.push(...nodeChoices)
+        setBranchProgress({ done: i + 1, total: chunks.length })
+      }
+      setBranchDraft(all)
       setStage('branch_preview')
       return true
     })
 
+    setBranchProgress(null)
     if (result === null) setStage('edit')
   }
 
@@ -455,8 +500,10 @@ export default function StructurePage() {
           <Button variant="secondary" size="sm" onClick={() => { setStructDraft(null); setStage('edit') }}>修改</Button>
           <Button
             variant="primary" size="sm"
+            disabled={!structDraft || structDraft.length === 0}
             onClick={() => {
               const nodes = commitStructure(structDraft)
+              if (!nodes) return
               setStructDraft(null)
               generateBranches(nodes)
             }}
@@ -504,7 +551,16 @@ export default function StructurePage() {
       <h2 className="text-xl font-semibold text-ink mb-2">结构与分支</h2>
       <div className="flex flex-col items-center py-16 gap-5">
         <div className="w-8 h-8 rounded-full border-2 border-line border-t-vermilion animate-spin" />
-        <StickyNote title="AI 助理" tone="yellow" className="w-full max-w-sm">AI 正在生成分支选项...</StickyNote>
+        <StickyNote title="AI 助理" tone="yellow" className="w-full max-w-sm">
+          {branchProgress
+            ? `AI 正在按章生成分支选项：第 ${Math.min(branchProgress.done + 1, branchProgress.total)}/${branchProgress.total} 章…`
+            : 'AI 正在生成分支选项...'}
+        </StickyNote>
+        {branchProgress && branchProgress.total > 1 && (
+          <div className="w-full max-w-sm h-1 bg-line/40">
+            <div className="h-full bg-vermilion transition-all" style={{ width: `${(branchProgress.done / branchProgress.total) * 100}%` }} />
+          </div>
+        )}
         <SkeletonLines lines={4} className="w-full max-w-sm" />
         <Button variant="secondary" size="sm" onClick={() => branchAi.cancel()}>中止生成</Button>
       </div>

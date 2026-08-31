@@ -82,7 +82,12 @@ export const POST = withAuth(async (req: NextRequest) => {
         }
 
         sendRunId()
-        send({ type: 'done', chapters, errors, warnings })
+        // 流式路径不经过 runStructureGraph 的排序返回，这里必须自行按 chapterIndex 恢复章序
+        // （updates 到达顺序 = 并行完成顺序，曾导致第二章排在第一章之前、跨章连接断裂）
+        const ordered = [...chapters].sort(
+          (a, b) => ((a as { chapterIndex?: number }).chapterIndex ?? 0) - ((b as { chapterIndex?: number }).chapterIndex ?? 0),
+        )
+        send({ type: 'done', chapters: ordered, errors, warnings })
       } catch (err) {
         sendRunId()
         const msg = err instanceof Error ? err.message : String(err)

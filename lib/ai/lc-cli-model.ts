@@ -36,7 +36,34 @@ function resolveClaudePath(): { exe: string; args: string[] } {
   return { exe: isWin ? 'claude.exe' : 'claude', args: ['--print', '--output-format', 'text'] }
 }
 
+// CLI 并发上限：本机同时 spawn 3 个以上 claude 进程会出现启动卡死/ETIMEDOUT
+// （标准版 3 章并行扇出时实测全部失败）。用简单信号量把并发压到 2，超出的排队等待。
+const CLI_MAX_CONCURRENT = 2
+let cliRunning = 0
+const cliWaiters: Array<() => void> = []
+
+async function acquireCliSlot(): Promise<void> {
+  if (cliRunning < CLI_MAX_CONCURRENT) { cliRunning++; return }
+  await new Promise<void>(resolve => cliWaiters.push(resolve))
+  cliRunning++
+}
+
+function releaseCliSlot(): void {
+  cliRunning--
+  const next = cliWaiters.shift()
+  if (next) next()
+}
+
 async function spawnClaude(prompt: string, timeoutMs: number): Promise<string> {
+  await acquireCliSlot()
+  try {
+    return await spawnClaudeInner(prompt, timeoutMs)
+  } finally {
+    releaseCliSlot()
+  }
+}
+
+async function spawnClaudeInner(prompt: string, timeoutMs: number): Promise<string> {
   const tmpDir = process.env.TEMP || process.env.TMP || os.tmpdir()
   const promptFile = join(tmpDir, `claude_${Date.now()}_${Math.random().toString(36).slice(2)}.txt`)
   await writeFile(promptFile, prompt, 'utf8')

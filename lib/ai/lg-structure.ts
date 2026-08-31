@@ -9,12 +9,15 @@ import type { BaseCallbackHandler } from '@langchain/core/callbacks/base'
 import type { AiMode } from '../types/project'
 
 const SPINE_TIMEOUT = 90000
-const CHAPTER_TIMEOUT = 300000
+// 章生成是重活：v2 骨架（每节点选项/BE 岔口/回响标注）下标准版单章实测需 5-8 分钟，
+// 旧值 300s÷3=100s（fast）曾把 3 章中的 2 章直接超时杀死。超时是保护上限，不是速度目标。
+const CHAPTER_TIMEOUT = 600000
 const FAST_TIMEOUT_FLOOR = 60000
 
-// fast 模式下用现有超时预算的 1/3（下限 60s）；thinking（含缺省）沿用现状。
+// fast 模式折减只适用于轻量调用（spine）；章生成不折减——上限过紧会把本可成功的调用杀死。
 function effectiveTimeout(base: number, mode?: AiMode): number {
   if (mode !== 'fast') return base
+  if (base >= CHAPTER_TIMEOUT) return base
   return Math.max(FAST_TIMEOUT_FLOOR, Math.round(base / 3))
 }
 
@@ -144,22 +147,32 @@ async function generateChapter(state: StructureStateType): Promise<Partial<Struc
     })
     const invokeOptions = config.provider === 'gemini' ? { timeout: timeoutMs } : undefined
 
-    for (let i = 0; i < 3; i++) {
-      const input = i === 0 ? prompt : prompt + RETRY_SUFFIX
-      const result = await model.invoke([new HumanMessage(input)], invokeOptions)
-      const raw = typeof result.content === 'string' ? result.content : JSON.stringify(result.content)
-      const extracted = extractJson(raw)
-      if (extracted !== null) {
-        const parsed = ChapterDraftSchema.safeParse(extracted)
-        // 并行扇出的章按完成顺序进入 reducer，必须携带 chapterIndex 供最终排序——
-        // 否则章序全凭各章生成快慢（曾导致第二章排到第一章之前、跨章连接整体断裂）
-        if (parsed.success) {
-          const withIndex = { ...parsed.data, chapterIndex } as ChapterDraft
-          return { chapters: [withIndex], warnings: checkNodeCountDeviation(state, parsed.data) }
+    // 外层 attempt 覆盖超时/网络类失败（整章重跑一次）；内层 3 次只覆盖 JSON 解析失败。
+    // 一章失败会让整个结构草稿作废（缺章禁止进预览），重试一次的成本远低于用户整体重跑。
+    let lastError = ''
+    for (let attempt = 0; attempt < 2; attempt++) {
+      try {
+        for (let i = 0; i < 3; i++) {
+          const input = i === 0 ? prompt : prompt + RETRY_SUFFIX
+          const result = await model.invoke([new HumanMessage(input)], invokeOptions)
+          const raw = typeof result.content === 'string' ? result.content : JSON.stringify(result.content)
+          const extracted = extractJson(raw)
+          if (extracted !== null) {
+            const parsed = ChapterDraftSchema.safeParse(extracted)
+            // 并行扇出的章按完成顺序进入 reducer，必须携带 chapterIndex 供最终排序——
+            // 否则章序全凭各章生成快慢（曾导致第二章排到第一章之前、跨章连接整体断裂）
+            if (parsed.success) {
+              const withIndex = { ...parsed.data, chapterIndex } as ChapterDraft
+              return { chapters: [withIndex], warnings: checkNodeCountDeviation(state, parsed.data) }
+            }
+          }
         }
+        lastError = '解析失败'
+      } catch (err) {
+        lastError = err instanceof Error ? err.message : String(err)
       }
     }
-    return { errors: [`第${chapterIndex + 1}章解析失败`] }
+    return { errors: [`第${chapterIndex + 1}章生成失败: ${lastError}`] }
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err)
     return { errors: [`第${chapterIndex + 1}章生成失败: ${msg}`] }
