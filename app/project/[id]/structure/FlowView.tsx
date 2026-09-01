@@ -95,22 +95,44 @@ function pickHandles(sx: number, sy: number, tx: number, ty: number): { sourceHa
 
 const nodeTypes = { storyNode: StoryNodeView }
 
-// ── Path highlight DFS ──────────────────────────────────────────────────────
+// ── Path highlight (linear reachability) ────────────────────────────────────
 
-function getPathNodeIds(startId: string, nodeMap: Map<string, { choices: { targetNodeId: string }[]; type: string }>, visited = new Set<string>()): Set<string> {
-  if (visited.has(startId)) return new Set()
-  const node = nodeMap.get(startId)
-  if (!node) return new Set()
-  if (node.type === 'ending') return new Set([startId])
-  visited.add(startId)
-  const result = new Set<string>()
-  for (const c of node.choices) {
-    if (!c.targetNodeId) continue
-    const sub = getPathNodeIds(c.targetNodeId, nodeMap, new Set(visited))
-    if (sub.size > 0) {
-      result.add(startId)
-      sub.forEach(id => result.add(id))
+/** 选中节点的可达路径 = 前向可达集 ∩ 能到达结局的节点集。两遍 BFS，O(V+E)。
+    此前的递归 DFS 每个分支复制 visited 并重扫子树，路径数随分支×汇合组合爆炸，
+    在 58 节点图上点击靠前节点直接卡死主线程（锁死事故的根因）。 */
+function getPathNodeIds(startId: string, nodeMap: Map<string, { choices: { targetNodeId: string }[]; type: string }>): Set<string> {
+  // 前向：从选中节点沿 choices 可达的所有节点
+  const forward = new Set<string>()
+  const queue = [startId]
+  while (queue.length > 0) {
+    const id = queue.pop()!
+    if (forward.has(id)) continue
+    const node = nodeMap.get(id)
+    if (!node) continue
+    forward.add(id)
+    if (node.type === 'ending') continue
+    for (const c of node.choices) if (c.targetNodeId) queue.push(c.targetNodeId)
+  }
+  // 反向：只保留能通向某个结局的节点（剪掉断头支线，与旧语义一致）
+  const parentsOf = new Map<string, string[]>()
+  const endings: string[] = []
+  for (const id of forward) {
+    const node = nodeMap.get(id)!
+    if (node.type === 'ending') { endings.push(id); continue }
+    for (const c of node.choices) {
+      if (!c.targetNodeId || !forward.has(c.targetNodeId)) continue
+      const list = parentsOf.get(c.targetNodeId)
+      if (list) list.push(id)
+      else parentsOf.set(c.targetNodeId, [id])
     }
+  }
+  const result = new Set<string>()
+  const back = [...endings]
+  while (back.length > 0) {
+    const id = back.pop()!
+    if (result.has(id)) continue
+    result.add(id)
+    for (const p of parentsOf.get(id) ?? []) back.push(p)
   }
   return result
 }
@@ -122,9 +144,11 @@ const NODE_H = 90
 const COL_W = 260       // horizontal spacing per depth column
 const ROW_H = NODE_H + 50  // vertical spacing between nodes in same column
 const ACT_GAP = 60      // extra horizontal gap between acts
-// 章级泳道高度：大项目（40+ 节点）所有章横向接龙会得到 1 万像素宽、两行高的"一条线"，
+// 章级泳道：大项目（40+ 节点）所有章横向接龙会得到 1 万像素宽、两行高的"一条线"，
 // 分支在视觉上被纵横比压扁。按章折行成泳道后，宽度缩到 1/章数，分支扇出肉眼可辨。
-const LANE_H = 5 * ROW_H
+// 泳道高度不能写死（曾固定 5 行）：终章结局扇出等高列会刺穿相邻泳道造成节点叠加，
+// 必须按每章实际最大列高动态分配。
+const LANE_GAP = 140    // 相邻泳道之间的垂直留白
 
 function autoLayout(
   nodes: StoryNode[],
@@ -153,6 +177,12 @@ function autoLayout(
   const assigned = new Set<string>()
   let xOffset = 0  // running x position across acts within current lane
   let currentLane = -1
+
+  // 第一遍：确定每个节点的 (泳道, x, 列内行号, 列高)，同时统计每条泳道的最大列高。
+  // y 留到第二遍——泳道基线要等所有列高已知后按实际高度累加，才能保证泳道互不侵入。
+  type Cell = { id: string; lane: number; x: number; rowIdx: number; colLen: number }
+  const cells: Cell[] = []
+  const laneMaxRows = new Map<number, number>()
 
   for (const act of sortedActs) {
     if (act.laneIdx !== currentLane) { currentLane = act.laneIdx; xOffset = 0 } // 换章：x 从头累计，落入下一条泳道
@@ -203,24 +233,35 @@ function autoLayout(
     // Place nodes: each depth → one sub-column
     for (let d = 0; d <= maxDepth; d++) {
       const col = groups.get(d)!
-      const colH = col.length * ROW_H
       col.forEach((id, rowIdx) => {
-        positions.set(id, {
-          x: xOffset + d * COL_W,
-          y: act.laneIdx * LANE_H + rowIdx * ROW_H - colH / 2,
-        })
+        cells.push({ id, lane: act.laneIdx, x: xOffset + d * COL_W, rowIdx, colLen: col.length })
         assigned.add(id)
       })
+      laneMaxRows.set(act.laneIdx, Math.max(laneMaxRows.get(act.laneIdx) ?? 1, col.length))
     }
 
     // Advance x cursor: this act consumed (maxDepth+1) sub-columns + gap
     xOffset += (maxDepth + 1) * COL_W + ACT_GAP
   }
 
-  // Fallback: nodes not assigned to any act
+  // 第二遍：泳道基线按实际高度累加；列在泳道内垂直居中。
+  // colH ≤ laneH 恒成立（laneH 取自本泳道最大列高），节点必落在本泳道范围内。
+  const laneTop = new Map<number, number>()
+  let yCursor = 0
+  for (const lane of [...laneMaxRows.keys()].sort((a, b) => a - b)) {
+    laneTop.set(lane, yCursor)
+    yCursor += laneMaxRows.get(lane)! * ROW_H + LANE_GAP
+  }
+  for (const c of cells) {
+    const laneH = laneMaxRows.get(c.lane)! * ROW_H
+    const colH = c.colLen * ROW_H
+    positions.set(c.id, { x: c.x, y: laneTop.get(c.lane)! + (laneH - colH) / 2 + c.rowIdx * ROW_H })
+  }
+
+  // Fallback: nodes not assigned to any act——垫到所有泳道下方，不与任何泳道内容重叠
   const unassigned = nodes.filter(n => !assigned.has(n.id))
   unassigned.forEach((n, i) => {
-    positions.set(n.id, { x: xOffset + 50, y: i * ROW_H })
+    positions.set(n.id, { x: 0, y: yCursor + i * ROW_H })
   })
 
   return positions
@@ -323,7 +364,8 @@ function buildFlowData(project: Project, focusNodeId: string | null, manualPos: 
         },
         labelBgStyle: { fill: 'var(--color-paper)', fillOpacity: 0.9 },
         labelBgPadding: [3, 5],
-        animated: onPath,
+        // 不用 animated：高亮路径可能覆盖上百条边，虚线动画会让整图持续逐帧重绘，
+        // 点击一次后平移/缩放永久掉帧。加粗+朱红静态样式已足够区分。
       })
     }
   }
