@@ -333,13 +333,24 @@ export default function StructurePage() {
     const result = await branchAi.run('生成分支', async (signal) => {
       const all: AiNodeChoices[] = []
       for (let i = 0; i < chunks.length; i++) {
-        const data = await aiJson<{ result?: { nodeChoices?: AiNodeChoices[] } }>('branches', 'generate', {
+        const context = {
           worldAnchor: fresh.worldAnchor,
           characters: fresh.characters,
           variables: fresh.variables,
           nodes: chunks[i].map(n => ({ id: n.id, title: n.title, type: n.type, notes: n.notes })),
-        }, signal)
-        const nodeChoices = data.result?.nodeChoices
+        }
+        // 单章生成动辄数分钟，瞬时网络断连（Connection error）不该让已完成的章全部作废——
+        // 每章自动重试一次；用户主动中止（AbortError）不重试。
+        let nodeChoices: AiNodeChoices[] | undefined
+        for (let attempt = 0; attempt < 2; attempt++) {
+          try {
+            const data = await aiJson<{ result?: { nodeChoices?: AiNodeChoices[] } }>('branches', 'generate', context, signal)
+            nodeChoices = data.result?.nodeChoices
+            break
+          } catch (err) {
+            if (isAbortError(err) || attempt === 1) throw err
+          }
+        }
         if (!Array.isArray(nodeChoices)) throw new AiActionError(`AI 分支返回格式错误（第 ${i + 1}/${chunks.length} 章）`)
         all.push(...nodeChoices)
         setBranchProgress({ done: i + 1, total: chunks.length })
