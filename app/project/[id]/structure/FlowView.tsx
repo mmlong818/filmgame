@@ -30,8 +30,14 @@ function StoryNodeView({ data }: NodeProps) {
         boxShadow: d.highlighted ? `0 0 0 1.5px ${s.hex}, var(--shadow-card-lift)` : 'var(--shadow-card)',
       }}
     >
-      <Handle type="target" position={Position.Left}
+      {/* 多方位连接点：连线按两端几何关系自动选边（右出左进为默认；跨泳道底出顶进；
+          回绕边左出右进），避免固定左进右出产生的绕线。非默认位手柄不可见。 */}
+      <Handle id="tl" type="target" position={Position.Left}
         style={{ background: s.hex, width: 8, height: 8, border: '2px solid var(--color-paper)', left: -5 }} />
+      <Handle id="tt" type="target" position={Position.Top}
+        style={{ opacity: 0, width: 6, height: 6, top: -3, pointerEvents: 'none' }} />
+      <Handle id="tr" type="target" position={Position.Right}
+        style={{ opacity: 0, width: 6, height: 6, right: -3, pointerEvents: 'none' }} />
 
       {/* Header */}
       <div className={`flex items-center gap-1.5 px-3 pt-2.5 pb-1`}>
@@ -66,10 +72,25 @@ function StoryNodeView({ data }: NodeProps) {
         </button>
       </div>
 
-      <Handle type="source" position={Position.Right}
+      <Handle id="sr" type="source" position={Position.Right}
         style={{ background: s.hex, width: 8, height: 8, border: '2px solid var(--color-paper)', right: -5 }} />
+      <Handle id="sb" type="source" position={Position.Bottom}
+        style={{ opacity: 0, width: 6, height: 6, bottom: -3, pointerEvents: 'none' }} />
+      <Handle id="sl" type="source" position={Position.Left}
+        style={{ opacity: 0, width: 6, height: 6, left: -3, pointerEvents: 'none' }} />
     </div>
   )
+}
+
+/** 按两端坐标选择连线的出入边：默认右出左进；目标明显在下方（跨泳道/同列下方）底出顶进；
+    目标在左侧（回绕边，如探索返回）左出右进——消除固定手柄造成的长距离绕线。 */
+function pickHandles(sx: number, sy: number, tx: number, ty: number): { sourceHandle: string; targetHandle: string } {
+  const dx = tx - sx
+  const dy = ty - sy
+  if (dx >= COL_W / 2) return { sourceHandle: 'sr', targetHandle: 'tl' }
+  if (dy > ROW_H) return { sourceHandle: 'sb', targetHandle: 'tt' }
+  if (dx < 0) return { sourceHandle: 'sl', targetHandle: 'tr' }
+  return { sourceHandle: 'sr', targetHandle: 'tl' }
 }
 
 const nodeTypes = { storyNode: StoryNodeView }
@@ -278,11 +299,16 @@ function buildFlowData(project: Project, focusNodeId: string | null, manualPos: 
 
       const stroke = edgeDimmed ? 'var(--color-line)' : toEnding ? endingHex : onPath ? 'var(--color-vermilion)' : normalHex
       const baseLabel = choice.text.length > 14 ? choice.text.slice(0, 14) + '…' : choice.text
+      const sPos = getPos(node)
+      const tPos = getPos(nodeMap.get(targetId)!)
+      const handles = pickHandles(sPos.x, sPos.y, tPos.x, tPos.y)
 
       edges.push({
         id: `e-${choice.id}`,
         source: node.id,
         target: targetId,
+        sourceHandle: handles.sourceHandle,
+        targetHandle: handles.targetHandle,
         label: choiceGroup.length > 1 ? `${baseLabel} 等 ${choiceGroup.length} 个选择` : baseLabel,
         markerEnd: { type: MarkerType.ArrowClosed, color: stroke, width: 16, height: 16 },
         style: {

@@ -279,9 +279,15 @@ ${chapters.map((ch, i) => `第${i+1}章：${ch.title} — ${ch.brief}`).join('\n
       }
 
       let chapterExploreUsed = false // 每章至多插入1个explore节点（本章总预算≥10时才允许）
-      // C1-1（FR-18 v2）：非终章每章植入即死BE岔口，数量随章预算浮动——出处 docs/genre-baseline.md 守则3
-      const chapterBETarget = isLast ? 0 : (chapterTargetNodes >= 12 ? 2 : 1)
+      // C1-1（FR-18 v2）：每章植入即死BE岔口，数量随章预算浮动——出处 docs/genre-baseline.md 守则3。
+      // 终章非末幕也给 1 个：后半段是后果爆发区，门控前"一步选错即死"是 Gauntlet 的标准张力
+      //（此前终章配额 0 + 均匀铺分支，用户实测观感"后半段基本没有分支"）。
+      const chapterBETarget = isLast ? 1 : (chapterTargetNodes >= 12 ? 2 : 1)
       let chapterBEUsed = 0
+      // 分支密度向后递增：越接近结局，选择的后果越重、分歧越明显（隐形守护者后期裂成多条主线）。
+      // 后半段章降低「章内平行路线」的预算门槛，让分岔在图上明显拉开而非一步汇合。
+      const isLateChapter = chapterIndex >= Math.floor(chapterCount / 2)
+      const parallelThreshold = isLateChapter ? 6 : 8
 
       const buildActNodes = (ai: number): SkelNode[] => {
         const isFirstAct = isFirst && ai === 0
@@ -331,7 +337,7 @@ ${chapters.map((ch, i) => `第${i+1}章：${ch.title} — ${ch.brief}`).join('\n
             for (let f = 0; f < fillCount; f++) {
               nodes.push({ title: '节点名', type: 'normal', notes: '剧情推进：聚焦人物关系或线索揭示，为后续张力做铺垫（本幕预算较小，暂不设关键分支）' })
             }
-          } else if (actSize >= 8) {
+          } else if (actSize >= parallelThreshold) {
             // 章内平行路线：预算充裕时，branch后每条路径各自独立推进2个以上节点，再汇回主线；
             // 若本章即死BE配额未用完，其中一条路径改为1节点BE ending（C1-1），其余路径维持≥2节点（C1-2）。
             // BE节点notes同样打[路径X]标签——branches:generate靠这个标签而非type序列还原路径归属。

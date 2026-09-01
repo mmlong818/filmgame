@@ -366,17 +366,37 @@ export default function StructurePage() {
 
   // 解析 AI 返回的分支选择为 patch（key = nodeId），不含自动补连
   function resolveChoicePatches(draft: AiNodeChoices[]): Map<string, Partial<StoryNode>> {
-    const nodes = project!.nodes
+    const fresh = useProjectStore.getState().project!
+    const nodes = fresh.nodes
     const nodeByTitle = new Map(nodes.map(n => [n.title, n.id]))
     const nodeById = new Map(nodes.map(n => [n.id, n]))
+    // 节点 → 所属章：模糊匹配必须限定在源节点同章（+ 下一章首节点）内。
+    // 曾因全局模糊匹配把 start 的选项撞到第三章的相似标题上，前段 40 节点整体不可达。
+    const chapterOfNode = new Map<string, number>()
+    const chapterFirstNode = new Map<number, string>()
+    const sortedCh = [...fresh.chapters].sort((a, b) => a.order - b.order)
+    sortedCh.forEach((ch, ci) => {
+      const ids = fresh.acts.filter(a => a.chapterId === ch.id).sort((a, b) => a.order - b.order).flatMap(a => a.nodeIds)
+      ids.forEach(id => chapterOfNode.set(id, ci))
+      if (ids.length > 0) chapterFirstNode.set(ci, ids[0])
+    })
 
-    function resolveTargetId(c: AiChoice): string {
-      if (c.targetNodeId && nodeById.has(c.targetNodeId)) return c.targetNodeId
+    function resolveTargetId(c: AiChoice, sourceNodeId: string): string {
+      const srcCh = chapterOfNode.get(sourceNodeId)
+      // 章约束：目标必须在源节点同章，或恰为下一章首节点（跨章连接唯一合法形态）。
+      // id 引用同样过此约束——AI 复制错位的有效 id 一样会把主干跳断。
+      const inScope = (id: string) => {
+        const ci = chapterOfNode.get(id)
+        return ci === srcCh || (srcCh !== undefined && id === chapterFirstNode.get(srcCh + 1))
+      }
+      if (c.targetNodeId && nodeById.has(c.targetNodeId) && inScope(c.targetNodeId)) return c.targetNodeId
       const exact = nodeByTitle.get(c.targetNodeTitle)
-      if (exact) return exact
-      const fuzzy = nodes.find(n =>
+      if (exact && inScope(exact)) return exact
+      if (!c.targetNodeTitle || c.targetNodeTitle.length < 2) return ''
+      const fuzzy = nodes.filter(n => inScope(n.id)).find(n =>
         n.title.includes(c.targetNodeTitle) || c.targetNodeTitle.includes(n.title)
       )
+      // 无合法候选就留空——交给「继续」自动补连兜底，绝不跨章乱接
       return fuzzy?.id ?? ''
     }
 
@@ -395,7 +415,7 @@ export default function StructurePage() {
       const choices = (nc.choices ?? []).map((c, i) => ({
         id: nanoid(8), nodeId,
         text: c.text, order: i,
-        targetNodeId: resolveTargetId(c),
+        targetNodeId: resolveTargetId(c, nodeId),
         // AI 在 branches:generate 提示词中被要求为门控节点（如"路线门控"）填写具体变量条件，
         // 后端 ChoiceDraftSchema 也支持该字段——此前这里硬编码空字符串，等于把 AI 返回的
         // conditions 值原样丢弃，导致门控条件在所有分支上都形同虚设。
@@ -447,17 +467,50 @@ export default function StructurePage() {
   }
 
   function commitBranches(draft: AiNodeChoices[]) {
-    const nodes = project!.nodes
+    const fresh = useProjectStore.getState().project!
+    const nodes = fresh.nodes
     const choicePatchMap = resolveChoicePatches(draft)
     const { patchMap } = computeAutoConnectEdges(choicePatchMap)
 
-    // 一次性批量写入
-    const store = useProjectStore.getState()
     const updatedNodes = nodes.map(n => {
       const patch = patchMap.get(n.id)
       return patch ? { ...n, ...patch } : n
     })
-    store.bulkSetStructure(project!.chapters, project!.acts, updatedNodes)
+
+    // 跨章缝合：分块生成的每章块看不见下一章，AI 永远不产跨章边；而 v2 之后
+    // 每个节点都有 AI 选项，「继续」自动补连（只服务零选项节点）也不再触发——
+    // 跨章连接成了无人负责的真空（曾两次造成整个后续章不可达）。
+    // 规则：下一章首节点入度为 0 时，从本章顺序末位的非 ending 节点补一条无条件「继续」。
+    const byId = new Map(updatedNodes.map(n => [n.id, n]))
+    const indegree = new Map<string, number>()
+    for (const n of updatedNodes) for (const c of n.choices) {
+      if (c.targetNodeId) indegree.set(c.targetNodeId, (indegree.get(c.targetNodeId) ?? 0) + 1)
+    }
+    const chSeq = [...fresh.chapters].sort((a, b) => a.order - b.order).map(ch =>
+      fresh.acts.filter(a => a.chapterId === ch.id).sort((a, b) => a.order - b.order).flatMap(a => a.nodeIds),
+    )
+    const sutures = new Map<string, string>() // 章尾节点 id → 下一章首节点 id
+    for (let ci = 0; ci < chSeq.length - 1; ci++) {
+      const nextFirst = chSeq[ci + 1][0]
+      if (!nextFirst || (indegree.get(nextFirst) ?? 0) > 0) continue
+      const tailId = [...chSeq[ci]].reverse().find(id => byId.get(id)?.type !== 'ending')
+      if (tailId) sutures.set(tailId, nextFirst)
+    }
+    const suturedNodes = sutures.size === 0 ? updatedNodes : updatedNodes.map(n => {
+      const nextFirst = sutures.get(n.id)
+      if (!nextFirst) return n
+      return {
+        ...n,
+        choices: [...n.choices, {
+          id: nanoid(8), nodeId: n.id, text: '继续', order: n.choices.length,
+          targetNodeId: nextFirst, conditions: '', variableEffects: '',
+        }],
+      }
+    })
+
+    // 一次性批量写入
+    const store = useProjectStore.getState()
+    store.bulkSetStructure(fresh.chapters, fresh.acts, suturedNodes)
   }
 
   function toggleChapter(id: string) {
