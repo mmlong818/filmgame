@@ -39,17 +39,26 @@ export default function WorldPage() {
     setVariables,
   })
 
-  // project 加载完毕时同步表单（标记为非用户编辑）
+  // 本组件最后一次写回 store 的内容指纹：用于把 store 变化区分为「自己写回的回声」
+  // 与「外部更新」（hydrate 对账、其他标签页、AI 生成落库）。此前只在 project.id 变化时
+  // 同步一次表单，外部更新后用户改任意字段就会把整个旧表单覆盖写回，静默丢掉刚合并的数据。
+  const lastWritten = useRef<string | null>(null)
+
+  // store 的 worldAnchor 内容变化时同步表单；自己写回的回声跳过
   useEffect(() => {
-    if (project?.worldAnchor) {
-      userEdited.current = false
-      setForm(project.worldAnchor)
-    }
-  }, [project?.id])
+    if (!project?.worldAnchor) return
+    const incoming = JSON.stringify(project.worldAnchor)
+    if (incoming === lastWritten.current) return
+    userEdited.current = false
+    lastWritten.current = incoming
+    setForm(project.worldAnchor)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [project?.worldAnchor])
 
   // 用户编辑表单时立即同步到 store
   useEffect(() => {
     if (!project || !userEdited.current) return
+    lastWritten.current = JSON.stringify(form)
     setWorldAnchor(form)
     setAutoSaved(true)
     const t = setTimeout(() => setAutoSaved(false), 1500)

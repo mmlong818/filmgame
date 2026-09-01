@@ -29,6 +29,17 @@ interface HistoryBinding {
 
 let binding: HistoryBinding | null = null
 
+// undo/redo 恢复本身也会触发 projectStore 的 set；projectStore 用此标志区分
+// 「恢复引起的变更」与「用户新编辑」——后者必须使 redo 栈失效（见 projectStore 底部订阅）。
+let restoring = false
+export function isRestoring() { return restoring }
+
+/** 用户在撤销之后又做了新编辑：重做快照已过期，继续重做会静默覆盖新编辑，必须整栈丢弃 */
+export function invalidateRedo() {
+  if (useHistoryStore.getState().redoStack.length === 0) return
+  useHistoryStore.setState({ redoStack: [] })
+}
+
 /** projectStore 模块初始化时注册，避免循环依赖 */
 export function bindHistory(b: HistoryBinding) {
   binding = b
@@ -62,7 +73,8 @@ export function undo(): string | null {
     undoStack: undoStack.slice(0, -1),
     redoStack: [...redoStack.slice(-(LIMIT - 1)), { label: entry.label, snapshot: structuredClone(current) }],
   })
-  binding.restore(entry.snapshot)
+  restoring = true
+  try { binding.restore(entry.snapshot) } finally { restoring = false }
   return entry.label
 }
 
@@ -77,6 +89,7 @@ export function redo(): string | null {
     redoStack: redoStack.slice(0, -1),
     undoStack: [...undoStack.slice(-(LIMIT - 1)), { label: entry.label, snapshot: structuredClone(current) }],
   })
-  binding.restore(entry.snapshot)
+  restoring = true
+  try { binding.restore(entry.snapshot) } finally { restoring = false }
   return entry.label
 }

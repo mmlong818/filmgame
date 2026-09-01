@@ -4,7 +4,7 @@ import type { Project, StoryNode, Choice, Variable, WorldAnchor, ScalePlan, Vali
 import type { Phase } from '@/lib/types/phase'
 import { loadLocalSnapshot, writeLocalSnapshot, saveProject, saveProjectMeta, saveNode, setHydrated, clearConflictLock } from '@/lib/persistence'
 import type { SaveStateDetail } from '@/lib/persistence'
-import { bindHistory, pushUndo, clearHistory } from '@/lib/store/history'
+import { bindHistory, pushUndo, clearHistory, isRestoring, invalidateRedo } from '@/lib/store/history'
 
 const PHASE_ORDER: Phase[] = ['world', 'scale', 'structure', 'workshop', 'validate']
 
@@ -43,11 +43,11 @@ export function createEmptyProject(title: string, mode: AiMode = 'thinking'): Pr
 
 type HydrateResult = 'ok' | 'not-found' | 'error'
 
-// hydrateProject 对账窗口内（乐观 paint 之后、GET 返回之前）以及离线兜底期间，用户可能
-// 已经开始编辑，而 persistence 层此时门禁着所有网络保存——不能让 DB 副本无条件覆盖 store，
-// 否则这些输入会无声消失且无处可恢复。这里做字段级合并：以乐观 paint 的原始快照为基线，
-// 找出 current 相对基线真正被用户改过的顶层字段（nodes 精确到单个节点的改/增/删），
-// 只把这些字段叠加到 DB 副本上；其余字段一律以 DB 为准，避免陈旧快照整体回流。
+// hydrateProject 对账窗口内（乐观 paint 之后、GET 返回之前）、离线兜底期间以及二次对账
+// （409 后「加载最新」）时，store 里可能存在未落库的本地编辑——不能让 DB 副本无条件覆盖，
+// 否则这些输入会无声消失且无处可恢复。这里做字段级合并：以最后一次服务端对齐快照
+// （paintBase）为基线，找出 current 相对基线真正被用户改过的顶层字段（nodes 精确到
+// 单个节点的改/增/删），只把这些字段叠加到 DB 副本上；其余字段一律以 DB 为准。
 const MERGE_SKIP_KEYS = new Set<string>(['id', 'createdAt', 'updatedAt', 'schemaVersion'])
 
 function mergeWindowEdits(
@@ -96,7 +96,11 @@ interface ProjectStore {
   stale: boolean
   /** GET 对账（DB 权威数据覆盖 localStorage 乐观 paint）是否已完成；false 期间所有保存请求被 persistence 层丢弃。 */
   hydrated: boolean
-  /** 乐观 paint 的原始快照，未水合期间保留，对账成功时作为字段级合并（mergeWindowEdits）的基线；水合完成后清空。 */
+  /** 最后一次与服务端对齐的快照：冷启动时是乐观 paint 的 localStorage 副本，对账成功后是
+      服务端确认副本的深拷贝。作为字段级合并（mergeWindowEdits）的基线常驻——二次对账
+      （409 后点「加载最新」、stale 提示刷新）时用它识别本地未落库编辑，避免 DB 副本
+      无条件覆盖。曾在水合完成后清空，导致二次对账拿 localStorage（已含本地编辑）当基线，
+      合并短路、本地编辑无声丢失。 */
   paintBase: Project | null
   /** GET 对账失败、正以本地快照离线工作：网络保存被门禁挡下（version 基线未知不发绕过乐观锁的写入），等待重连后重新对账并合并本地编辑。 */
   offline: boolean
@@ -176,8 +180,9 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
     const prior = get()
     let base: Project | null = null
     if (prior.project?.id === id && prior.paintBase?.id === id) {
-      // 对账重试（离线兜底后 online / 手动重连）：沿用首次乐观 paint 的基线并保留 store 里
-      // 期间累积的本地编辑；不能重新用 localStorage 快照当基线——它已含这些编辑，会让合并误判"无改动"。
+      // 对账重试（离线兜底后 online / 手动重连）或二次对账（409 冲突后「加载最新」、
+      // stale 刷新）：沿用最后一次服务端对齐快照当基线并保留 store 里期间累积的本地编辑；
+      // 不能重新用 localStorage 快照当基线——它已含这些编辑，会让合并误判"无改动"。
       base = prior.paintBase
     } else {
       const local = loadLocalSnapshot(id)
@@ -210,7 +215,12 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
       const { project: merged, changed } = mergeWindowEdits(data.project, base, current?.id === id ? current : null)
       setHydrated(id, true)
       clearConflictLock(id)
-      set({ project: merged, paintBase: null, loadedVersion: data.version ?? null, saveConflict: null, stale: false, hydrated: true, offline: false })
+      // paintBase 保留为服务端确认副本的深拷贝（不能与 project 同引用，否则下次合并
+      // current === base 短路）；后续本地编辑相对它 diff。整档保存成功时不前进基线
+      // （save-state 事件不携带落库内容，用回调时刻的 store.project 会把未保存的编辑
+      // 吸进基线导致下次对账误判"无差异"）——已保存的编辑在下次对账 diff 时与 DB 相等，
+      // 不会误报，代价可接受。
+      set({ project: merged, paintBase: structuredClone(data.project as Project), loadedVersion: data.version ?? null, saveConflict: null, stale: false, hydrated: true, offline: false })
       writeLocalSnapshot(merged)
       // 合并出的本地编辑以刚确认的 DB version 为基线落库；期间再有并发写入会 409 走冲突流程。
       if (changed) saveProject(merged, data.version ?? undefined)
@@ -224,7 +234,7 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
     // 调用方（新建/导入项目）传入的是服务端刚确认落库的权威数据，等同一次成功对账。
     if (get().project?.id !== p.id) clearHistory()
     setHydrated(p.id, true)
-    set({ project: p, paintBase: null, loadedVersion: version ?? null, saveConflict: null, stale: false, hydrated: true, offline: false })
+    set({ project: p, paintBase: structuredClone(p), loadedVersion: version ?? null, saveConflict: null, stale: false, hydrated: true, offline: false })
   },
 
   restoreSnapshot: (p) => set((s) => {
@@ -341,7 +351,8 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
         nextProgress[targetPhase] = 'in_progress'
       }
     }
-    const p = { ...s.project, scalePlanOptions: [], selectedScalePlanId: null, chapters: [], acts: [], nodes: [], downstreamStale: false, currentPhase: nextPhase, phaseProgress: nextProgress, updatedAt: new Date().toISOString() }
+    // nodes 清空后 endings 的 nodeId 全部悬空，必须一并清空（结局设计 endingsDesign 在 worldAnchor 里，不受影响）
+    const p = { ...s.project, scalePlanOptions: [], selectedScalePlanId: null, chapters: [], acts: [], nodes: [], endings: [], downstreamStale: false, currentPhase: nextPhase, phaseProgress: nextProgress, updatedAt: new Date().toISOString() }
     saveProject(p, s.loadedVersion ?? undefined)
     return { project: p }
   }),
@@ -357,7 +368,7 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
     const progress = { ...s.project.phaseProgress }
     PHASE_ORDER.forEach((ph, i) => { if (i > structIdx) progress[ph] = 'locked' })
     progress.structure = 'in_progress'
-    const p: Project = { ...s.project, chapters: [], acts: [], nodes: [], currentPhase: 'structure', phaseProgress: progress, updatedAt: new Date().toISOString() }
+    const p: Project = { ...s.project, chapters: [], acts: [], nodes: [], endings: [], currentPhase: 'structure', phaseProgress: progress, updatedAt: new Date().toISOString() }
     saveProject(p, s.loadedVersion ?? undefined)
     return { project: p }
   }),
@@ -398,7 +409,10 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
   bulkSetStructure: (chapters, acts, nodes) => set((s) => {
     if (!s.project) return s
     if (s.project.nodes.length > 0 || s.project.chapters.length > 0) pushUndo('结构批量覆盖', s.project)
-    const p = { ...s.project, chapters, acts, nodes, updatedAt: new Date().toISOString() }
+    // 结构被整体替换后，绑定在旧节点上的结局实例是悬空引用，只保留仍指向现存节点的
+    const nodeIds = new Set(nodes.map(n => n.id))
+    const endings = s.project.endings.filter(e => nodeIds.has(e.nodeId))
+    const p = { ...s.project, chapters, acts, nodes, endings, updatedAt: new Date().toISOString() }
     saveProject(p, s.loadedVersion ?? undefined)
     return { project: p }
   }),
@@ -582,6 +596,21 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
 bindHistory({
   getProject: () => useProjectStore.getState().project,
   restore: (p) => useProjectStore.getState().restoreSnapshot(p),
+})
+
+// 撤销之后的任何新编辑都使重做快照过期——继续重做会用旧快照整档覆盖新编辑。
+// 大量非破坏性 action（updateNode/updateChoice/setWorldAnchor…）不经过 pushUndo，
+// 无法靠逐个 action 清 redo 栈（必有遗漏），改在 store 唯一出口统一拦截：
+// 同一项目内的 project 引用变化、且不是 undo/redo 恢复本身引起的，一律清空 redo 栈。
+// （跨项目切换由 clearHistory 处理；hydrate 对账更新同样清空——对账合并了远端数据，
+// 旧的重做快照同样过期。）
+useProjectStore.subscribe((state, prev) => {
+  if (
+    state.project && prev.project &&
+    state.project !== prev.project &&
+    state.project.id === prev.project.id &&
+    !isRestoring()
+  ) invalidateRedo()
 })
 
 // ─── 多标签页协同（BroadcastChannel）+ 保存状态桥接 ───────────────────

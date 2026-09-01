@@ -1,6 +1,6 @@
 import type { Project, ValidationIssue, ValidationReport } from '@/lib/types/project'
 import { nanoid } from 'nanoid'
-import { parseEffectPart } from '@/lib/conditions'
+import { parseEffectPart, lintConditions } from '@/lib/conditions'
 
 export function runValidation(project: Project): ValidationReport {
   const issues: ValidationIssue[] = []
@@ -344,35 +344,80 @@ export function runValidation(project: Project): ValidationReport {
     }
   }
 
-  // || 连接时只有全部子条件都永假才判死；&&（或单条件）任一子条件永假即判死
+  // 永不可满足判定，与 conditions.ts 的求值器同构地递归下降（&& 优先级高于 ||，支持括号）：
+  // || 组只有全部可判定子式都永假才判死；&& 组任一子式永假即判死。
+  // 此前按单层 split 切分，带括号的表达式会把 "(fear<3" 这类残片喂给正则后静默跳过，
+  // 检测对括号表达式整体失效。
+  function splitTop(expr: string, op: '&&' | '||'): string[] | null {
+    const parts: string[] = []
+    let depth = 0, start = 0
+    for (let i = 0; i < expr.length; i++) {
+      const c = expr[i]
+      if (c === '(') depth++
+      else if (c === ')') { depth--; if (depth < 0) return null }
+      else if (depth === 0 && expr.startsWith(op, i)) { parts.push(expr.slice(start, i)); i += 1; start = i + 1 }
+    }
+    if (depth !== 0) return null
+    parts.push(expr.slice(start))
+    return parts
+  }
+
+  /** @returns null = 无法判定（未知变量/非数值/语法不识别）；否则返回永假的子式列表（空数组 = 可满足） */
+  function findUnsat(expr: string): string[] | null {
+    const t = expr.trim()
+    if (!t) return null
+    const or = splitTop(t, '||')
+    if (!or) return null
+    if (or.length > 1) {
+      const sub = or.map(findUnsat)
+      const decidable = sub.filter((r): r is string[] => r !== null)
+      if (decidable.length === 0) return null
+      // 存在可满足分支 → 整体可满足；全部分支永假 → 整体永假
+      if (decidable.some(r => r.length === 0)) return []
+      return decidable.flat()
+    }
+    const and = splitTop(t, '&&')!
+    if (and.length > 1) {
+      const sub = and.map(findUnsat).filter((r): r is string[] => r !== null)
+      if (sub.length === 0) return null
+      return sub.flat()
+    }
+    if (t.startsWith('(') && t.endsWith(')')) return findUnsat(t.slice(1, -1))
+
+    const m = t.match(/^([a-zA-Z_][a-zA-Z0-9_]*)\s*(>=|<=|>|<|==|!=)\s*(.+)$/)
+    if (!m) return null
+    const [, name, op, rhsRaw] = m
+    const bounds = numericBounds.get(name)
+    const rhs = Number(rhsRaw)
+    if (!bounds || isNaN(rhs)) return null
+    const impossible =
+      (op === '>=' && rhs > bounds.max) ||
+      (op === '>' && rhs >= bounds.max) ||
+      (op === '<=' && rhs < bounds.min) ||
+      (op === '<' && rhs <= bounds.min) ||
+      (op === '==' && (rhs > bounds.max || rhs < bounds.min))
+    return impossible ? [t] : []
+  }
+
   function findUnsatisfiable(expr: string | undefined): string[] {
     if (!expr || !expr.trim()) return []
-    const isOr = expr.includes('||')
-    const parts = expr.includes('&&') ? expr.split('&&') : isOr ? expr.split('||') : [expr]
-    const bad: string[] = []
-    let parsedCount = 0
-    for (const raw of parts) {
-      const m = raw.trim().match(/^([a-zA-Z_][a-zA-Z0-9_]*)\s*(>=|<=|>|<|==|!=)\s*(.+)$/)
-      if (!m) continue
-      const [, name, op, rhsRaw] = m
-      const bounds = numericBounds.get(name)
-      const rhs = Number(rhsRaw)
-      if (!bounds || isNaN(rhs)) continue
-      parsedCount++
-      const impossible =
-        (op === '>=' && rhs > bounds.max) ||
-        (op === '>' && rhs >= bounds.max) ||
-        (op === '<=' && rhs < bounds.min) ||
-        (op === '<' && rhs <= bounds.min) ||
-        (op === '==' && (rhs > bounds.max || rhs < bounds.min))
-      if (impossible) bad.push(raw.trim())
-    }
-    if (isOr) return parsedCount > 0 && bad.length === parsedCount ? bad : []
-    return bad
+    return findUnsat(expr) ?? []
   }
 
   for (const node of safeNodes) {
     for (const choice of node.choices) {
+      // 求值器对无法解析的条件按"恒真"处理（不坏档），作者因此看不见自己写错的语法：
+      // 玩家会看到本不该出现的选项，而校验报告全绿。这里显式暴露。
+      const syntax = lintConditions(choice.conditions)
+      if (syntax) {
+        issues.push({
+          id: nanoid(4),
+          level: 'warning',
+          code: 'CONDITION_SYNTAX',
+          message: `节点「${node.title}」的选项「${choice.text}」条件写法无法识别（${syntax}），运行时会被当作无条件显示：${choice.conditions}`,
+          relatedIds: [node.id],
+        })
+      }
       const bad = findUnsatisfiable(choice.conditions)
       if (bad.length > 0) {
         issues.push({
