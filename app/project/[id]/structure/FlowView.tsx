@@ -21,7 +21,7 @@ function StoryNodeView({ data }: NodeProps) {
 
   return (
     <div
-      className={`bg-paper border ${s.border} transition-[opacity,box-shadow] duration-150 ${opacity} cursor-grab active:cursor-grabbing hover:shadow-[0_2px_10px_rgba(30,50,80,0.18)]`}
+      className={`bg-paper border ${s.border} transition-[opacity,box-shadow] duration-150 ${opacity} cursor-grab active:cursor-grabbing`}
       style={{
         minWidth: NODE_W,
         maxWidth: NODE_W,
