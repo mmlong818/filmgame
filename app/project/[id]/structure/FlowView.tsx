@@ -21,7 +21,7 @@ function StoryNodeView({ data }: NodeProps) {
 
   return (
     <div
-      className={`bg-paper border ${s.border} transition-all duration-150 ${opacity} cursor-grab active:cursor-grabbing`}
+      className={`bg-paper border ${s.border} transition-[opacity,box-shadow] duration-150 ${opacity} cursor-grab active:cursor-grabbing`}
       style={{
         minWidth: NODE_W,
         maxWidth: NODE_W,
@@ -101,6 +101,9 @@ const NODE_H = 90
 const COL_W = 260       // horizontal spacing per depth column
 const ROW_H = NODE_H + 50  // vertical spacing between nodes in same column
 const ACT_GAP = 60      // extra horizontal gap between acts
+// 章级泳道高度：大项目（40+ 节点）所有章横向接龙会得到 1 万像素宽、两行高的"一条线"，
+// 分支在视觉上被纵横比压扁。按章折行成泳道后，宽度缩到 1/章数，分支扇出肉眼可辨。
+const LANE_H = 5 * ROW_H
 
 function autoLayout(
   nodes: StoryNode[],
@@ -118,18 +121,20 @@ function autoLayout(
     childrenOf.set(n.id, (n.choices ?? []).map(c => c.targetNodeId).filter(Boolean) as string[])
   }
 
-  // Sort acts: chapter order → act order within chapter
+  // Sort acts: chapter order → act order within chapter；每章一条泳道（章索引决定 y 基线）
   const sortedChapters = [...chapters].sort((a, b) => a.order - b.order)
-  const sortedActs: typeof acts = []
-  for (const ch of sortedChapters) {
+  const sortedActs: (typeof acts[number] & { laneIdx: number })[] = []
+  sortedChapters.forEach((ch, laneIdx) => {
     const chActs = acts.filter(a => a.chapterId === ch.id).sort((a, b) => a.order - b.order)
-    sortedActs.push(...chActs)
-  }
+    sortedActs.push(...chActs.map(a => ({ ...a, laneIdx })))
+  })
 
   const assigned = new Set<string>()
-  let xOffset = 0  // running x position across all act sub-columns
+  let xOffset = 0  // running x position across acts within current lane
+  let currentLane = -1
 
   for (const act of sortedActs) {
+    if (act.laneIdx !== currentLane) { currentLane = act.laneIdx; xOffset = 0 } // 换章：x 从头累计，落入下一条泳道
     const actSet = new Set(act.nodeIds.filter(id => nodeMap.has(id)))
     if (actSet.size === 0) continue
 
@@ -181,7 +186,7 @@ function autoLayout(
       col.forEach((id, rowIdx) => {
         positions.set(id, {
           x: xOffset + d * COL_W,
-          y: rowIdx * ROW_H - colH / 2,
+          y: act.laneIdx * LANE_H + rowIdx * ROW_H - colH / 2,
         })
         assigned.add(id)
       })
@@ -202,7 +207,7 @@ function autoLayout(
 
 // ── Build React Flow data ───────────────────────────────────────────────────
 
-function buildFlowData(project: Project, hoveredNodeId: string | null, manualPos: Map<string, { x: number; y: number }>, onEditNode?: (id: string) => void): { nodes: Node[]; edges: Edge[] } {
+function buildFlowData(project: Project, hoveredNodeId: string | null, manualPos: Map<string, { x: number; y: number }>, autoPos: Map<string, { x: number; y: number }>, onEditNode?: (id: string) => void): { nodes: Node[]; edges: Edge[] } {
   const flowNodes: Node[] = []
   const edges: Edge[] = []
 
@@ -218,9 +223,6 @@ function buildFlowData(project: Project, hoveredNodeId: string | null, manualPos
     highlightedIds = getPathNodeIds(hoveredNodeId, nodeMap as Map<string, { choices: { targetNodeId: string }[]; type: string }>)
     if (highlightedIds.size === 0) highlightedIds.add(hoveredNodeId)
   }
-
-  // Compute auto-layout positions using act structure
-  const autoPos = autoLayout(pNodes, project.acts ?? [], project.chapters ?? [])
 
   // Manual drag overrides auto-layout; persisted manual positions (positionManual) take
   // precedence over auto-layout too, so a reload still honors the user's dragged layout.
@@ -258,20 +260,30 @@ function buildFlowData(project: Project, hoveredNodeId: string | null, manualPos
       },
     })
 
-    // Edges from this node's choices
+    // Edges from this node's choices。
+    // v2 起推进节点常有 2-3 个选项指向同一后继（对话真选择），平行边在图上完全重叠、
+    // 标签互相覆盖成乱码——同 (source,target) 合并为一条边并标注选项数。
+    const grouped = new Map<string, typeof node.choices>()
     for (const choice of (node.choices ?? [])) {
       if (!choice.targetNodeId || !nodeMap.has(choice.targetNodeId)) continue
-      const toEnding = endingNodeIds.has(choice.targetNodeId)
-      const onPath = hoveredNodeId ? (highlightedIds.has(node.id) && highlightedIds.has(choice.targetNodeId)) : false
+      const list = grouped.get(choice.targetNodeId)
+      if (list) list.push(choice)
+      else grouped.set(choice.targetNodeId, [choice])
+    }
+    for (const [targetId, choiceGroup] of grouped) {
+      const choice = choiceGroup[0]
+      const toEnding = endingNodeIds.has(targetId)
+      const onPath = hoveredNodeId ? (highlightedIds.has(node.id) && highlightedIds.has(targetId)) : false
       const edgeDimmed = !!hoveredNodeId && !onPath
 
       const stroke = edgeDimmed ? 'var(--color-line)' : toEnding ? endingHex : onPath ? 'var(--color-vermilion)' : normalHex
+      const baseLabel = choice.text.length > 14 ? choice.text.slice(0, 14) + '…' : choice.text
 
       edges.push({
         id: `e-${choice.id}`,
         source: node.id,
-        target: choice.targetNodeId,
-        label: choice.text.length > 14 ? choice.text.slice(0, 14) + '…' : choice.text,
+        target: targetId,
+        label: choiceGroup.length > 1 ? `${baseLabel} 等 ${choiceGroup.length} 个选择` : baseLabel,
         markerEnd: { type: MarkerType.ArrowClosed, color: stroke, width: 16, height: 16 },
         style: {
           stroke,
@@ -307,10 +319,16 @@ export default function FlowView({ project }: { project: Project }) {
     () => new Map(project.nodes.filter(n => n.positionManual).map(n => [n.id, n.position]))
   )
 
+  // 布局只随结构变化重算，绝不随 hover 重算（NFR-1：hover 不触发全图重排——
+  // 曾回归为每次悬停全量重排，59 节点图上单次悬停卡 5 秒且节点位置抖动）
+  const autoPos = useMemo(
+    () => autoLayout(project.nodes ?? [], project.acts ?? [], project.chapters ?? []),
+    [project.nodes, project.acts, project.chapters]
+  )
   const { nodes, edges } = useMemo(
-    () => buildFlowData(project, hoveredNodeId, manualPos, onEditNode),
+    () => buildFlowData(project, hoveredNodeId, manualPos, autoPos, onEditNode),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [project.nodes, project.acts, project.chapters, hoveredNodeId, manualPos]
+    [project.nodes, project.acts, project.chapters, hoveredNodeId, manualPos, autoPos]
   )
 
   const handleNodeMouseEnter: NodeMouseHandler = useCallback((_evt, node) => {
