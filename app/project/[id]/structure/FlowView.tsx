@@ -21,7 +21,7 @@ function StoryNodeView({ data }: NodeProps) {
 
   return (
     <div
-      className={`bg-paper border ${s.border} transition-[opacity,box-shadow] duration-150 ${opacity} cursor-grab active:cursor-grabbing`}
+      className={`bg-paper border ${s.border} transition-[opacity,box-shadow] duration-150 ${opacity} cursor-grab active:cursor-grabbing hover:shadow-[0_2px_10px_rgba(30,50,80,0.18)]`}
       style={{
         minWidth: NODE_W,
         maxWidth: NODE_W,
@@ -207,7 +207,7 @@ function autoLayout(
 
 // ── Build React Flow data ───────────────────────────────────────────────────
 
-function buildFlowData(project: Project, hoveredNodeId: string | null, manualPos: Map<string, { x: number; y: number }>, autoPos: Map<string, { x: number; y: number }>, onEditNode?: (id: string) => void): { nodes: Node[]; edges: Edge[] } {
+function buildFlowData(project: Project, focusNodeId: string | null, manualPos: Map<string, { x: number; y: number }>, autoPos: Map<string, { x: number; y: number }>, onEditNode?: (id: string) => void): { nodes: Node[]; edges: Edge[] } {
   const flowNodes: Node[] = []
   const edges: Edge[] = []
 
@@ -219,9 +219,9 @@ function buildFlowData(project: Project, hoveredNodeId: string | null, manualPos
 
   // Highlight path
   let highlightedIds = new Set<string>()
-  if (hoveredNodeId) {
-    highlightedIds = getPathNodeIds(hoveredNodeId, nodeMap as Map<string, { choices: { targetNodeId: string }[]; type: string }>)
-    if (highlightedIds.size === 0) highlightedIds.add(hoveredNodeId)
+  if (focusNodeId) {
+    highlightedIds = getPathNodeIds(focusNodeId, nodeMap as Map<string, { choices: { targetNodeId: string }[]; type: string }>)
+    if (highlightedIds.size === 0) highlightedIds.add(focusNodeId)
   }
 
   // Manual drag overrides auto-layout; persisted manual positions (positionManual) take
@@ -232,8 +232,8 @@ function buildFlowData(project: Project, hoveredNodeId: string | null, manualPos
 
   // Render ALL project nodes
   for (const node of pNodes) {
-    const highlighted = hoveredNodeId ? highlightedIds.has(node.id) : false
-    const dimmed = hoveredNodeId ? !highlightedIds.has(node.id) : false
+    const highlighted = focusNodeId ? highlightedIds.has(node.id) : false
+    const dimmed = focusNodeId ? !highlightedIds.has(node.id) : false
 
     // Dead end: not an ending, has no choices or no valid choices, and nothing points to it as an explore
     const validChoices = (node.choices ?? []).filter(c => c.targetNodeId && nodeMap.has(c.targetNodeId))
@@ -273,8 +273,8 @@ function buildFlowData(project: Project, hoveredNodeId: string | null, manualPos
     for (const [targetId, choiceGroup] of grouped) {
       const choice = choiceGroup[0]
       const toEnding = endingNodeIds.has(targetId)
-      const onPath = hoveredNodeId ? (highlightedIds.has(node.id) && highlightedIds.has(targetId)) : false
-      const edgeDimmed = !!hoveredNodeId && !onPath
+      const onPath = focusNodeId ? (highlightedIds.has(node.id) && highlightedIds.has(targetId)) : false
+      const edgeDimmed = !!focusNodeId && !onPath
 
       const stroke = edgeDimmed ? 'var(--color-line)' : toEnding ? endingHex : onPath ? 'var(--color-vermilion)' : normalHex
       const baseLabel = choice.text.length > 14 ? choice.text.slice(0, 14) + '…' : choice.text
@@ -312,7 +312,10 @@ export default function FlowView({ project }: { project: Project }) {
   const params = useParams()
   const onEditNode = (nodeId: string) => router.push(`/project/${params.id}/workshop?node=${nodeId}`)
   const updateNode = useProjectStore(s => s.updateNode)
-  const [hoveredNodeId, setHoveredNodeId] = useState<string | null>(null)
+  // 路径高亮改为「点击选中」而非悬停：平移画布时光标扫过节点会形成 enter/leave 风暴，
+  // 每次都重建全部节点/边对象（大图上一次拖动触发几十次重建），表现为画布锁死无法移动。
+  // 悬停反馈只保留纯 CSS（零 React 状态）。
+  const [focusNodeId, setFocusNodeId] = useState<string | null>(null)
   // Manual positions: user-dragged overrides that take precedence over auto-layout.
   // Seeded from any previously persisted positionManual nodes so a reload keeps the layout.
   const [manualPos, setManualPos] = useState<Map<string, { x: number; y: number }>>(
@@ -326,18 +329,16 @@ export default function FlowView({ project }: { project: Project }) {
     [project.nodes, project.acts, project.chapters]
   )
   const { nodes, edges } = useMemo(
-    () => buildFlowData(project, hoveredNodeId, manualPos, autoPos, onEditNode),
+    () => buildFlowData(project, focusNodeId, manualPos, autoPos, onEditNode),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [project.nodes, project.acts, project.chapters, hoveredNodeId, manualPos, autoPos]
+    [project.nodes, project.acts, project.chapters, focusNodeId, manualPos, autoPos]
   )
 
-  const handleNodeMouseEnter: NodeMouseHandler = useCallback((_evt, node) => {
-    setHoveredNodeId(node.id)
+  const handleNodeClick: NodeMouseHandler = useCallback((_evt, node) => {
+    setFocusNodeId(prev => (prev === node.id ? null : node.id))
   }, [])
 
-  const handleNodeMouseLeave: NodeMouseHandler = useCallback(() => {
-    setHoveredNodeId(null)
-  }, [])
+  const handlePaneClick = useCallback(() => setFocusNodeId(null), [])
 
   const handleNodeDragStop: OnNodeDrag = useCallback((_evt, node) => {
     const position = { x: node.position.x, y: node.position.y }
@@ -371,8 +372,8 @@ export default function FlowView({ project }: { project: Project }) {
         nodesDraggable={true}
         nodesConnectable={false}
         elementsSelectable={true}
-        onNodeMouseEnter={handleNodeMouseEnter}
-        onNodeMouseLeave={handleNodeMouseLeave}
+        onNodeClick={handleNodeClick}
+        onPaneClick={handlePaneClick}
         onNodeDragStop={handleNodeDragStop}
         proOptions={{ hideAttribution: true }}
         style={{ background: 'var(--color-kraft)' }}
@@ -408,9 +409,9 @@ export default function FlowView({ project }: { project: Project }) {
             </>
           )}
         </div>
-        {hoveredNodeId && (
+        {focusNodeId && (
           <div className="bg-paper/95 border border-vermilion/50 px-3 py-2 text-xs text-vermilion" style={{ boxShadow: 'var(--shadow-card)' }}>
-            悬停高亮路径 · 点击前往工坊
+            已高亮该节点可达路径 · 点空白处取消 · 用卡上「编辑」进工坊
           </div>
         )}
       </div>
@@ -420,7 +421,7 @@ export default function FlowView({ project }: { project: Project }) {
         <div className="flex flex-col gap-1.5">
           {[
             { color: endingStyle.hex, label: '通向结局' },
-            { color: 'var(--color-vermilion)', label: '当前悬停路径' },
+            { color: 'var(--color-vermilion)', label: '选中节点的路径' },
             { color: normalStyle.hex, label: '普通连接' },
           ].map(item => (
             <div key={item.label} className="flex items-center gap-2 text-xs">
