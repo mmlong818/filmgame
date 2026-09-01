@@ -299,7 +299,8 @@ function buildFlowData(project: Project, focusNodeId: string | null, manualPos: 
 
     // Dead end: not an ending, has no choices or no valid choices, and nothing points to it as an explore
     const validChoices = (node.choices ?? []).filter(c => c.targetNodeId && nodeMap.has(c.targetNodeId))
-    const isAutoReturn = node.type === 'explore' && !!node.exploreReturnNodeId
+    // 必须校验返回目标仍存在：目标被删后仅凭 exploreReturnNodeId 非空会漏判断头
+    const isAutoReturn = node.type === 'explore' && !!node.exploreReturnNodeId && nodeMap.has(node.exploreReturnNodeId)
     const deadEnd = node.type !== 'ending' && !isAutoReturn && validChoices.length === 0
 
     flowNodes.push({

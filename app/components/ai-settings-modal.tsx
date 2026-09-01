@@ -1,5 +1,5 @@
 'use client'
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import type { AIConfig, AIProvider } from '@/lib/ai/config'
 import { PROVIDER_LABELS, DEFAULT_MODELS, saveAIConfig, loadAIConfig } from '@/lib/ai/config'
 import { Modal } from '@/app/components/ui/modal'
@@ -39,6 +39,13 @@ export function AISettingsModal({ open, onClose }: Props) {
     if (!open) return
     const local = loadAIConfig()
     setConfig(local)
+    // 重开弹窗必须清掉上一次的测试结论与模型列表：否则会显示上一个 provider 的
+    // 「✓ 已通过连接测试」和它的模型列表，直到 800ms 防抖拉取回来才刷新
+    // （新配置若缺 key 则永不刷新，那条绿色结论会一直挂着误导用户）
+    setTestResult(null)
+    setModels([])
+    setModelsError(null)
+    setManualEntry(true)
     fetch('/api/settings')
       .then(res => res.json())
       .then(data => {
@@ -59,9 +66,13 @@ export function AISettingsModal({ open, onClose }: Props) {
 
   const hasFetchCreds = config.provider === 'custom' ? !!config.baseUrl : !!config.apiKey
 
+  // 请求代际：快速连改配置时旧请求可能晚到并覆盖新结果，只认最后一次发出的请求
+  const modelsReqSeq = useRef(0)
+
   async function fetchModels() {
     if (config.provider === 'claude_cli') return
     if (!hasFetchCreds) return
+    const seq = ++modelsReqSeq.current
     setModelsLoading(true)
     setModelsError(null)
     try {
@@ -75,6 +86,7 @@ export function AISettingsModal({ open, onClose }: Props) {
         }),
       })
       const data = await res.json()
+      if (seq !== modelsReqSeq.current) return // 已有更新的请求发出，丢弃本次结果
       if (data.ok) {
         setModels(data.models)
         setManualEntry(data.models.length === 0)
@@ -83,10 +95,11 @@ export function AISettingsModal({ open, onClose }: Props) {
         setModelsError(data.error || '拉取模型列表失败')
       }
     } catch {
+      if (seq !== modelsReqSeq.current) return
       setModels([])
       setModelsError('网络请求失败')
     } finally {
-      setModelsLoading(false)
+      if (seq === modelsReqSeq.current) setModelsLoading(false)
     }
   }
 
@@ -103,6 +116,13 @@ export function AISettingsModal({ open, onClose }: Props) {
     setModels([])
     setModelsError(null)
     setManualEntry(true)
+    setTestResult(null)
+  }
+
+  /** 改动任何配置字段都会使上一次连接测试的结论失效——否则用户改完 key 只差一个字符，
+      footer 仍显示「✓ 已通过连接测试」，会在未重新验证的情况下保存 */
+  function patchConfig(patch: Partial<AIConfig>) {
+    setConfig(c => ({ ...c, ...patch }))
     setTestResult(null)
   }
 
@@ -149,7 +169,7 @@ export function AISettingsModal({ open, onClose }: Props) {
       return (
         <select
           value={value}
-          onChange={e => setConfig(c => ({ ...c, [key]: e.target.value }))}
+          onChange={e => patchConfig({ [key]: e.target.value })}
           className={`${inputClass} cursor-pointer`}
         >
           <option value="">（未选择）</option>
@@ -161,7 +181,7 @@ export function AISettingsModal({ open, onClose }: Props) {
       <Input
         type="text"
         value={value}
-        onChange={e => setConfig(c => ({ ...c, [key]: e.target.value }))}
+        onChange={e => patchConfig({ [key]: e.target.value })}
         placeholder={placeholder}
       />
     )
@@ -215,7 +235,7 @@ export function AISettingsModal({ open, onClose }: Props) {
               <Input
                 type="password"
                 value={config.apiKey || ''}
-                onChange={e => setConfig(c => ({ ...c, apiKey: e.target.value }))}
+                onChange={e => patchConfig({ apiKey: e.target.value })}
                 placeholder={config.provider === 'gemini' ? 'AIza...' : 'sk-...'}
               />
             </Field>
@@ -225,7 +245,7 @@ export function AISettingsModal({ open, onClose }: Props) {
                 <Input
                   type="text"
                   value={config.baseUrl || ''}
-                  onChange={e => setConfig(c => ({ ...c, baseUrl: e.target.value }))}
+                  onChange={e => patchConfig({ baseUrl: e.target.value })}
                   placeholder="http://localhost:11434/v1"
                 />
               </Field>

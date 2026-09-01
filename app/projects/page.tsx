@@ -44,6 +44,7 @@ function ProjectsPageInner() {
   const [sortBy, setSortBy] = useState<SortKey>('updated')
   const [showNew, setShowNew] = useState(false)
   const [newTitle, setNewTitle] = useState('')
+  const [creating, setCreating] = useState(false)
   const [selectedTemplate, setSelectedTemplate] = useState<ProjectTemplate | null>(null)
   const [newAiMode, setNewAiMode] = useState<AiMode>('thinking')
   const [showArchive, setShowArchive] = useState(false)
@@ -132,6 +133,10 @@ function ProjectsPageInner() {
   function openNewModal() { setShowNew(true) }
   function closeNewModal() {
     setShowNew(false)
+    // 清掉 ?new=1，否则浏览器前进/后退会把已关闭的弹窗重新弹出来
+    if (typeof window !== 'undefined' && window.location.search.includes('new=1')) {
+      window.history.replaceState(null, '', window.location.pathname)
+    }
     setNewTitle('')
     setSelectedTemplate(null)
     setNewAiMode('thinking')
@@ -144,16 +149,23 @@ function ProjectsPageInner() {
   }
 
   async function handleCreate() {
-    if (!newTitle.trim()) return
+    // 请求进行中必须挡住重复提交：此前 disabled 只看标题非空，双击「创建」会并发发出
+    // 两次 createProject，产生两个同名项目
+    if (!newTitle.trim() || creating) return
+    setCreating(true)
     const p = createEmptyProject(newTitle.trim(), newAiMode)
     if (selectedTemplate) { p.worldAnchor = selectedTemplate.world; p.phaseProgress.world = 'in_progress' }
-    const result = await createProject(p)
-    if (!result.ok) {
-      toast(`创建失败：${result.error}`, 'error')
-      return
+    try {
+      const result = await createProject(p)
+      if (!result.ok) {
+        toast(`创建失败：${result.error}`, 'error')
+        return
+      }
+      useProjectStore.getState().setProject(result.project, 1)
+      router.push(`/project/${result.project.id}/world`)
+    } finally {
+      setCreating(false)
     }
-    useProjectStore.getState().setProject(result.project, 1)
-    router.push(`/project/${result.project.id}/world`)
   }
 
   async function handleArchive(id: string) {
@@ -444,7 +456,7 @@ function ProjectsPageInner() {
         footer={
           <>
             <Button variant="secondary" onClick={closeNewModal}>取消</Button>
-            <Button variant="primary" onClick={handleCreate} disabled={!newTitle.trim()}>创建</Button>
+            <Button variant="primary" onClick={handleCreate} disabled={!newTitle.trim() || creating}>{creating ? '创建中…' : '创建'}</Button>
           </>
         }
       >

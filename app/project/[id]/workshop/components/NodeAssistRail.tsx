@@ -204,14 +204,14 @@ interface NodeParamsProps {
   selected: StoryNode
   updateNode: (nodeId: string, patch: Partial<StoryNode>) => void
   voiceOpenCharId: string | null
-  voiceLoadingCharId: string | null
+  voiceLoadingIds: Set<string>
   onToggleVoice: (charId: string) => void
   onGenerateVoice: (character: Character) => void
   onCloseVoice: () => void
 }
 
 // 出场角色参考卡：wound/lie/声纹——与情感函数、对白无关的"关于角色"参考信息，随节点参数一起收进辅助区。
-function CastCard({ project, selected, voiceOpenCharId, voiceLoadingCharId, onToggleVoice, onGenerateVoice, onCloseVoice }: NodeParamsProps) {
+function CastCard({ project, selected, voiceOpenCharId, voiceLoadingIds, onToggleVoice, onGenerateVoice, onCloseVoice }: NodeParamsProps) {
   if (project.characters.length === 0) return null
   const speakersInNode = [...new Set(selected.dialogue.map(d => d.speaker).filter(Boolean))]
   const relevantChars = project.characters.filter(c => speakersInNode.includes(c.name) || project.characters.length <= 3)
@@ -230,7 +230,7 @@ function CastCard({ project, selected, voiceOpenCharId, voiceLoadingCharId, onTo
                 <CharacterVoiceEntry
                   character={ch}
                   open={voiceOpenCharId === ch.id}
-                  loading={voiceLoadingCharId === ch.id}
+                  loading={voiceLoadingIds.has(ch.id)}
                   onToggle={() => onToggleVoice(ch.id)}
                   onGenerate={() => onGenerateVoice(ch)}
                   onClose={onCloseVoice}

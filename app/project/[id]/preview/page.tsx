@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useCallback, useEffect } from 'react'
+import { useState, useCallback, useEffect, useMemo } from 'react'
 import Link from 'next/link'
 import { useParams, useSearchParams, useRouter, usePathname } from 'next/navigation'
 import { useProjectStore } from '@/lib/store/projectStore'
@@ -77,8 +77,9 @@ export default function PreviewPage() {
     })
   }, [projectId])
 
-  const nodes = project?.nodes ?? []
-  const nodeMap = new Map(nodes.map(n => [n.id, n]))
+  const nodes = useMemo(() => project?.nodes ?? [], [project?.nodes])
+  // 每次渲染重建整张 Map（含每次按键/计时器引起的渲染）在大剧本上是无谓开销
+  const nodeMap = useMemo(() => new Map(nodes.map(n => [n.id, n])), [nodes])
 
   const startNode = findStartNode(nodes)
   const activeId = currentNodeId ?? startNode?.id
@@ -120,9 +121,11 @@ export default function PreviewPage() {
     })
   }, [])
 
-  const jumpTo = useCallback((nodeId: string) => {
-    const idx = history.indexOf(nodeId)
-    if (idx === -1) return
+  // 按历史下标跳转，不按 nodeId 查找：循环分支下同一节点会在历史里出现多次，
+  // indexOf 只能定位到第一次出现，点靠后那次会误丢弃中间步骤与对应的变量快照
+  const jumpTo = useCallback((idx: number) => {
+    const nodeId = history[idx]
+    if (nodeId === undefined) return
     setCurrentNodeId(nodeId)
     setHistory(prev => prev.slice(0, idx))
     setVarState(varHistory[idx])

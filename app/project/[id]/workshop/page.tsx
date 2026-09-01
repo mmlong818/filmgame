@@ -29,6 +29,12 @@ import { NodeAssistRail } from './components/NodeAssistRail'
 import type { NodeDraft, SceneAnalysisResult, SceneTensionResult, ChoiceSuggestion, ChoiceConsequenceResult } from './components/types'
 
 // 场景描述文本框 + 字数提示需共享同一份本地缓冲值（提示要随打字实时变化，而不是等回写 store 才更新）。
+/** 变量名进正则前必须转义：含 . ( ) + 等字符会抛异常使该次点击静默失效；
+    配合调用处的 \b 词边界，避免变量名互为前缀时误吃（如 trust 吃掉 trustLevel） */
+function escapeRegExp(s: string): string {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+}
+
 function SceneDescField({ value, onCommit }: { value: string; onCommit: (v: string) => void }) {
   const { value: local, onChange, onBlur } = useBufferedField(value, onCommit)
   return (
@@ -69,7 +75,9 @@ function WorkshopPageInner() {
   const aiReviseDialogue = useAiAction()
 
   const [voiceOpenCharId, setVoiceOpenCharId] = useState<string | null>(null)
-  const [voiceLoadingCharId, setVoiceLoadingCharId] = useState<string | null>(null)
+  // 多个角色可并发生成声纹：此前用单一 string 记录，后点的会覆盖前一个的 loading 标记，
+  // 前一个按钮误显示空闲（可被重复点击），且任一 resolve 都会把仍在跑的那个置为空闲
+  const [voiceLoadingIds, setVoiceLoadingIds] = useState<Set<string>>(new Set())
   const [choiceSuggestions, setChoiceSuggestions] = useState<ChoiceSuggestion[] | null>(null)
   const [sceneAnalysis, setSceneAnalysis] = useState<SceneAnalysisResult | null>(null)
   const [sceneTension, setSceneTension] = useState<SceneTensionResult | null>(null)
@@ -296,7 +304,7 @@ function WorkshopPageInner() {
   // -> saveProjectMeta 保存路径，与 world 页一致。生成成功后自动弹出声纹卡。
   // 不属于本页统一的 8 个单节点动作（按角色而非按节点触发），沿用独立的 loading/toast 处理。
   async function callAiCharacterVoice(character: Character) {
-    setVoiceLoadingCharId(character.id)
+    setVoiceLoadingIds(prev => new Set(prev).add(character.id))
     try {
       const data = await aiJson<{ result?: Character['voiceProfile'] }>('workshop', 'character_voice', { character, worldAnchor: project!.worldAnchor })
       if (data.result) {
@@ -306,7 +314,7 @@ function WorkshopPageInner() {
     } catch (err) {
       toast(formatAiError(err), 'error')
     } finally {
-      setVoiceLoadingCharId(null)
+      setVoiceLoadingIds(prev => { const n = new Set(prev); n.delete(character.id); return n })
     }
   }
 
@@ -419,7 +427,11 @@ function WorkshopPageInner() {
                   confirmLabel="确认删除节点"
                   onConfirm={() => {
                     const title = selected.title
-                    deleteNode(selected.id)
+                    const deletedId = selected.id
+                    deleteNode(deletedId)
+                    // 连带丢弃该节点的未确认草稿：留下就是孤儿，hasPendingDraft 永久为真，
+                    // 此后每次离开/刷新都弹「未保存草稿」确认框，只能整页刷新才清得掉
+                    discardDraft(deletedId)
                     setSelectedId(null)
                     resetPanels()
                     toast(`已删除节点「${title || '无标题'}」`, 'info', { action: { label: '撤销', onClick: () => undo() } })
@@ -607,7 +619,7 @@ function WorkshopPageInner() {
                                       onClick={() => {
                                         const effects = choice.variableEffects
                                         const newEffects = isActive
-                                          ? effects.replace(new RegExp(`[+-]?${v.name}[^,]*,?\\s*`), '').trim()
+                                          ? effects.replace(new RegExp(`[+-]?${escapeRegExp(v.name)}\\b[^,]*,?\\s*`), '').trim()
                                           : effects ? `${effects}, +${v.name}` : `+${v.name}`
                                         updateChoice(choice.id, { variableEffects: newEffects.replace(/,\s*$/, '') })
                                       }}
@@ -709,7 +721,7 @@ function WorkshopPageInner() {
             choiceSuggestions={choiceSuggestions}
             onCloseChoiceSuggestions={() => setChoiceSuggestions(null)}
             voiceOpenCharId={voiceOpenCharId}
-            voiceLoadingCharId={voiceLoadingCharId}
+            voiceLoadingIds={voiceLoadingIds}
             onToggleVoice={charId => setVoiceOpenCharId(id => id === charId ? null : charId)}
             onGenerateVoice={callAiCharacterVoice}
             onCloseVoice={() => setVoiceOpenCharId(null)}

@@ -134,22 +134,28 @@ export function CommandPalette() {
 
   const exec = (c: Command) => { close(); c.run() }
 
+  // 键盘处理挂在容器上而不是仅输入框：Tab 焦点移到列表项后，输入框的 onKeyDown 收不到
+  // 事件，Esc 关不掉面板，且按键会冒泡到 window 被 preview 页的选项快捷键当成剧情选择，
+  // 出现「命令面板开着，背后剧情被静默跳转」。stopPropagation 同时切断这条泄漏路径。
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); close() }
+    else if (e.key === 'ArrowDown') { e.preventDefault(); e.stopPropagation(); setActive(a => Math.min(a + 1, filtered.length - 1)) }
+    else if (e.key === 'ArrowUp') { e.preventDefault(); e.stopPropagation(); setActive(a => Math.max(a - 1, 0)) }
+    else if (e.key === 'Enter') { e.preventDefault(); e.stopPropagation(); const c = filtered[active]; if (c) exec(c) }
+    else e.stopPropagation()
+  }
+
   return (
     <div
       className="fixed inset-0 z-[70] flex items-start justify-center bg-ink/40 pt-[14vh] px-4"
       onPointerDown={(e) => { if (e.target === e.currentTarget) close() }}
+      onKeyDown={handleKeyDown}
     >
       <div role="dialog" aria-modal="true" aria-label="命令面板" className="paper-sheet w-full max-w-xl">
         <input
           ref={inputRef}
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === 'Escape') { e.preventDefault(); close() }
-            else if (e.key === 'ArrowDown') { e.preventDefault(); setActive(a => Math.min(a + 1, filtered.length - 1)) }
-            else if (e.key === 'ArrowUp') { e.preventDefault(); setActive(a => Math.max(a - 1, 0)) }
-            else if (e.key === 'Enter') { e.preventDefault(); const c = filtered[active]; if (c) exec(c) }
-          }}
           placeholder="输入命令或检索节点…"
           className="w-full bg-transparent border-b border-line px-4 py-3 text-[14px] text-ink placeholder:text-pencil/70 focus:outline-none"
         />

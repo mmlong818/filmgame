@@ -440,8 +440,9 @@ export default function StructurePage() {
     const mergedPatchMap = new Map(patchMap)
 
     const orderedNodes: StoryNode[] = []
-    project!.chapters.sort((a, b) => a.order - b.order).forEach(ch => {
-      project!.acts.filter(a => a.chapterId === ch.id).sort((a, b) => a.order - b.order).forEach(act => {
+    // 必须先复制再排序：直接 .sort() 会原地改写 store 拥有的数组，污染撤销快照里的同一引用
+    ;[...project!.chapters].sort((a, b) => a.order - b.order).forEach(ch => {
+      [...project!.acts].filter(a => a.chapterId === ch.id).sort((a, b) => a.order - b.order).forEach(act => {
         act.nodeIds.forEach(nid => { const n = nodeById.get(nid); if (n) orderedNodes.push(n) })
       })
     })
@@ -752,7 +753,7 @@ export default function StructurePage() {
                 </div>
               ) : (
                 <div className="space-y-3">
-                  {project.chapters.sort((a, b) => a.order - b.order).map(chapter => {
+                  {[...project.chapters].sort((a, b) => a.order - b.order).map(chapter => {
                     const isOpen = expandedChapters.has(chapter.id)
                     const acts = project.acts.filter(a => a.chapterId === chapter.id)
                     return (

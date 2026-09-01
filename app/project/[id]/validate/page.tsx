@@ -30,12 +30,14 @@ export default function ValidatePage() {
   const aiDirector = useAiAction()
   const { toast } = useToast()
 
+  // 随项目内容变化重跑：此前依赖为空只在挂载时用当时的快照跑一次，
+  // hydrate 对账/其它标签页更新后用户看到的是基于旧数据的过时结论
   useEffect(() => {
     if (!project) return
     const r = runValidation(project)
     setValidationReport(r)
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  }, [project?.id, project?.nodes, project?.chapters, project?.acts, project?.variables, project?.endings])
 
   if (!project) return <SkeletonPage />
 

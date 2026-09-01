@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { nanoid } from 'nanoid'
 import { aiFetch } from '@/lib/ai/client'
 import type { Project, StoryNode, DialogueLine } from '@/lib/types/project'
@@ -22,6 +22,14 @@ export function useBulkAi({ project, selectedId, updateNode, toast }: Params) {
   const bulkCancelRef = useRef(false)
   // 与协作式取消标志配套：中止当前批量运行里所有在飞请求，而不只是让循环停止发起下一轮。
   const bulkCtlRef = useRef<AbortController | null>(null)
+
+  // 组件卸载即中止：遮罩没覆盖顶栏，用户可在批量运行期间点「返回」或切阶段离开本页，
+  // 此前循环不绑生命周期，会在用户看不到也无法取消的情况下继续跑完并静默 updateNode
+  // （不经 pushUndo，撤销不了），还可能与用户之后的手动编辑撞车。
+  useEffect(() => () => {
+    bulkCancelRef.current = true
+    bulkCtlRef.current?.abort()
+  }, [])
 
   // 批量范围解析：全部 / 当前幕（selectedId 所在 act）/ 当前章（该 act 所属 chapter 下所有 act）。
   // 没有选中节点时退化为全部节点，调用方 UI 会提示这一回退。
