@@ -1,6 +1,7 @@
 import { HumanMessage } from '@langchain/core/messages'
 import { ClaudeCLIModel } from './lc-cli-model'
 import type { AIProvider } from './config'
+import { assertPublicHttpUrl } from '@/lib/server/url-guard'
 
 const MODELS_TIMEOUT_MS = 15000
 const TEST_TIMEOUT_MS = 20000
@@ -117,6 +118,9 @@ export async function discoverModels(input: DiscoverModelsInput): Promise<Discov
       }
 
       case 'custom': {
+        // 用户提供的地址会带着 API Key 被服务端请求且响应回显，必须先挡住内网/元数据地址
+        const guard = await assertPublicHttpUrl(baseUrl!)
+        if (!guard.ok) return { ok: false, status: 400, error: guard.error! }
         const url = `${stripTrailingSlash(baseUrl!)}/models`
         const headers: Record<string, string> = {}
         if (apiKey) headers.Authorization = `Bearer ${apiKey}`
@@ -225,6 +229,9 @@ export async function testConnection(input: TestConnectionInput): Promise<TestCo
         break
 
       case 'custom': {
+        // 同 discoverModels：拦住指向内网/云元数据的 Base URL（SSRF）
+        const guard = await assertPublicHttpUrl(baseUrl!)
+        if (!guard.ok) return { ok: false, latencyMs: Date.now() - start, error: guard.error!, hint: '请填写公网可访问的 https 接口地址' }
         const headers: Record<string, string> = { 'content-type': 'application/json' }
         if (apiKey) headers.Authorization = `Bearer ${apiKey}`
         res = await fetch(`${stripTrailingSlash(baseUrl!)}/chat/completions`, {

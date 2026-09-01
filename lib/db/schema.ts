@@ -73,4 +73,3 @@ export const settings = pgTable('settings', {
 
 export type ProjectRow = InferSelectModel<typeof projects>
 export type NodeRow = InferSelectModel<typeof nodes>
-export type SettingsRow = InferSelectModel<typeof settings>

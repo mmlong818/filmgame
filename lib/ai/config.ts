@@ -19,6 +19,15 @@ export const DEFAULT_MODELS: Record<AIProvider, string> = {
   custom: 'llama3',
 }
 
+/** fast 模式的默认模型：按 provider，custom 下按端点厂商。lc-providers.resolveModel 使用。 */
+export const FAST_MODE_MODELS = {
+  anthropic: 'claude-haiku-4-5',
+  bigmodel: 'glm-5-turbo',
+} as const
+
+/** AI 调用默认超时（毫秒）。长任务（整章结构生成）在调用点显式放大。 */
+export const DEFAULT_TIMEOUT_MS = 120000
+
 export const PROVIDER_LABELS: Record<AIProvider, string> = {
   claude_cli: 'Claude 订阅模式（Claude CLI）',
   anthropic: 'Anthropic API',

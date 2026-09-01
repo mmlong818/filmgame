@@ -14,7 +14,6 @@ export const WorldReviewSchema = z.object({
   duration_match: z.enum(['匹配', '偏多', '偏少']),
   overall: z.string(),
 })
-export type WorldReview = z.infer<typeof WorldReviewSchema>
 
 export const WorldFixIssuesSchema = z.object({
   storyCore: z.string().optional(),
@@ -22,7 +21,6 @@ export const WorldFixIssuesSchema = z.object({
   genre: z.string().optional(),
   worldRules: z.string().optional(),
 })
-export type WorldFixIssues = z.infer<typeof WorldFixIssuesSchema>
 
 export const CharacterSchema = z.object({
   name: z.string(),
@@ -38,7 +36,6 @@ export const CharacterSchema = z.object({
 export const SuggestCharactersSchema = z.object({
   characters: z.array(CharacterSchema),
 })
-export type SuggestCharacters = z.infer<typeof SuggestCharactersSchema>
 
 export const VariableSchema = z.object({
   name: z.string(),
@@ -50,7 +47,6 @@ export const VariableSchema = z.object({
 export const SuggestVariablesSchema = z.object({
   variables: z.array(VariableSchema),
 })
-export type SuggestVariables = z.infer<typeof SuggestVariablesSchema>
 
 export const EndingDesignSchema = z.object({
   id: z.string(),
@@ -88,7 +84,6 @@ export const ScalePlanSchema = z.object({
 export const ScaleGenerateSchema = z.object({
   plans: z.array(ScalePlanSchema),
 })
-export type ScaleGenerate = z.infer<typeof ScaleGenerateSchema>
 
 // ─── Structure Phase ─────────────────────────────────────────────
 
@@ -139,7 +134,6 @@ export const BranchesGenerateSchema = z.object({
     choices: z.array(ChoiceDraftSchema),
   })),
 })
-export type BranchesGenerate = z.infer<typeof BranchesGenerateSchema>
 
 // ─── Workshop Phase ───────────────────────────────────────────────
 
@@ -224,7 +218,6 @@ export const ValidateReportSchema = z.object({
   priority_issues: z.array(z.string()),
   suggestions: z.array(z.string()),
 })
-export type ValidateReport = z.infer<typeof ValidateReportSchema>
 
 export const DirectorVerdictSchema = z.object({
   lens: z.string(),

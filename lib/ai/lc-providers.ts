@@ -4,6 +4,7 @@ import { ChatGoogleGenerativeAI } from '@langchain/google-genai'
 import type { BaseChatModel } from '@langchain/core/language_models/chat_models'
 import { ClaudeCLIModel } from './lc-cli-model'
 import type { AIConfig } from './config'
+import { DEFAULT_MODELS, FAST_MODE_MODELS, DEFAULT_TIMEOUT_MS } from './config'
 import type { AiMode } from '../types/project'
 
 export interface ProviderOptions {
@@ -28,14 +29,14 @@ function resolveModel(config: AIConfig, mode?: AiMode): string | undefined {
   if (mode === 'fast' && config.modelFast) return config.modelFast
   if (mode === 'thinking' && config.modelThinking) return config.modelThinking
   if (mode === 'fast') {
-    if (config.provider === 'custom' && isBigmodelEndpoint(config.baseUrl)) return 'glm-5-turbo'
-    if (config.provider === 'anthropic') return 'claude-haiku-4-5'
+    if (config.provider === 'custom' && isBigmodelEndpoint(config.baseUrl)) return FAST_MODE_MODELS.bigmodel
+    if (config.provider === 'anthropic') return FAST_MODE_MODELS.anthropic
   }
   return config.model
 }
 
 export function createModel(config: AIConfig, opts: ProviderOptions = {}): BaseChatModel {
-  const timeout = opts.timeoutMs ?? 120000
+  const timeout = opts.timeoutMs ?? DEFAULT_TIMEOUT_MS
   const model = resolveModel(config, opts.mode)
 
   switch (config.provider) {
@@ -47,7 +48,7 @@ export function createModel(config: AIConfig, opts: ProviderOptions = {}): BaseC
 
     case 'anthropic':
       return new ChatAnthropic({
-        model: model ?? 'claude-opus-4-8',
+        model: model ?? DEFAULT_MODELS.anthropic,
         apiKey: config.apiKey,
         maxTokens: 8192,
         clientOptions: { timeout },
@@ -55,7 +56,7 @@ export function createModel(config: AIConfig, opts: ProviderOptions = {}): BaseC
 
     case 'openai':
       return new ChatOpenAI({
-        model: model ?? 'gpt-5.4',
+        model: model ?? DEFAULT_MODELS.openai,
         apiKey: config.apiKey,
         temperature: 0.7,
         timeout: timeout,
@@ -66,14 +67,14 @@ export function createModel(config: AIConfig, opts: ProviderOptions = {}): BaseC
       // 调用方（lc-chains.ts/lg-structure.ts）通过 invoke(..., { timeout }) 借助
       // LangChain 通用的 RunnableConfig.timeout 机制施加超时
       return new ChatGoogleGenerativeAI({
-        model: model ?? 'gemini-3.5-flash',
+        model: model ?? DEFAULT_MODELS.gemini,
         apiKey: config.apiKey,
         maxOutputTokens: 8192,
         temperature: 0.7,
       })
 
     case 'custom': {
-      const effectiveModel = model ?? 'llama3'
+      const effectiveModel = model ?? DEFAULT_MODELS.custom
       // fast 模式下若解析出的模型仍是 glm-5 推理系（例如用户把 modelFast 显式设成 glm-5.2），
       // 透传 thinking:disabled 关闭思考以提速；glm-5-turbo 等非推理模型不需要也不发送该参数。
       const disableThinking = opts.mode === 'fast'

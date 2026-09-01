@@ -77,7 +77,10 @@ type StructureStateType = typeof StructureState.State
 
 // ─── 节点：生成叙事骨干 ─────────────────────────────────────────────
 
-async function generateSpine(state: StructureStateType): Promise<Partial<StructureStateType>> {
+async function generateSpine(
+  state: StructureStateType,
+  runConfig?: { signal?: AbortSignal },
+): Promise<Partial<StructureStateType>> {
   const config = await loadServerAIConfig()
   const timeoutMs = effectiveTimeout(SPINE_TIMEOUT, state.mode)
   const model = createModel(config, { timeoutMs, mode: state.mode })
@@ -88,9 +91,14 @@ async function generateSpine(state: StructureStateType): Promise<Partial<Structu
   })
   // @langchain/google-genai 的 ChatGoogleGenerativeAI 构造函数不支持 timeout 字段，
   // 借助 LangChain 通用的 RunnableConfig.timeout（invoke 时转换为 AbortSignal.timeout）兜底
-  const invokeOptions = config.provider === 'gemini' ? { timeout: timeoutMs } : undefined
+  // signal 由路由层的 req.signal 经 LangGraph config 透传：客户端断开时中止上游调用
+  const invokeOptions = {
+    ...(config.provider === 'gemini' ? { timeout: timeoutMs } : {}),
+    ...(runConfig?.signal ? { signal: runConfig.signal } : {}),
+  }
 
   for (let i = 0; i < 3; i++) {
+    if (runConfig?.signal?.aborted) throw new Error('aborted: request cancelled')
     const input = i === 0 ? prompt : prompt + RETRY_SUFFIX
     const result = await model.invoke([new HumanMessage(input)], invokeOptions)
     const raw = typeof result.content === 'string' ? result.content : JSON.stringify(result.content)
@@ -132,7 +140,10 @@ function checkNodeCountDeviation(state: StructureStateType, chapter: ChapterDraf
 
 // ─── 节点：生成单章（并行，失败互不影响） ─────────────────────────────
 
-async function generateChapter(state: StructureStateType): Promise<Partial<StructureStateType>> {
+async function generateChapter(
+  state: StructureStateType,
+  runConfig?: { signal?: AbortSignal },
+): Promise<Partial<StructureStateType>> {
   const { chapterIndex } = state
   try {
     const config = await loadServerAIConfig()
@@ -145,14 +156,20 @@ async function generateChapter(state: StructureStateType): Promise<Partial<Struc
       spine: state.spine,
       chapterIndex,
     })
-    const invokeOptions = config.provider === 'gemini' ? { timeout: timeoutMs } : undefined
+    const invokeOptions = {
+      ...(config.provider === 'gemini' ? { timeout: timeoutMs } : {}),
+      ...(runConfig?.signal ? { signal: runConfig.signal } : {}),
+    }
 
     // 外层 attempt 覆盖超时/网络类失败（整章重跑一次）；内层 3 次只覆盖 JSON 解析失败。
     // 一章失败会让整个结构草稿作废（缺章禁止进预览），重试一次的成本远低于用户整体重跑。
     let lastError = ''
     for (let attempt = 0; attempt < 2; attempt++) {
+      // 取消后不再重试（重试会让已取消的请求继续占用 CLI 槽位）
+      if (runConfig?.signal?.aborted) return { errors: [`第${chapterIndex + 1}章已取消`] }
       try {
         for (let i = 0; i < 3; i++) {
+          if (runConfig?.signal?.aborted) return { errors: [`第${chapterIndex + 1}章已取消`] }
           const input = i === 0 ? prompt : prompt + RETRY_SUFFIX
           const result = await model.invoke([new HumanMessage(input)], invokeOptions)
           const raw = typeof result.content === 'string' ? result.content : JSON.stringify(result.content)
@@ -211,6 +228,8 @@ export interface StructureGraphResult {
 export interface RunStructureGraphOptions {
   /** 用于捕获 LangSmith root run id（如 RunCollectorCallbackHandler）的回调，非流式路由取 runId 用 */
   callbacks?: BaseCallbackHandler[]
+  /** 客户端取消/断开信号，透传到各节点的模型调用 */
+  signal?: AbortSignal
 }
 
 export async function runStructureGraph(
@@ -222,7 +241,10 @@ export async function runStructureGraph(
 
   const result = await structureGraph.invoke(
     { ...input, chapterCount, chapterIndex: 0, spine: null, chapters: [], errors: [], warnings: [] },
-    options?.callbacks ? { callbacks: options.callbacks } : undefined
+    {
+      ...(options?.callbacks ? { callbacks: options.callbacks } : {}),
+      ...(options?.signal ? { signal: options.signal } : {}),
+    }
   )
 
   // 按 chapterIndex 恢复剧本章序（reducer 收集顺序 = 并行完成顺序，不可依赖）

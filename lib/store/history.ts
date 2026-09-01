@@ -59,8 +59,6 @@ export function clearHistory() {
   useHistoryStore.setState({ undoStack: [], redoStack: [] })
 }
 
-export function canUndo() { return useHistoryStore.getState().undoStack.length > 0 }
-export function canRedo() { return useHistoryStore.getState().redoStack.length > 0 }
 
 /** @returns 被撤销的动作名，无可撤销时返回 null */
 export function undo(): string | null {

@@ -1,6 +1,7 @@
 import { NextRequest } from 'next/server'
 import { structureGraph } from '@/lib/ai/lg-structure'
 import { withAuth } from '@/lib/server/auth'
+import { guardContext } from '@/lib/server/request-guard'
 import { RunCollectorCallbackHandler } from '@langchain/core/tracers/run_collector'
 import { getRunId } from '@/lib/ai/lc-chains'
 import type { Spine, ChapterDraft } from '@/lib/ai/schemas'
@@ -17,7 +18,11 @@ function classifyError(msg: string): { error: string; errorType: string } {
 
 export const POST = withAuth(async (req: NextRequest) => {
   const body = await req.json()
-  const context = body.context as Record<string, unknown>
+  const guarded = guardContext(body.context)
+  if (!guarded.ok) {
+    return Response.json({ ok: false, error: guarded.error, errorType: 'bad_request' }, { status: 400 })
+  }
+  const context = guarded.context
   const mode = body.mode as AiMode | undefined
   const { worldAnchor, scalePlan, characters } = context
   const chapterCount = Number((scalePlan as Record<string, unknown>)?.chapterCount ?? 3)
@@ -25,10 +30,21 @@ export const POST = withAuth(async (req: NextRequest) => {
   const encoder = new TextEncoder()
   const collector = new RunCollectorCallbackHandler()
 
+  // 客户端断开有两个信号源：请求自身的 req.signal，以及 ReadableStream 的 cancel()
+  // （读端关闭）。此前两个都没接，用户关页后整张图照跑到底，白烧 CLI 槽位与上游配额。
+  const abort = new AbortController()
+  const onReqAbort = () => abort.abort()
+  req.signal.addEventListener('abort', onReqAbort, { once: true })
+
   const stream = new ReadableStream({
     async start(controller) {
       const send = (evt: Record<string, unknown>) => {
-        controller.enqueue(encoder.encode(JSON.stringify(evt) + '\n'))
+        if (abort.signal.aborted) return
+        try {
+          controller.enqueue(encoder.encode(JSON.stringify(evt) + '\n'))
+        } catch {
+          abort.abort() // 流已被读端关闭：转为中止图执行
+        }
       }
 
       // RunCollectorCallbackHandler 只在 root run 结束时才写入 tracedRuns，流式期间读它
@@ -54,6 +70,7 @@ export const POST = withAuth(async (req: NextRequest) => {
           { worldAnchor, scalePlan, characters, chapterCount, chapterIndex: 0, spine: null, chapters: [], errors: [], warnings: [], mode },
           {
             streamMode: 'updates',
+            signal: abort.signal,
             callbacks: [collector, {
               handleChainStart: (_chain: unknown, _inputs: unknown, runId: string, parentRunId?: string) => {
                 if (!parentRunId && !rootRunId) rootRunId = runId
@@ -91,10 +108,16 @@ export const POST = withAuth(async (req: NextRequest) => {
       } catch (err) {
         sendRunId()
         const msg = err instanceof Error ? err.message : String(err)
-        send({ type: 'error', ...classifyError(msg) })
+        // 客户端已断开：不再往关闭的流里写错误帧（会抛 TypeError）
+        if (!abort.signal.aborted) send({ type: 'error', ...classifyError(msg) })
       } finally {
-        controller.close()
+        req.signal.removeEventListener('abort', onReqAbort)
+        try { controller.close() } catch {}
       }
+    },
+    cancel() {
+      // 读端关闭（用户关闭页面/取消 fetch）：中止图执行，连带杀掉 CLI 子进程
+      abort.abort()
     },
   })
 

@@ -54,16 +54,18 @@ function releaseCliSlot(): void {
   if (next) next()
 }
 
-async function spawnClaude(prompt: string, timeoutMs: number): Promise<string> {
+async function spawnClaude(prompt: string, timeoutMs: number, signal?: AbortSignal): Promise<string> {
+  // 排队期间就被取消：不占用槽位直接退出（否则取消的请求还要排到队头才发现自己该死）
+  if (signal?.aborted) throw new Error('aborted: request cancelled')
   await acquireCliSlot()
   try {
-    return await spawnClaudeInner(prompt, timeoutMs)
+    return await spawnClaudeInner(prompt, timeoutMs, signal)
   } finally {
     releaseCliSlot()
   }
 }
 
-async function spawnClaudeInner(prompt: string, timeoutMs: number): Promise<string> {
+async function spawnClaudeInner(prompt: string, timeoutMs: number, signal?: AbortSignal): Promise<string> {
   const tmpDir = process.env.TEMP || process.env.TMP || os.tmpdir()
   const promptFile = join(tmpDir, `claude_${Date.now()}_${Math.random().toString(36).slice(2)}.txt`)
   await writeFile(promptFile, prompt, 'utf8')
@@ -88,7 +90,10 @@ async function spawnClaudeInner(prompt: string, timeoutMs: number): Promise<stri
     let stdout = ''
     let stderr = ''
     let settled = false
-    const cleanup = () => unlink(promptFile).catch(() => {})
+    const cleanup = () => {
+      unlink(promptFile).catch(() => {})
+      if (onAbort) signal?.removeEventListener('abort', onAbort)
+    }
 
     const timer = setTimeout(() => {
       if (settled) return
@@ -97,6 +102,18 @@ async function spawnClaudeInner(prompt: string, timeoutMs: number): Promise<stri
       cleanup()
       reject(new Error(`timeout: claude CLI timed out after ${timeoutMs}ms`))
     }, timeoutMs)
+
+    // 客户端取消/断开：立刻杀掉子进程并让出 CLI 槽位。此前只有超时定时器能终止进程，
+    // 用户关页后进程仍跑满 30 分钟超时，几个僵尸任务就能占死仅有的 2 个并发槽。
+    const onAbort = () => {
+      if (settled) return
+      settled = true
+      clearTimeout(timer)
+      try { proc.kill('SIGKILL') } catch {}
+      cleanup()
+      reject(new Error('aborted: request cancelled'))
+    }
+    signal?.addEventListener('abort', onAbort, { once: true })
 
     proc.stdout?.on('data', (d: Buffer) => { stdout += d.toString() })
     proc.stderr?.on('data', (d: Buffer) => { stderr += d.toString() })
@@ -158,11 +175,12 @@ export class ClaudeCLIModel extends BaseChatModel {
 
   async _generate(
     messages: BaseMessage[],
-    _options: this['ParsedCallOptions'],
+    options: this['ParsedCallOptions'],
     _runManager?: CallbackManagerForLLMRun
   ): Promise<ChatResult> {
     const prompt = messages.map(m => m.content as string).join('\n')
-    const text = await spawnClaude(prompt, this.timeoutMs)
+    // options.signal 是 LangChain 透传的取消信号（invoke(..., { signal })），必须传到子进程
+    const text = await spawnClaude(prompt, this.timeoutMs, options?.signal)
     return {
       generations: [{ message: new AIMessage(text), text }],
       llmOutput: {},

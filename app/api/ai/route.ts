@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { runChain } from '@/lib/ai/lc-chains'
 import { withAuth } from '@/lib/server/auth'
+import { guardContext } from '@/lib/server/request-guard'
 import type { Phase } from '@/lib/types/phase'
 import type { AiMode } from '@/lib/types/project'
 
@@ -40,11 +41,17 @@ export const POST = withAuth(async (req: NextRequest) => {
   try {
     const body = await req.json()
     ;({ phase, action } = body as { phase: Phase; action: string })
-    const context = body.context as Record<string, unknown>
+    const guarded = guardContext(body.context)
+    if (!guarded.ok) {
+      return NextResponse.json({ ok: false, error: guarded.error, errorType: 'bad_request' }, { status: 400 })
+    }
+    const context = guarded.context
     const mode = body.mode as AiMode | undefined
     const timeoutMs = getTimeout(phase ?? '', action ?? '', mode)
 
-    const { result, runId } = await runChain({ phase: phase!, action: action!, context, timeoutMs, mode })
+    // req.signal 在客户端取消/断开时触发：一路传到 CLI 子进程与上游 HTTP 调用，
+    // 否则用户关页后任务仍跑满超时，占死仅有的 2 个 CLI 并发槽
+    const { result, runId } = await runChain({ phase: phase!, action: action!, context, timeoutMs, mode, signal: req.signal })
     return NextResponse.json({ ok: true, result, runId })
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err)

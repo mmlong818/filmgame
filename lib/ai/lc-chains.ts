@@ -5,6 +5,7 @@ import { RunCollectorCallbackHandler } from '@langchain/core/tracers/run_collect
 import { z } from 'zod'
 import { buildPrompt } from './prompts'
 import { createModel } from './lc-providers'
+import { DEFAULT_TIMEOUT_MS } from './config'
 import { loadServerAIConfig } from './server-config'
 import { SCHEMA_REGISTRY } from './schemas'
 import { RETRY_SUFFIX } from './lc-cli-model'
@@ -53,11 +54,13 @@ async function runWithCliRetry(
   prompt: string,
   schema: z.ZodTypeAny,
   callbacks: BaseCallbackHandler[],
+  signal?: AbortSignal,
   maxRetries = 3
 ): Promise<unknown> {
   for (let i = 0; i < maxRetries; i++) {
+    if (signal?.aborted) throw new Error('aborted: request cancelled')
     const input = i === 0 ? prompt : prompt + RETRY_SUFFIX
-    const result = await model.invoke([new HumanMessage(input)], { callbacks })
+    const result = await model.invoke([new HumanMessage(input)], { callbacks, signal })
     const raw = typeof result.content === 'string' ? result.content : JSON.stringify(result.content)
     const extracted = extractJson(raw)
     if (extracted !== null) {
@@ -73,7 +76,7 @@ async function runWithStructuredOutput(
   prompt: string,
   schema: z.ZodTypeAny,
   callbacks: BaseCallbackHandler[],
-  invokeOptions?: { timeout?: number }
+  invokeOptions?: { timeout?: number; signal?: AbortSignal }
 ): Promise<unknown> {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const structured = (model as any).withStructuredOutput(schema)
@@ -86,6 +89,8 @@ export interface ChainRunOptions {
   context: Context
   timeoutMs?: number
   mode?: AiMode
+  /** 客户端断开/取消时中止上游调用（CLI 子进程会被 SIGKILL，HTTP 调用走 fetch abort） */
+  signal?: AbortSignal
 }
 
 // 模块级缓存，避免每次请求重新创建 LangChain 实例导致内存泄漏
@@ -108,7 +113,7 @@ export interface ChainRunResult {
 }
 
 export async function runChain(opts: ChainRunOptions): Promise<ChainRunResult> {
-  const { phase, action, context, timeoutMs = 120000, mode } = opts
+  const { phase, action, context, timeoutMs = DEFAULT_TIMEOUT_MS, mode, signal } = opts
   const key = `${phase}:${action}`
   const schema = SCHEMA_REGISTRY[key]
 
@@ -122,12 +127,12 @@ export async function runChain(opts: ChainRunOptions): Promise<ChainRunResult> {
 
   try {
     const result = provider === 'claude_cli'
-      ? await runWithCliRetry(model, prompt, schema, [collector])
+      ? await runWithCliRetry(model, prompt, schema, [collector], signal)
       : await runWithStructuredOutput(
           model, prompt, schema, [collector],
           // @langchain/google-genai 的 ChatGoogleGenerativeAI 构造函数不支持 timeout 字段，
           // 借助 LangChain 通用的 RunnableConfig.timeout（invoke 时转换为 AbortSignal.timeout）兜底
-          provider === 'gemini' ? { timeout: timeoutMs } : undefined
+          { ...(provider === 'gemini' ? { timeout: timeoutMs } : {}), ...(signal ? { signal } : {}) }
         )
     return { result, runId: getRunId(collector) }
   } catch (err) {
