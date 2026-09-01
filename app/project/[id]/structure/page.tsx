@@ -296,16 +296,38 @@ export default function StructurePage() {
   // ── 编辑模式 ──
   const isFlowMode = viewMode === 'flow'
 
+  // 列表模式挂在标题行，流程图模式作为画布浮层——同一组按钮，两处复用
+  const viewToggle = (
+    <div className="flex text-xs border border-line bg-paper/95" style={{ boxShadow: 'var(--shadow-card)' }}>
+      <button
+        onClick={() => setViewMode('list')}
+        className={`px-3 py-2 cursor-pointer transition-colors ${viewMode === 'list' ? 'bg-paper-dim text-ink font-medium' : 'text-pencil hover:bg-paper-dim/60'}`}
+      >
+        列表
+      </button>
+      <button
+        onClick={() => setViewMode('flow')}
+        className={`px-3 py-2 border-l border-line cursor-pointer transition-colors ${viewMode === 'flow' ? 'bg-paper-dim text-ink font-medium' : 'text-pencil hover:bg-paper-dim/60'}`}
+      >
+        流程图
+      </button>
+    </div>
+  )
+
   return (
-    <div className={isFlowMode ? 'flex flex-col h-[calc(100vh-112px)]' : ''}>
-      {/* 顶部：标题 */}
-      <div className="max-w-6xl mx-auto px-6 py-8 pb-0 flex-shrink-0 w-full">
-        <h2 className="text-xl font-semibold text-ink">结构与分支</h2>
-        <p className="text-sm text-pencil mt-1">建立章幕节点与分支连接</p>
-      </div>
+    // 流程图是「看图」模式，纵向像素全部让给画布：页面标题被隐藏（应用头栏已显示
+    // 「3. 结构与分支 (N节)」，重复一遍只是占位），高度按头栏 56px 精确扣除
+    // （此前写死 112px，多扣了一整个不存在的底栏）
+    <div className={isFlowMode ? 'flex flex-col h-[calc(100vh-56px)]' : ''}>
+      {!isFlowMode && (
+        <div className="max-w-6xl mx-auto px-6 py-8 pb-0 flex-shrink-0 w-full">
+          <h2 className="text-xl font-semibold text-ink">结构与分支</h2>
+          <p className="text-sm text-pencil mt-1">建立章幕节点与分支连接</p>
+        </div>
+      )}
 
       <div className={isFlowMode
-        ? 'flex-1 min-h-0 flex flex-col lg:flex-row gap-6 items-start px-4 pt-4 pb-4 w-full'
+        ? 'flex-1 min-h-0 flex flex-col lg:flex-row gap-4 items-start px-4 pt-2 pb-3 w-full'
         : 'max-w-6xl mx-auto px-6 pt-4 pb-8 w-full flex flex-col lg:flex-row gap-6 items-start'}
       >
         {/* ── 核心产出区 ── */}
@@ -318,30 +340,18 @@ export default function StructurePage() {
             </div>
           )}
 
-          <div className="flex items-center justify-between mb-4">
-            {/* 视图切换 */}
-            <div className="flex text-xs border border-line">
-              <button
-                onClick={() => setViewMode('list')}
-                className={`px-3 py-1.5 cursor-pointer transition-colors ${viewMode === 'list' ? 'bg-paper-dim text-ink font-medium' : 'text-pencil hover:bg-paper-dim/60'}`}
-              >
-                列表
-              </button>
-              <button
-                onClick={() => setViewMode('flow')}
-                className={`px-3 py-1.5 border-l border-line cursor-pointer transition-colors ${viewMode === 'flow' ? 'bg-paper-dim text-ink font-medium' : 'text-pencil hover:bg-paper-dim/60'}`}
-              >
-                流程图
-              </button>
-            </div>
-            {viewMode === 'list' && (
+          {/* 流程图模式下这组按钮移进画布浮层（见下方 FlowView 的 toolbar），
+              不再单独占一行——看图模式的纵向像素全部让给画布 */}
+          {!isFlowMode && (
+            <div className="flex items-center justify-between mb-4">
+              {viewToggle}
               <Button variant="primary" size="sm" onClick={() => addChapter(`第${project.chapters.length + 1}章`)}>+ 添加章</Button>
-            )}
-          </div>
+            </div>
+          )}
 
           {isFlowMode ? (
             <div className="flex-1 min-h-0">
-              <FlowView project={project} />
+              <FlowView project={project} toolbar={viewToggle} />
             </div>
           ) : (
             <>

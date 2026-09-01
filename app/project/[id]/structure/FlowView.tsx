@@ -1,5 +1,5 @@
 'use client'
-import { useMemo, useCallback, useState } from 'react'
+import { useMemo, useCallback, useState, useRef } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import { ReactFlow, Background, Controls, MiniMap, Handle, Position, MarkerType } from '@xyflow/react'
 import type { Node, Edge, NodeProps, NodeMouseHandler, OnNodeDrag } from '@xyflow/react'
@@ -144,11 +144,14 @@ const NODE_H = 90
 const COL_W = 260       // horizontal spacing per depth column
 const ROW_H = NODE_H + 50  // vertical spacing between nodes in same column
 const ACT_GAP = 60      // extra horizontal gap between acts
-// 章级泳道：大项目（40+ 节点）所有章横向接龙会得到 1 万像素宽、两行高的"一条线"，
-// 分支在视觉上被纵横比压扁。按章折行成泳道后，宽度缩到 1/章数，分支扇出肉眼可辨。
-// 泳道高度不能写死（曾固定 5 行）：终章结局扇出等高列会刺穿相邻泳道造成节点叠加，
-// 必须按每章实际最大列高动态分配。
+// 泳道折行：大项目（40+ 节点）所有章横向接龙会得到 1 万像素宽、两行高的"一条线"。
+// 按章折行（每章一条）之后仍是 4900×1800 的扁条，宽高比 2.7 远宽于画布的 1.6——
+// fitView 按宽度贴合，上下各空 190px、只填满 52% 高度，缩放被压到 0.22（节点字全糊）。
+// 所以行宽不能等于"一章"，要按内容总量与目标宽高比动态折行：章内摆不下就换行，
+// 章与章之间必定换行（保持章的视觉分组）。
 const LANE_GAP = 140    // 相邻泳道之间的垂直留白
+// 目标宽高比：略宽于常见画布（16:9 去掉右侧协作栏后约 1.6），留一点余量避免竖向溢出
+const TARGET_ASPECT = 1.7
 
 function autoLayout(
   nodes: StoryNode[],
@@ -166,26 +169,27 @@ function autoLayout(
     childrenOf.set(n.id, (n.choices ?? []).map(c => c.targetNodeId).filter(Boolean) as string[])
   }
 
-  // Sort acts: chapter order → act order within chapter；每章一条泳道（章索引决定 y 基线）
+  // Sort acts: chapter order → act order within chapter
   const sortedChapters = [...chapters].sort((a, b) => a.order - b.order)
-  const sortedActs: (typeof acts[number] & { laneIdx: number })[] = []
-  sortedChapters.forEach((ch, laneIdx) => {
+  const sortedActs: (typeof acts[number] & { chapterIdx: number })[] = []
+  sortedChapters.forEach((ch, chapterIdx) => {
     const chActs = acts.filter(a => a.chapterId === ch.id).sort((a, b) => a.order - b.order)
-    sortedActs.push(...chActs.map(a => ({ ...a, laneIdx })))
+    sortedActs.push(...chActs.map(a => ({ ...a, chapterIdx })))
   })
 
   const assigned = new Set<string>()
-  let xOffset = 0  // running x position across acts within current lane
-  let currentLane = -1
 
-  // 第一遍：确定每个节点的 (泳道, x, 列内行号, 列高)，同时统计每条泳道的最大列高。
-  // y 留到第二遍——泳道基线要等所有列高已知后按实际高度累加，才能保证泳道互不侵入。
-  type Cell = { id: string; lane: number; x: number; rowIdx: number; colLen: number }
-  const cells: Cell[] = []
-  const laneMaxRows = new Map<number, number>()
+  // ── 阶段一：算出每一幕的内部布局与占位尺寸（此时不定 x/y）──────────────
+  // 折行宽度依赖全局总宽，必须先量完所有幕才能决定，所以摆放推迟到阶段二。
+  type ActLayout = {
+    chapterIdx: number
+    columns: string[][]   // 每个深度一列，列内为节点 id
+    width: number         // 本幕横向占位（含幕间距）
+    maxColLen: number     // 最高一列的节点数，决定行高
+  }
+  const actLayouts: ActLayout[] = []
 
   for (const act of sortedActs) {
-    if (act.laneIdx !== currentLane) { currentLane = act.laneIdx; xOffset = 0 } // 换章：x 从头累计，落入下一条泳道
     const actSet = new Set(act.nodeIds.filter(id => nodeMap.has(id)))
     if (actSet.size === 0) continue
 
@@ -226,22 +230,54 @@ function autoLayout(
 
     // Group nodes by depth
     const maxDepth = Math.max(...depthMap.values())
-    const groups = new Map<number, string[]>()
-    for (let d = 0; d <= maxDepth; d++) groups.set(d, [])
-    for (const [id, d] of depthMap) groups.get(d)!.push(id)
+    const columns: string[][] = Array.from({ length: maxDepth + 1 }, () => [])
+    for (const [id, d] of depthMap) columns[d].push(id)
 
-    // Place nodes: each depth → one sub-column
-    for (let d = 0; d <= maxDepth; d++) {
-      const col = groups.get(d)!
-      col.forEach((id, rowIdx) => {
-        cells.push({ id, lane: act.laneIdx, x: xOffset + d * COL_W, rowIdx, colLen: col.length })
-        assigned.add(id)
-      })
-      laneMaxRows.set(act.laneIdx, Math.max(laneMaxRows.get(act.laneIdx) ?? 1, col.length))
+    actLayouts.push({
+      chapterIdx: act.chapterIdx,
+      columns,
+      width: (maxDepth + 1) * COL_W + ACT_GAP,
+      maxColLen: Math.max(1, ...columns.map(c => c.length)),
+    })
+  }
+
+  // ── 折行宽度：让整图宽高比贴近画布 ───────────────────────────────────
+  // 设总宽 W、每行高 H、行数 R，则宽高比 ≈ (W/R)/(R·H)。令其等于 TARGET_ASPECT
+  // 解出 R = √(W / (ASPECT·H))，行宽即 W/R。行宽不得小于最宽的一幕（一幕不拆）。
+  const totalWidth = actLayouts.reduce((sum, a) => sum + a.width, 0)
+  const widestAct = Math.max(COL_W, ...actLayouts.map(a => a.width))
+  const rowHeightEst = Math.max(...actLayouts.map(a => a.maxColLen)) * ROW_H + LANE_GAP
+  const rowCount = Math.max(1, Math.round(Math.sqrt(totalWidth / (TARGET_ASPECT * rowHeightEst))))
+  const rowWidth = Math.max(widestAct, totalWidth / rowCount)
+
+  // ── 阶段二：按行摆放（章必换行，行内摆不下也换行）──────────────────────
+  // y 仍留到第三遍：行基线要等所有行的实际最大列高确定后再累加，保证行间不侵入。
+  type Cell = { id: string; lane: number; x: number; rowIdx: number; colLen: number }
+  const cells: Cell[] = []
+  const laneMaxRows = new Map<number, number>()
+
+  let lane = -1
+  let xOffset = 0
+  let currentChapter = -1
+
+  for (const layout of actLayouts) {
+    const isNewChapter = layout.chapterIdx !== currentChapter
+    const overflows = xOffset > 0 && xOffset + layout.width > rowWidth
+    if (isNewChapter || overflows) {
+      lane++
+      xOffset = 0
+      currentChapter = layout.chapterIdx
     }
 
-    // Advance x cursor: this act consumed (maxDepth+1) sub-columns + gap
-    xOffset += (maxDepth + 1) * COL_W + ACT_GAP
+    layout.columns.forEach((col, d) => {
+      col.forEach((id, rowIdx) => {
+        cells.push({ id, lane, x: xOffset + d * COL_W, rowIdx, colLen: col.length })
+        assigned.add(id)
+      })
+      laneMaxRows.set(lane, Math.max(laneMaxRows.get(lane) ?? 1, col.length))
+    })
+
+    xOffset += layout.width
   }
 
   // 第二遍：泳道基线按实际高度累加；列在泳道内垂直居中。
@@ -376,7 +412,7 @@ function buildFlowData(project: Project, focusNodeId: string | null, manualPos: 
 
 // ── Main component ──────────────────────────────────────────────────────────
 
-export default function FlowView({ project }: { project: Project }) {
+export default function FlowView({ project, toolbar }: { project: Project; toolbar?: React.ReactNode }) {
   const router = useRouter()
   const params = useParams()
   const onEditNode = (nodeId: string) => router.push(`/project/${params.id}/workshop?node=${nodeId}`)
@@ -409,8 +445,20 @@ export default function FlowView({ project }: { project: Project }) {
 
   const handlePaneClick = useCallback(() => setFocusNodeId(null), [])
 
+  // 拖拽起点：React Flow 对「单击」也会走 dragStart→dragStop（位移为 0）。
+  // 不做位移判断的话，点一下节点看高亮路径就把它标成「手动定位」并把当前坐标烘焙进数据——
+  // 该节点从此不再参与自动布局（实测 58 个节点里 50 个因点击被钉死，布局算法改了也不生效）。
+  const dragStartRef = useRef<{ x: number; y: number } | null>(null)
+  const handleNodeDragStart: OnNodeDrag = useCallback((_evt, node) => {
+    dragStartRef.current = { x: node.position.x, y: node.position.y }
+  }, [])
+
   const handleNodeDragStop: OnNodeDrag = useCallback((_evt, node) => {
+    const start = dragStartRef.current
+    dragStartRef.current = null
     const position = { x: node.position.x, y: node.position.y }
+    // 位移不足 4px 视为点击而非拖拽，不落库
+    if (start && Math.hypot(position.x - start.x, position.y - start.y) < 4) return
     setManualPos(prev => new Map(prev).set(node.id, position))
     updateNode(node.id, { position, positionManual: true })
   }, [updateNode])
@@ -443,6 +491,7 @@ export default function FlowView({ project }: { project: Project }) {
         elementsSelectable={true}
         onNodeClick={handleNodeClick}
         onPaneClick={handlePaneClick}
+        onNodeDragStart={handleNodeDragStart}
         onNodeDragStop={handleNodeDragStop}
         proOptions={{ hideAttribution: true }}
         style={{ background: 'var(--color-kraft)' }}
@@ -464,7 +513,10 @@ export default function FlowView({ project }: { project: Project }) {
       </ReactFlow>
 
       {/* Stats bar */}
+      {/* 顶部浮层：视图切换 + 统计。做成画布内浮层而不是画布上方的独立行——
+          流程图是看图模式，那条 50px 的空带纯属浪费纵向像素 */}
       <div className="absolute top-3 left-3 flex items-center gap-2 pointer-events-none">
+        {toolbar && <div className="pointer-events-auto">{toolbar}</div>}
         <div className="bg-paper/95 border border-line px-3 py-2 flex items-center gap-3 text-xs" style={{ boxShadow: 'var(--shadow-card)' }}>
           <span className="text-pencil">{project.nodes.length} 节点</span>
           <span className="text-line">·</span>
@@ -485,8 +537,8 @@ export default function FlowView({ project }: { project: Project }) {
         )}
       </div>
 
-      {/* Legend */}
-      <div className="absolute bottom-24 left-3 bg-paper/95 border border-line px-3 py-2.5 pointer-events-none" style={{ boxShadow: 'var(--shadow-card)' }}>
+      {/* Legend：放右上角——左下会压住折行后最后一行的节点，右下是缩略图、左下是缩放控件 */}
+      <div className="absolute top-3 right-3 bg-paper/95 border border-line px-3 py-2.5 pointer-events-none" style={{ boxShadow: 'var(--shadow-card)' }}>
         <div className="flex flex-col gap-1.5">
           {[
             { color: endingStyle.hex, label: '通向结局' },
