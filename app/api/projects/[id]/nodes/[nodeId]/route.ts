@@ -60,7 +60,9 @@ export const PATCH = withAuth(
     try {
       // StoryNodeSchema 对个别字段刻意比 StoryNode 类型更宽松（见 lib/schema/project.ts 头部注释）。
       const saved = await saveNode(id, parsed.data as StoryNode, expectedVersion)
-      return NextResponse.json({ ok: true, node: saved })
+      // 回传项目新版本：节点保存会推进 projects.version，客户端据此更新乐观锁基线，
+      // 否则同一标签页的下一次整档保存会拿着旧基线自撞 409
+      return NextResponse.json({ ok: true, node: saved.node, version: saved.projectVersion })
     } catch (err) {
       if (err instanceof ConflictError) {
         return NextResponse.json(
@@ -81,8 +83,8 @@ export const DELETE = withAuth(
     }
 
     try {
-      await deleteNode(id, nodeId)
-      return NextResponse.json({ ok: true })
+      const { projectVersion } = await deleteNode(id, nodeId)
+      return NextResponse.json({ ok: true, version: projectVersion })
     } catch (err) {
       return NextResponse.json({ ok: false, error: String(err) }, { status: 500 })
     }

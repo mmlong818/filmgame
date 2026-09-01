@@ -2,7 +2,7 @@ import { create } from 'zustand'
 import { nanoid } from 'nanoid'
 import type { Project, StoryNode, Choice, Variable, WorldAnchor, ScalePlan, ValidationReport, Chapter, Act, Character, Ending, EndingDesign, AiMode } from '@/lib/types/project'
 import type { Phase } from '@/lib/types/phase'
-import { loadLocalSnapshot, writeLocalSnapshot, saveProject, saveProjectMeta, saveNode, setHydrated, clearConflictLock } from '@/lib/persistence'
+import { loadLocalSnapshot, writeLocalSnapshot, saveProject, saveProjectMeta, saveNode, setHydrated, clearConflictLock, resetConfirmedVersion } from '@/lib/persistence'
 import type { SaveStateDetail } from '@/lib/persistence'
 import { bindHistory, pushUndo, clearHistory, isRestoring, invalidateRedo } from '@/lib/store/history'
 
@@ -215,6 +215,7 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
       const { project: merged, changed } = mergeWindowEdits(data.project, base, current?.id === id ? current : null)
       setHydrated(id, true)
       clearConflictLock(id)
+      resetConfirmedVersion(id, data.version ?? undefined)
       // paintBase 保留为服务端确认副本的深拷贝（不能与 project 同引用，否则下次合并
       // current === base 短路）；后续本地编辑相对它 diff。整档保存成功时不前进基线
       // （save-state 事件不携带落库内容，用回调时刻的 store.project 会把未保存的编辑
@@ -234,6 +235,7 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
     // 调用方（新建/导入项目）传入的是服务端刚确认落库的权威数据，等同一次成功对账。
     if (get().project?.id !== p.id) clearHistory()
     setHydrated(p.id, true)
+    resetConfirmedVersion(p.id, version)
     set({ project: p, paintBase: structuredClone(p), loadedVersion: version ?? null, saveConflict: null, stale: false, hydrated: true, offline: false })
   },
 
@@ -627,7 +629,9 @@ if (typeof window !== 'undefined') {
     if (!state.project || state.project.id !== detail.id) return
 
     if (detail.state === 'saved') {
-      if (detail.nodeId === undefined && detail.version !== undefined) {
+      // 节点级保存现在同样推进 projects.version 并回传，一并更新基线与广播——
+      // 其它标签页据此显示 stale 提示（此前节点编辑对它们完全不可见，会被整档保存覆盖）
+      if (detail.version !== undefined) {
         useProjectStore.setState({ loadedVersion: detail.version })
         channel?.postMessage({ id: detail.id, version: detail.version })
       }

@@ -203,15 +203,33 @@ export async function listProjects(
 
 // ─── 写 ────────────────────────────────────────────────────────────────
 
+/**
+ * 取项目行的当前 version 并对该行加排他锁（`SELECT … FOR UPDATE`），锁持有到事务结束。
+ *
+ * 乐观锁的「读版本 → 比较 → 写入」必须在同一把锁内完成，否则在 READ COMMITTED 下
+ * 两个并发事务会读到同一个 version、各自校验通过，写入时先后落库而后者不再复核版本——
+ * 双方都收到 200，先写者的修改被静默覆盖，乐观锁形同虚设。
+ * 加锁后同一项目的写入被串行化：后到者阻塞至前者提交，读到的必是最新 version，
+ * 于是正常走 409 冲突流程。
+ */
+async function lockProjectVersion(
+  tx: Parameters<Parameters<typeof db.transaction>[0]>[0],
+  projectId: string,
+): Promise<{ version: number } | undefined> {
+  const [row] = await tx
+    .select({ version: projects.version })
+    .from(projects)
+    .where(eq(projects.id, projectId))
+    .for('update')
+  return row
+}
+
 /** 整档保存：事务内 upsert projectRow（version 自增，可选乐观锁）+ 差量同步 nodes（按 id upsert，删除多余行）。 */
 export async function saveProject(project: Project, expectedVersion?: number): Promise<Project> {
   const { projectRow, nodeRows } = toRows(project)
 
   return db.transaction(async (tx) => {
-    const [existing] = await tx
-      .select({ version: projects.version })
-      .from(projects)
-      .where(eq(projects.id, project.id))
+    const existing = await lockProjectVersion(tx, project.id)
 
     if (expectedVersion !== undefined) {
       if (!existing) throw new ConflictError(`project ${project.id} not found`, 0)
@@ -266,10 +284,7 @@ export async function saveProjectMeta(project: Project, expectedVersion?: number
   const { projectRow } = toRows(project)
 
   return db.transaction(async (tx) => {
-    const [existing] = await tx
-      .select({ version: projects.version })
-      .from(projects)
-      .where(eq(projects.id, project.id))
+    const existing = await lockProjectVersion(tx, project.id)
 
     if (expectedVersion !== undefined) {
       if (!existing) throw new ConflictError(`project ${project.id} not found`, 0)
@@ -292,15 +307,25 @@ export async function saveProjectMeta(project: Project, expectedVersion?: number
 }
 
 /**
- * 单节点保存：只 upsert 该 node 行 + bump 该行 version，并 bump projects.updatedAt。
- * 不 bump projects.version —— 避免节点级保存与整档保存互相触发 409（计划 Task 4 明确规避）。
+ * 单节点保存：upsert 该 node 行 + bump 该行 version，并 bump projects.version/updatedAt。
+ *
+ * projects.version 必须一起推进（此前刻意不推进以规避 409）：不推进意味着整档保存的乐观锁
+ * 看不见任何节点级修改——另一标签页改过节点后，本页的整档保存校验照样通过，然后用内存里
+ * 过期的节点快照把对方的编辑整片覆盖，双方都收到 200。推进之后这种情况正常走 409 →
+ * 「加载最新」合并流程。同标签页自己不会 409：persistence 层把同项目的保存串行化，
+ * 并在发送时读取最新确认版本（见 lib/persistence.ts 的 saveQueue / confirmedVersion）。
+ *
+ * @returns 保存后的节点，以及项目的新 version（项目行不存在时为 undefined）
  */
 export async function saveNode(
   projectId: string,
   node: StoryNode,
   expectedVersion?: number,
-): Promise<StoryNode> {
+): Promise<{ node: StoryNode; projectVersion?: number }> {
   return db.transaction(async (tx) => {
+    // 与整档保存竞争同一把项目行锁：两者不会交错，projects.version 的推进不会丢失
+    const existingProject = await lockProjectVersion(tx, projectId)
+
     const [existingNode] = await tx
       .select({ version: nodes.version, sortOrder: nodes.sortOrder })
       .from(nodes)
@@ -313,7 +338,7 @@ export async function saveNode(
       }
     }
 
-    // 已存在则保持原全局下标；新节点追加到末尾
+    // 已存在则保持原全局下标；新节点追加到末尾（项目行锁已串行化，max+1 不会撞号）
     let sortOrder: number
     if (existingNode) {
       sortOrder = existingNode.sortOrder
@@ -337,17 +362,27 @@ export async function saveNode(
         set: { ...rest, updatedAt: now, version: sql`${nodes.version} + 1` },
       })
 
-    await tx.update(projects).set({ updatedAt: now }).where(eq(projects.id, projectId))
+    const projectVersion = existingProject ? existingProject.version + 1 : undefined
+    await tx
+      .update(projects)
+      .set(projectVersion !== undefined ? { updatedAt: now, version: projectVersion } : { updatedAt: now })
+      .where(eq(projects.id, projectId))
 
     const [savedRow] = await tx.select().from(nodes).where(eq(nodes.id, node.id))
-    return rowToStoryNode(savedRow)
+    return { node: rowToStoryNode(savedRow), projectVersion }
   })
 }
 
-export async function deleteNode(projectId: string, nodeId: string): Promise<void> {
-  await db.transaction(async (tx) => {
+export async function deleteNode(projectId: string, nodeId: string): Promise<{ projectVersion?: number }> {
+  return db.transaction(async (tx) => {
+    const existingProject = await lockProjectVersion(tx, projectId)
     await tx.delete(nodes).where(and(eq(nodes.id, nodeId), eq(nodes.projectId, projectId)))
-    await tx.update(projects).set({ updatedAt: new Date() }).where(eq(projects.id, projectId))
+    const projectVersion = existingProject ? existingProject.version + 1 : undefined
+    await tx
+      .update(projects)
+      .set(projectVersion !== undefined ? { updatedAt: new Date(), version: projectVersion } : { updatedAt: new Date() })
+      .where(eq(projects.id, projectId))
+    return { projectVersion }
   })
 }
 

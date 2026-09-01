@@ -206,6 +206,42 @@ async function sendWithRetry(
   return { ok: false }
 }
 
+// ─── 同项目保存串行化 + 权威版本基线 ────────────────────────────────────
+// 节点级保存也会推进 projects.version（否则整档保存的乐观锁看不见其它标签页的节点编辑，
+// 会静默覆盖，见 lib/db/projects.ts saveNode 注释）。代价是同一标签页内两类保存若并发
+// 发出，后者会带着过期的 expectedVersion 自撞 409。两条防线消除自撞：
+//   1) saveQueue：同一项目的所有保存请求串行执行，绝不并发；
+//   2) confirmedVersion：每次成功保存后记录服务端确认的最新版本，下一次保存在**发送时**
+//      读取它，而不是沿用防抖入队时捕获的旧版本。
+const saveQueue = new Map<string, Promise<void>>()
+const confirmedVersion = new Map<string, number>()
+
+/** 把一次保存排进该项目的串行队列；返回排队后的 promise（失败不阻断后续任务） */
+function enqueueSave(projectId: string, task: () => Promise<void>): Promise<void> {
+  const prev = saveQueue.get(projectId) ?? Promise.resolve()
+  const next = prev.then(task, task).catch(() => {})
+  saveQueue.set(projectId, next)
+  void next.then(() => { if (saveQueue.get(projectId) === next) saveQueue.delete(projectId) })
+  return next
+}
+
+/** 发送时的乐观锁基线：优先用服务端最近确认的版本，回落到调用方捕获的版本 */
+function effectiveVersion(projectId: string, captured?: number): number | undefined {
+  const confirmed = confirmedVersion.get(projectId)
+  if (confirmed !== undefined) return confirmed
+  return captured
+}
+
+function noteConfirmedVersion(projectId: string, version?: number): void {
+  if (typeof version === 'number' && Number.isFinite(version)) confirmedVersion.set(projectId, version)
+}
+
+/** 项目切换/对账完成时由 store 调用，把基线重置为服务端权威值 */
+export function resetConfirmedVersion(projectId: string, version?: number): void {
+  if (version === undefined) confirmedVersion.delete(projectId)
+  else confirmedVersion.set(projectId, version)
+}
+
 // ─── 保存中计数（关闭前兜底判断用） ─────────────────────────────────────
 
 const inFlightSaves = new Map<string, number>()
@@ -263,13 +299,13 @@ function armProjectLevelSave(project: Project, expectedVersion: number | undefin
   const op: ProjectLevelOp = { kind: mergedKind, project, expectedVersion }
   const exec = (keepaliveFirst?: boolean) => {
     projectSaveTimers.delete(project.id)
-    void performProjectLevelSave(op, { keepaliveFirst })
+    void enqueueSave(project.id, () => performProjectLevelSave(op, { keepaliveFirst }))
   }
   projectSaveTimers.set(project.id, { op, exec, timer: setTimeout(exec, DEBOUNCE_MS) })
 }
 
 async function performProjectLevelSave(op: ProjectLevelOp, opts: { keepaliveFirst?: boolean } = {}): Promise<void> {
-  const { project, expectedVersion } = op
+  const { project } = op
   if (isConflictLocked(project.id)) {
     dispatchSaveState({ state: 'conflict', id: project.id })
     return
@@ -277,6 +313,9 @@ async function performProjectLevelSave(op: ProjectLevelOp, opts: { keepaliveFirs
   dispatchSaveState({ state: 'saving', id: project.id })
   trackInFlight(project.id, 1)
   try {
+    // 发送时刻取最新确认版本：入队时捕获的 expectedVersion 可能已被队列中先完成的
+    // 节点保存推进（节点保存现在同样 bump projects.version）
+    const expectedVersion = effectiveVersion(project.id, op.expectedVersion)
     const body = expectedVersion !== undefined ? { ...project, version: expectedVersion } : project
     const result = await sendWithRetry(`/api/projects/${project.id}`, body, op.kind === 'project' ? 'POST' : 'PATCH', opts)
 
@@ -284,6 +323,7 @@ async function performProjectLevelSave(op: ProjectLevelOp, opts: { keepaliveFirs
       // 仓储层 saveProject/saveProjectMeta 都是 version 的顺序 mutator：expectedVersion
       // 校验通过后服务端必为 expectedVersion+1（见 lib/db/projects.ts）；未知基线时无法推算，version 留空。
       const version = expectedVersion !== undefined ? expectedVersion + 1 : undefined
+      noteConfirmedVersion(project.id, version)
       dispatchSaveState({ state: 'saved', id: project.id, version })
       dequeuePending(project.id, op)
       // 整档写入已覆盖元数据的全部字段，排队中的元数据条目一并出队，避免旧快照回流
@@ -347,7 +387,7 @@ export function saveNode(projectId: string, node: StoryNode, expectedVersion?: n
   if (existing) clearTimeout(existing.timer)
   const exec = (keepaliveFirst?: boolean) => {
     nodeSaveTimers.delete(timerKey)
-    void performNodeSave(projectId, node, expectedVersion, { keepaliveFirst })
+    void enqueueSave(projectId, () => performNodeSave(projectId, node, expectedVersion, { keepaliveFirst }))
   }
   nodeSaveTimers.set(timerKey, { exec, op: { kind: 'node', node, expectedVersion }, timer: setTimeout(exec, DEBOUNCE_MS) })
 }
@@ -369,7 +409,11 @@ async function performNodeSave(
     const result = await sendWithRetry(`/api/projects/${projectId}/nodes/${node.id}`, body, 'PATCH', opts)
 
     if (result.ok) {
-      dispatchSaveState({ state: 'saved', id: projectId, nodeId: node.id })
+      // 服务端回传节点保存后的项目新版本：更新基线，供本标签页后续整档保存使用，
+      // 并广播给其它标签页触发 stale 提示（此前节点编辑对其它标签页完全不可见）
+      const version = result.data.version
+      noteConfirmedVersion(projectId, version)
+      dispatchSaveState({ state: 'saved', id: projectId, nodeId: node.id, version })
       dequeuePending(projectId, { kind: 'node', node, expectedVersion })
       return
     }
@@ -392,11 +436,13 @@ async function performNodeSave(
 // 继续处理剩余待发送项（409 冲突需用户决策；仍失败/离线则保留队列等待下次 online）。
 
 async function flushProjectLevelOp(id: string, op: ProjectLevelOp): Promise<boolean> {
-  const body = op.expectedVersion !== undefined ? { ...op.project, version: op.expectedVersion } : op.project
+  const expectedVersion = effectiveVersion(id, op.expectedVersion)
+  const body = expectedVersion !== undefined ? { ...op.project, version: expectedVersion } : op.project
   const result = await sendWithRetry(`/api/projects/${id}`, body, op.kind === 'project' ? 'POST' : 'PATCH')
   if (result.ok) {
     dequeuePending(id, op)
-    const version = op.expectedVersion !== undefined ? op.expectedVersion + 1 : undefined
+    const version = expectedVersion !== undefined ? expectedVersion + 1 : undefined
+    noteConfirmedVersion(id, version)
     dispatchSaveState({ state: 'saved', id, version })
     return true
   }
@@ -412,7 +458,8 @@ async function flushNodeOp(id: string, op: Extract<PendingOp, { kind: 'node' }>)
   const result = await sendWithRetry(`/api/projects/${id}/nodes/${op.node.id}`, body, 'PATCH')
   if (result.ok) {
     dequeuePending(id, op)
-    dispatchSaveState({ state: 'saved', id, nodeId: op.node.id })
+    noteConfirmedVersion(id, result.data.version)
+    dispatchSaveState({ state: 'saved', id, nodeId: op.node.id, version: result.data.version })
     return true
   }
   if ('conflict' in result) {
