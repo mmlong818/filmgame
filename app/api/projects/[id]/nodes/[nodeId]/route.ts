@@ -1,18 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { withAuth } from '@/lib/server/auth'
+import { isSafeId, formatZodError } from '@/lib/server/validation'
 import { saveNode, deleteNode, ConflictError } from '@/lib/db/projects'
 import { StoryNodeSchema } from '@/lib/schema/project'
 import type { StoryNode } from '@/lib/types/project'
-
-const SAFE_ID = /^[a-zA-Z0-9_-]{1,64}$/
-
-function validateId(id: string): boolean {
-  return SAFE_ID.test(id)
-}
-
-function formatZodError(error: import('zod').ZodError): string {
-  return error.issues.map(i => `${i.path.join('.') || '(root)'}: ${i.message}`).join('; ')
-}
 
 /** body.version 优先；否则取 If-Match 头（数字字符串）；都没有则不做乐观锁校验 */
 function readExpectedVersion(req: NextRequest, body: unknown): number | undefined {
@@ -31,7 +22,7 @@ function readExpectedVersion(req: NextRequest, body: unknown): number | undefine
 export const PATCH = withAuth(
   async (req: NextRequest, { params }: { params: Promise<{ id: string; nodeId: string }> }) => {
     const { id, nodeId } = await params
-    if (!validateId(id) || !validateId(nodeId)) {
+    if (!isSafeId(id) || !isSafeId(nodeId)) {
       return NextResponse.json({ ok: false, error: 'invalid id' }, { status: 400 })
     }
 
@@ -78,7 +69,7 @@ export const PATCH = withAuth(
 export const DELETE = withAuth(
   async (_req: NextRequest, { params }: { params: Promise<{ id: string; nodeId: string }> }) => {
     const { id, nodeId } = await params
-    if (!validateId(id) || !validateId(nodeId)) {
+    if (!isSafeId(id) || !isSafeId(nodeId)) {
       return NextResponse.json({ ok: false, error: 'invalid id' }, { status: 400 })
     }
 

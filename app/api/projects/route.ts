@@ -1,15 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { withAuth } from '@/lib/server/auth'
+import { isSafeId, formatZodError } from '@/lib/server/validation'
 import { listProjects, saveProject } from '@/lib/db/projects'
 import { migrateProject } from '@/lib/schema/migrations'
 import { ProjectSchema } from '@/lib/schema/project'
 import type { Project } from '@/lib/types/project'
-
-const SAFE_ID = /^[a-zA-Z0-9_-]{1,64}$/
-
-function formatZodError(error: import('zod').ZodError): string {
-  return error.issues.map(i => `${i.path.join('.') || '(root)'}: ${i.message}`).join('; ')
-}
 
 export const GET = withAuth(async (req: NextRequest) => {
   try {
@@ -31,7 +26,7 @@ export const POST = withAuth(async (req: NextRequest) => {
   }
 
   const rawId = (body as { id?: unknown })?.id
-  if (typeof rawId !== 'string' || !SAFE_ID.test(rawId)) {
+  if (!isSafeId(rawId)) {
     return NextResponse.json({ ok: false, error: 'invalid id' }, { status: 400 })
   }
 

@@ -1,5 +1,5 @@
 'use client'
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { nanoid } from 'nanoid'
@@ -23,6 +23,10 @@ import { TargetedFixPanel } from './TargetedFixPanel'
 import { TargetedFixTrigger } from './TargetedFixTrigger'
 import { SelfCheckPanel } from './SelfCheckPanel'
 import { useTargetedFix } from './useTargetedFix'
+import { useStructureGeneration } from './useStructureGeneration'
+import { useBranchGeneration } from './useBranchGeneration'
+import type { AiChapterDraft, AiNodeChoices, Stage, ViewMode } from './draftTypes'
+import { draftNodeType } from './draftTypes'
 import { useToast } from '@/app/components/toast'
 
 // 结局线自动携带：把世界锚点阶段设计的结局线绑定到同名结局节点，补全「结局定义」。
@@ -74,51 +78,6 @@ function importEndingDefinitions(): number {
   return imported
 }
 
-type AiNodeDraft = { title: string; type: string; notes: string }
-type AiActDraft = { title: string; nodes: AiNodeDraft[] }
-type AiChapterDraft = { title: string; acts: AiActDraft[] }
-
-type AiChoice = { text: string; targetNodeTitle: string; targetNodeId?: string; variableEffects?: string; choiceWeight?: 'light' | 'heavy' | 'critical'; consequence?: string; conditions?: string }
-type AiNodeChoices = { nodeTitle: string; nodeId?: string; choices: AiChoice[]; exploreReturnNodeId?: string }
-
-type StructProgress = { phase: 'spine' | 'chapters'; done: number; total: number }
-type StructStreamEvent =
-  | { type: 'run'; runId: string | null }
-  | { type: 'spine'; ok: boolean }
-  | { type: 'chapter'; done: number; total: number; warnings?: string[] }
-  | { type: 'done'; chapters: AiChapterDraft[]; errors: string[]; warnings?: string[] }
-  | { type: 'error'; error: string; errorType: string }
-
-function normalizeChapters(chapters: AiChapterDraft[]): AiChapterDraft[] {
-  // 双保险排序：草稿可能来自未排序的通道（并行完成顺序），带 chapterIndex 就按它恢复章序
-  return (chapters ?? [])
-    .map(ch => ({
-      ...ch,
-      acts: (ch.acts ?? []).map(act => ({ ...act, nodes: act.nodes ?? [] })),
-    }))
-    .sort((a, b) => ((a as { chapterIndex?: number }).chapterIndex ?? 0) - ((b as { chapterIndex?: number }).chapterIndex ?? 0))
-}
-
-const KNOWN_ERROR_TYPES: readonly AiErrorType[] = ['no_cli', 'timeout', 'parse_failed', 'unknown']
-function toErrorType(t: string): AiErrorType {
-  return (KNOWN_ERROR_TYPES as readonly string[]).includes(t) ? (t as AiErrorType) : 'unknown'
-}
-
-type Stage =
-  | 'struct_loading' | 'struct_preview'
-  | 'branch_loading' | 'branch_preview'
-  | 'edit'
-
-type ViewMode = 'list' | 'flow'
-
-const VALID_NODE_TYPES = ['start', 'normal', 'branch', 'merge', 'ending', 'explore'] as const
-function isValidNodeType(t: string): t is NodeType {
-  return (VALID_NODE_TYPES as readonly string[]).includes(t)
-}
-function draftNodeType(t: string): NodeType {
-  return isValidNodeType(t) ? t : 'normal'
-}
-
 export default function StructurePage() {
   const router = useRouter()
   const { toast } = useToast()
@@ -130,17 +89,17 @@ export default function StructurePage() {
   })
 
   const [viewMode, setViewMode] = useState<ViewMode>('list')
-  const [structDraft, setStructDraft] = useState<AiChapterDraft[] | null>(null)
-  const [branchDraft, setBranchDraft] = useState<AiNodeChoices[] | null>(null)
-  const [structWarnings, setStructWarnings] = useState<string[]>([])
-  const [structProgress, setStructProgress] = useState<StructProgress | null>(null)
-  const runIdRef = useRef<string | null>(null)
   const [expandedChapters, setExpandedChapters] = useState<Set<string>>(new Set())
   const [expandedActs, setExpandedActs] = useState<Set<string>>(new Set())
-  const [branchProgress, setBranchProgress] = useState<{ done: number; total: number } | null>(null)
 
-  const structAi = useAiAction()
-  const branchAi = useAiAction()
+  const {
+    structAi, structDraft, setStructDraft, structWarnings, structProgress,
+    generateStructure, commitStructure,
+  } = useStructureGeneration({ project, setStage, toast })
+  const {
+    branchAi, branchDraft, setBranchDraft, branchProgress,
+    generateBranches, commitBranches, resolveChoicePatches, computeAutoConnectEdges,
+  } = useBranchGeneration({ project, setStage })
   const { fixAi, fixDraft, selfCheck, runTargetedFix, applyFix, closeFixDraft } = useTargetedFix(project, stage, toast)
 
   useEffect(() => {
@@ -152,367 +111,6 @@ export default function StructurePage() {
   if (!project) return (
     <div className="flex items-center justify-center h-64 text-pencil text-sm">加载中...</div>
   )
-
-  // 处理一帧 NDJSON 事件；返回 true 表示已到达终态（done），调用方据此判断流是否正常收尾
-  function handleStructStreamEvent(evt: StructStreamEvent): boolean {
-    if (evt.type === 'run') {
-      runIdRef.current = evt.runId
-      return false
-    }
-    if (evt.type === 'spine') {
-      setStructProgress({ phase: 'spine', done: evt.ok ? 1 : 0, total: 1 })
-      return false
-    }
-    if (evt.type === 'chapter') {
-      setStructProgress({ phase: 'chapters', done: evt.done, total: evt.total })
-      if (evt.warnings && evt.warnings.length > 0) {
-        setStructWarnings(prev => [...prev, ...evt.warnings!])
-      }
-      return false
-    }
-    if (evt.type === 'done') {
-      const chapters = normalizeChapters(evt.chapters)
-      // done ≠ 成功：并行章生成可能部分/全部失败（errors 随 done 帧返回）。
-      // 空章或缺章都不得进预览态——曾先后导致「空草稿被通过后清空项目」与
-      // 「三章只成功一章、部分结构被静默应用」两起事故。
-      const expectedChapters = project?.scalePlanOptions.find(pl => pl.id === project.selectedScalePlanId)?.chapterCount ?? chapters.length
-      if (chapters.length === 0 || chapters.length < expectedChapters) {
-        throw new AiActionError(
-          `结构生成不完整（${chapters.length}/${expectedChapters} 章）：${(evt.errors ?? []).join('；') || '部分章节未生成'}——请点击"重新生成"重试`,
-          'unknown', runIdRef.current ?? undefined,
-        )
-      }
-      if (evt.errors && evt.errors.length > 0) {
-        setStructWarnings(prev => [...prev, ...evt.errors].filter((w, i, arr) => arr.indexOf(w) === i))
-      }
-      setStructDraft(chapters)
-      if (evt.warnings && evt.warnings.length > 0) {
-        setStructWarnings(prev => [...prev, ...evt.warnings!].filter((w, i, arr) => arr.indexOf(w) === i))
-      }
-      setStage('struct_preview')
-      return true
-    }
-    throw new AiActionError(evt.error, toErrorType(evt.errorType), runIdRef.current ?? undefined)
-  }
-
-  // 消费流式 NDJSON 响应体；正常收尾返回 true。中止或截断均以抛出异常的方式交给 useAiAction 统一处理
-  async function consumeStructStream(body: ReadableStream<Uint8Array>, signal: AbortSignal): Promise<boolean> {
-    const reader = body.getReader()
-    const decoder = new TextDecoder()
-    let buf = ''
-    let reachedEnd = false
-    const onAbort = () => { reader.cancel().catch(() => {}) }
-    if (signal.aborted) onAbort()
-    else signal.addEventListener('abort', onAbort)
-    try {
-      for (;;) {
-        const { value, done } = await reader.read()
-        if (done) break
-        buf += decoder.decode(value, { stream: true })
-        const lines = buf.split('\n')
-        buf = lines.pop() ?? ''
-        for (const line of lines) {
-          if (!line.trim()) continue
-          reachedEnd = handleStructStreamEvent(JSON.parse(line) as StructStreamEvent) || reachedEnd
-        }
-      }
-    } finally {
-      signal.removeEventListener('abort', onAbort)
-      reader.releaseLock()
-    }
-    if (signal.aborted) throw new DOMException('已取消生成', 'AbortError')
-    return reachedEnd
-  }
-
-  async function generateStructureFallback(context: Record<string, unknown>, signal: AbortSignal) {
-    const res = await aiStructureFetch('/api/ai/structure', context, { signal })
-    const data = await res.json()
-    runIdRef.current = data.runId ?? runIdRef.current
-    const chapters = data.result?.chapters ?? (Array.isArray(data.result) ? data.result : null)
-    if (!data.ok || !Array.isArray(chapters)) {
-      throw new AiActionError(data.error || `AI 返回格式错误：${String(data.raw ?? '').slice(0, 200)}`, 'unknown', runIdRef.current ?? undefined)
-    }
-    if (Array.isArray(data.warnings) && data.warnings.length > 0) {
-      setStructWarnings(prev => [...prev, ...data.warnings])
-    }
-    setStructDraft(normalizeChapters(chapters))
-    setStage('struct_preview')
-  }
-
-  async function generateStructure() {
-    setStage('struct_loading')
-    setStructWarnings([])
-    setStructProgress(null)
-    runIdRef.current = null
-    const scalePlan = project!.scalePlanOptions.find(p => p.id === project!.selectedScalePlanId)
-    const context = { worldAnchor: project!.worldAnchor, scalePlan, characters: project!.characters }
-
-    const result = await structAi.run('生成结构', async (signal) => {
-      let streamStarted = false
-      try {
-        const res = await aiStructureFetch('/api/ai/structure/stream', context, { signal })
-        if (res.ok && res.body) {
-          streamStarted = true
-          const reachedEnd = await consumeStructStream(res.body, signal)
-          if (!reachedEnd) {
-            throw new AiActionError('生成中断（可能超出请求时长上限），请减少章节数、改用更快的 BYOK 模型，或在本地模式运行', 'unknown', runIdRef.current ?? undefined)
-          }
-          return true
-        }
-      } catch (err) {
-        if (isAbortError(err)) throw err
-        if (streamStarted) {
-          if (err instanceof AiActionError) throw err
-          // 流已经开始消费后中途失败（服务器崩溃/连接中断）：不能静默吞掉，
-          // 否则用户会一直停留在加载态转圈，看不到任何反馈（这正是曾导致上一轮真实检查
-          // 会话在等待生成时被误判为"卡死"的体验缺陷）。此时明确报错。
-          throw new AiActionError('生成过程中连接中断（服务器可能重启或网络波动），请点击"重新生成"重试', 'unknown', runIdRef.current ?? undefined)
-        }
-        // 流式连接在建立阶段就失败（网络/代理不透传）：走非流式回退
-      }
-      await generateStructureFallback(context, signal)
-      return true
-    })
-
-    if (result === null) setStage('edit')
-  }
-
-  function commitStructure(draft: AiChapterDraft[]) {
-    // 空草稿防线：绝不能用空结构覆盖项目（bulkSetStructure 会清空全部章幕节点）
-    if (!draft || draft.length === 0 || draft.every(ch => (ch.acts ?? []).every(a => (a.nodes ?? []).length === 0))) {
-      toast('结构草稿为空，已取消应用——请重新生成', 'error')
-      return null
-    }
-    const chapters: Chapter[] = []
-    const acts: Act[] = []
-    const nodes: StoryNode[] = []
-    ;(draft ?? []).forEach((ch, ci) => {
-      const chapterId = nanoid(8)
-      chapters.push({ id: chapterId, title: ch.title ?? `第${ci + 1}章`, order: ci })
-      ;(ch.acts ?? []).forEach((act, ai) => {
-        const actId = nanoid(8)
-        const actNodeIds: string[] = []
-        ;(act.nodes ?? []).forEach((node, ni) => {
-          const nodeId = nanoid(8)
-          actNodeIds.push(nodeId)
-          nodes.push({
-            id: nodeId, actId, title: node.title, type: draftNodeType(node.type), order: ni,
-            position: { x: ni * 200, y: ai * 120 },
-            emotionFunction: { emotionIn: '', emotionOut: '', playerEmotion: '', tension: node.type === 'explore' ? 2 : 5 },
-            systemFunction: { variablesRead: [], variablesWrite: [], requirements: '' },
-            sceneDesc: '', dialogue: [], choices: [], durationSeconds: 120, notes: node.notes || '',
-          })
-        })
-        acts.push({ id: actId, chapterId, title: act.title, order: ai, nodeIds: actNodeIds })
-      })
-    })
-    bulkSetStructure(chapters, acts, nodes)
-    return nodes
-  }
-
-  // 按章分块生成：分支拓扑是章内自洽的（跨章连接由「继续」自动补全承担）。
-  // v2 每个推进节点产 2-3 选项后，整体单次生成在 26 节点时已需约 17 分钟，
-  // 40+ 节点（标准版）必然超时——逐章调用并展示进度，规模只受章数线性影响。
-  async function generateBranches(nodes?: StoryNode[]) {
-    setStage('branch_loading')
-    const fresh = useProjectStore.getState().project!
-    const nodeList = nodes ?? fresh.nodes
-    const byId = new Map(nodeList.map(n => [n.id, n]))
-    const chapterChunks = [...fresh.chapters]
-      .sort((a, b) => a.order - b.order)
-      .map(ch => fresh.acts
-        .filter(a => a.chapterId === ch.id)
-        .sort((a, b) => a.order - b.order)
-        .flatMap(a => a.nodeIds)
-        .map(id => byId.get(id))
-        .filter((n): n is StoryNode => Boolean(n)))
-      .filter(chunk => chunk.length > 0)
-    const chunks = chapterChunks.length > 0 ? chapterChunks : [nodeList]
-    setBranchProgress({ done: 0, total: chunks.length })
-
-    const result = await branchAi.run('生成分支', async (signal) => {
-      const all: AiNodeChoices[] = []
-      for (let i = 0; i < chunks.length; i++) {
-        const context = {
-          worldAnchor: fresh.worldAnchor,
-          characters: fresh.characters,
-          variables: fresh.variables,
-          nodes: chunks[i].map(n => ({ id: n.id, title: n.title, type: n.type, notes: n.notes })),
-        }
-        // 单章生成动辄数分钟，瞬时网络断连（Connection error）不该让已完成的章全部作废——
-        // 每章自动重试一次；用户主动中止（AbortError）不重试。
-        let nodeChoices: AiNodeChoices[] | undefined
-        for (let attempt = 0; attempt < 2; attempt++) {
-          try {
-            const data = await aiJson<{ result?: { nodeChoices?: AiNodeChoices[] } }>('branches', 'generate', context, signal)
-            nodeChoices = data.result?.nodeChoices
-            break
-          } catch (err) {
-            if (isAbortError(err) || attempt === 1) throw err
-          }
-        }
-        if (!Array.isArray(nodeChoices)) throw new AiActionError(`AI 分支返回格式错误（第 ${i + 1}/${chunks.length} 章）`)
-        all.push(...nodeChoices)
-        setBranchProgress({ done: i + 1, total: chunks.length })
-      }
-      setBranchDraft(all)
-      setStage('branch_preview')
-      return true
-    })
-
-    setBranchProgress(null)
-    if (result === null) setStage('edit')
-  }
-
-  // 解析 AI 返回的分支选择为 patch（key = nodeId），不含自动补连
-  function resolveChoicePatches(draft: AiNodeChoices[]): Map<string, Partial<StoryNode>> {
-    const fresh = useProjectStore.getState().project!
-    const nodes = fresh.nodes
-    const nodeByTitle = new Map(nodes.map(n => [n.title, n.id]))
-    const nodeById = new Map(nodes.map(n => [n.id, n]))
-    // 节点 → 所属章：模糊匹配必须限定在源节点同章（+ 下一章首节点）内。
-    // 曾因全局模糊匹配把 start 的选项撞到第三章的相似标题上，前段 40 节点整体不可达。
-    const chapterOfNode = new Map<string, number>()
-    const chapterFirstNode = new Map<number, string>()
-    const sortedCh = [...fresh.chapters].sort((a, b) => a.order - b.order)
-    sortedCh.forEach((ch, ci) => {
-      const ids = fresh.acts.filter(a => a.chapterId === ch.id).sort((a, b) => a.order - b.order).flatMap(a => a.nodeIds)
-      ids.forEach(id => chapterOfNode.set(id, ci))
-      if (ids.length > 0) chapterFirstNode.set(ci, ids[0])
-    })
-
-    function resolveTargetId(c: AiChoice, sourceNodeId: string): string {
-      const srcCh = chapterOfNode.get(sourceNodeId)
-      // 章约束：目标必须在源节点同章，或恰为下一章首节点（跨章连接唯一合法形态）。
-      // id 引用同样过此约束——AI 复制错位的有效 id 一样会把主干跳断。
-      const inScope = (id: string) => {
-        const ci = chapterOfNode.get(id)
-        return ci === srcCh || (srcCh !== undefined && id === chapterFirstNode.get(srcCh + 1))
-      }
-      if (c.targetNodeId && nodeById.has(c.targetNodeId) && inScope(c.targetNodeId)) return c.targetNodeId
-      const exact = nodeByTitle.get(c.targetNodeTitle)
-      if (exact && inScope(exact)) return exact
-      if (!c.targetNodeTitle || c.targetNodeTitle.length < 2) return ''
-      const fuzzy = nodes.filter(n => inScope(n.id)).find(n =>
-        n.title.includes(c.targetNodeTitle) || c.targetNodeTitle.includes(n.title)
-      )
-      // 无合法候选就留空——交给「继续」自动补连兜底，绝不跨章乱接
-      return fuzzy?.id ?? ''
-    }
-
-    // 收集所有节点的 patch，key = nodeId
-    const patchMap = new Map<string, Partial<StoryNode>>()
-
-    // 按 nodeId 优先（AI 新 prompt 返回 nodeId），fallback 到 title
-    draft.forEach(nc => {
-      const nodeId = (nc.nodeId && nodeById.has(nc.nodeId)) ? nc.nodeId : nodeByTitle.get(nc.nodeTitle)
-      if (!nodeId) return
-      // explore节点：设置 exploreReturnNodeId，不设choices
-      if (nc.exploreReturnNodeId && nodeById.has(nc.exploreReturnNodeId)) {
-        patchMap.set(nodeId, { exploreReturnNodeId: nc.exploreReturnNodeId, choices: [] })
-        return
-      }
-      const choices = (nc.choices ?? []).map((c, i) => ({
-        id: nanoid(8), nodeId,
-        text: c.text, order: i,
-        targetNodeId: resolveTargetId(c, nodeId),
-        // AI 在 branches:generate 提示词中被要求为门控节点（如"路线门控"）填写具体变量条件，
-        // 后端 ChoiceDraftSchema 也支持该字段——此前这里硬编码空字符串，等于把 AI 返回的
-        // conditions 值原样丢弃，导致门控条件在所有分支上都形同虚设。
-        conditions: c.conditions ?? '',
-        variableEffects: c.variableEffects ?? '',
-        choiceWeight: c.choiceWeight,
-        consequence: c.consequence,
-      })).filter(ch => ch.targetNodeId)
-      if (choices.length > 0) patchMap.set(nodeId, { choices })
-    })
-
-    return patchMap
-  }
-
-  // 为所有无出口的非结局/非探索节点补顺序连接（跨幕跨章），返回补连边列表 + 合并后的 patchMap
-  function computeAutoConnectEdges(patchMap: Map<string, Partial<StoryNode>>): {
-    edges: { fromId: string; fromTitle: string; toId: string; toTitle: string }[]
-    patchMap: Map<string, Partial<StoryNode>>
-  } {
-    const nodes = project!.nodes
-    const nodeById = new Map(nodes.map(n => [n.id, n]))
-    const mergedPatchMap = new Map(patchMap)
-
-    const orderedNodes: StoryNode[] = []
-    // 必须先复制再排序：直接 .sort() 会原地改写 store 拥有的数组，污染撤销快照里的同一引用
-    ;[...project!.chapters].sort((a, b) => a.order - b.order).forEach(ch => {
-      [...project!.acts].filter(a => a.chapterId === ch.id).sort((a, b) => a.order - b.order).forEach(act => {
-        act.nodeIds.forEach(nid => { const n = nodeById.get(nid); if (n) orderedNodes.push(n) })
-      })
-    })
-
-    const edges: { fromId: string; fromTitle: string; toId: string; toTitle: string }[] = []
-    nodes.forEach(node => {
-      const pending = mergedPatchMap.get(node.id)
-      const pendingChoices = pending?.choices
-      const alreadyHasChoices = pendingChoices ? pendingChoices.length > 0 : node.choices.length > 0
-      if (node.type === 'ending' || node.type === 'explore' || alreadyHasChoices) return
-      const idx = orderedNodes.findIndex(n => n.id === node.id)
-      const nextNode = orderedNodes[idx + 1]
-      if (nextNode) {
-        edges.push({ fromId: node.id, fromTitle: node.title, toId: nextNode.id, toTitle: nextNode.title })
-        mergedPatchMap.set(node.id, {
-          ...pending,
-          choices: [{ id: nanoid(8), nodeId: node.id, text: '继续', order: 0, targetNodeId: nextNode.id, conditions: '', variableEffects: '' }]
-        })
-      }
-    })
-
-    return { edges, patchMap: mergedPatchMap }
-  }
-
-  function commitBranches(draft: AiNodeChoices[]) {
-    const fresh = useProjectStore.getState().project!
-    const nodes = fresh.nodes
-    const choicePatchMap = resolveChoicePatches(draft)
-    const { patchMap } = computeAutoConnectEdges(choicePatchMap)
-
-    const updatedNodes = nodes.map(n => {
-      const patch = patchMap.get(n.id)
-      return patch ? { ...n, ...patch } : n
-    })
-
-    // 跨章缝合：分块生成的每章块看不见下一章，AI 永远不产跨章边；而 v2 之后
-    // 每个节点都有 AI 选项，「继续」自动补连（只服务零选项节点）也不再触发——
-    // 跨章连接成了无人负责的真空（曾两次造成整个后续章不可达）。
-    // 规则：下一章首节点入度为 0 时，从本章顺序末位的非 ending 节点补一条无条件「继续」。
-    const byId = new Map(updatedNodes.map(n => [n.id, n]))
-    const indegree = new Map<string, number>()
-    for (const n of updatedNodes) for (const c of n.choices) {
-      if (c.targetNodeId) indegree.set(c.targetNodeId, (indegree.get(c.targetNodeId) ?? 0) + 1)
-    }
-    const chSeq = [...fresh.chapters].sort((a, b) => a.order - b.order).map(ch =>
-      fresh.acts.filter(a => a.chapterId === ch.id).sort((a, b) => a.order - b.order).flatMap(a => a.nodeIds),
-    )
-    const sutures = new Map<string, string>() // 章尾节点 id → 下一章首节点 id
-    for (let ci = 0; ci < chSeq.length - 1; ci++) {
-      const nextFirst = chSeq[ci + 1][0]
-      if (!nextFirst || (indegree.get(nextFirst) ?? 0) > 0) continue
-      const tailId = [...chSeq[ci]].reverse().find(id => byId.get(id)?.type !== 'ending')
-      if (tailId) sutures.set(tailId, nextFirst)
-    }
-    const suturedNodes = sutures.size === 0 ? updatedNodes : updatedNodes.map(n => {
-      const nextFirst = sutures.get(n.id)
-      if (!nextFirst) return n
-      return {
-        ...n,
-        choices: [...n.choices, {
-          id: nanoid(8), nodeId: n.id, text: '继续', order: n.choices.length,
-          targetNodeId: nextFirst, conditions: '', variableEffects: '',
-        }],
-      }
-    })
-
-    // 一次性批量写入
-    const store = useProjectStore.getState()
-    store.bulkSetStructure(fresh.chapters, fresh.acts, suturedNodes)
-  }
 
   function toggleChapter(id: string) {
     setExpandedChapters(s => { const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); return n })

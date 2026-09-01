@@ -1,18 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { withAuth } from '@/lib/server/auth'
+import { isSafeId } from '@/lib/server/validation'
 import { archiveProject, unarchiveProject, deleteProject } from '@/lib/db/projects'
-
-const SAFE_ID = /^[a-zA-Z0-9_-]{1,64}$/
-
-function validateId(id: string): boolean {
-  return SAFE_ID.test(id)
-}
 
 /** 归档：置 archived=true（不再搬运文件）。 */
 export const POST = withAuth(
   async (_req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
     const { id } = await params
-    if (!validateId(id)) return NextResponse.json({ ok: false, error: 'invalid id' }, { status: 400 })
+    if (!isSafeId(id)) return NextResponse.json({ ok: false, error: 'invalid id' }, { status: 400 })
 
     try {
       await archiveProject(id)
@@ -34,7 +29,7 @@ export const POST = withAuth(
 export const PUT = withAuth(
   async (_req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
     const { id } = await params
-    if (!validateId(id)) return NextResponse.json({ ok: false, error: 'invalid id' }, { status: 400 })
+    if (!isSafeId(id)) return NextResponse.json({ ok: false, error: 'invalid id' }, { status: 400 })
 
     try {
       await unarchiveProject(id)
@@ -49,7 +44,7 @@ export const PUT = withAuth(
 export const DELETE = withAuth(
   async (_req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
     const { id } = await params
-    if (!validateId(id)) return NextResponse.json({ ok: false, error: 'invalid id' }, { status: 400 })
+    if (!isSafeId(id)) return NextResponse.json({ ok: false, error: 'invalid id' }, { status: 400 })
 
     try {
       await deleteProject(id)

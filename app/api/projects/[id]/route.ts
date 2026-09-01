@@ -1,19 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { withAuth } from '@/lib/server/auth'
+import { isSafeId, formatZodError } from '@/lib/server/validation'
 import { getProjectWithVersion, saveProject, saveProjectMeta, deleteProject, ConflictError } from '@/lib/db/projects'
 import { migrateProject } from '@/lib/schema/migrations'
 import { ProjectSchema } from '@/lib/schema/project'
 import type { Project } from '@/lib/types/project'
-
-const SAFE_ID = /^[a-zA-Z0-9_-]{1,64}$/
-
-function validateId(id: string): boolean {
-  return SAFE_ID.test(id)
-}
-
-function formatZodError(error: import('zod').ZodError): string {
-  return error.issues.map(i => `${i.path.join('.') || '(root)'}: ${i.message}`).join('; ')
-}
 
 /** body.version 优先；否则取 If-Match 头（数字字符串）；都没有则不做乐观锁校验 */
 function readExpectedVersion(req: NextRequest, body: unknown): number | undefined {
@@ -32,7 +23,7 @@ function readExpectedVersion(req: NextRequest, body: unknown): number | undefine
 export const GET = withAuth(
   async (_req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
     const { id } = await params
-    if (!validateId(id)) return NextResponse.json({ ok: false, error: 'invalid id' }, { status: 400 })
+    if (!isSafeId(id)) return NextResponse.json({ ok: false, error: 'invalid id' }, { status: 400 })
 
     try {
       const result = await getProjectWithVersion(id)
@@ -47,7 +38,7 @@ export const GET = withAuth(
 export const POST = withAuth(
   async (req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
     const { id } = await params
-    if (!validateId(id)) return NextResponse.json({ ok: false, error: 'invalid id' }, { status: 400 })
+    if (!isSafeId(id)) return NextResponse.json({ ok: false, error: 'invalid id' }, { status: 400 })
 
     let body: unknown
     try {
@@ -91,7 +82,7 @@ export const POST = withAuth(
 export const PATCH = withAuth(
   async (req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
     const { id } = await params
-    if (!validateId(id)) return NextResponse.json({ ok: false, error: 'invalid id' }, { status: 400 })
+    if (!isSafeId(id)) return NextResponse.json({ ok: false, error: 'invalid id' }, { status: 400 })
 
     let body: unknown
     try {
@@ -134,7 +125,7 @@ export const PATCH = withAuth(
 export const DELETE = withAuth(
   async (_req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
     const { id } = await params
-    if (!validateId(id)) return NextResponse.json({ ok: false, error: 'invalid id' }, { status: 400 })
+    if (!isSafeId(id)) return NextResponse.json({ ok: false, error: 'invalid id' }, { status: 400 })
 
     try {
       await deleteProject(id)
