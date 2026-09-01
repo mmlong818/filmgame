@@ -83,7 +83,7 @@ async function generateSpine(
 ): Promise<Partial<StructureStateType>> {
   const config = await loadServerAIConfig()
   const timeoutMs = effectiveTimeout(SPINE_TIMEOUT, state.mode)
-  const model = createModel(config, { timeoutMs, mode: state.mode })
+  const model = createModel(config, { timeoutMs, mode: state.mode, actionKey: 'structure:spine' })
   const prompt = buildPrompt('structure', 'spine', {
     worldAnchor: state.worldAnchor,
     scalePlan: state.scalePlan,
@@ -148,7 +148,8 @@ async function generateChapter(
   try {
     const config = await loadServerAIConfig()
     const timeoutMs = effectiveTimeout(CHAPTER_TIMEOUT, state.mode)
-    const model = createModel(config, { timeoutMs, mode: state.mode })
+    // 整章骨架是全应用最大的单次产出（实测 4.3K~6.1K token，标准版更大），单独给足预算
+    const model = createModel(config, { timeoutMs, mode: state.mode, actionKey: 'structure:chapter' })
     const prompt = buildPrompt('structure', 'chapter', {
       worldAnchor: state.worldAnchor,
       scalePlan: state.scalePlan,

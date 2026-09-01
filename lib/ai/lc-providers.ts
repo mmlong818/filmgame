@@ -4,13 +4,16 @@ import { ChatGoogleGenerativeAI } from '@langchain/google-genai'
 import type { BaseChatModel } from '@langchain/core/language_models/chat_models'
 import { ClaudeCLIModel } from './lc-cli-model'
 import type { AIConfig } from './config'
-import { DEFAULT_MODELS, FAST_MODE_MODELS, DEFAULT_TIMEOUT_MS } from './config'
+import { DEFAULT_MODELS, FAST_MODE_MODELS, DEFAULT_TIMEOUT_MS, resolveMaxTokens } from './config'
 import type { AiMode } from '../types/project'
 
 export interface ProviderOptions {
   timeoutMs?: number
   /** AI 双模式：fast（快速搭骨架）/ thinking（深度精修，缺省）。仅影响模型选择/思考开关，不影响 schema。 */
   mode?: AiMode
+  /** `${phase}:${action}`：按动作分配输出预算（整章生成需 16K，单字段补全 4K 足够）。
+      缺省走保守默认——统一写死上限会让大章节生成被截断，见 config.ts「输出长度预算」。 */
+  actionKey?: string
 }
 
 const BIGMODEL_HOST_PATTERN = /bigmodel\.cn/i
@@ -38,6 +41,8 @@ function resolveModel(config: AIConfig, mode?: AiMode): string | undefined {
 export function createModel(config: AIConfig, opts: ProviderOptions = {}): BaseChatModel {
   const timeout = opts.timeoutMs ?? DEFAULT_TIMEOUT_MS
   const model = resolveModel(config, opts.mode)
+  // 输出预算 = min(模型能力上限, 本动作实际需要)；思考型模型额外放大（思考与正文共用同一预算）
+  const maxTokens = resolveMaxTokens(model, opts.actionKey)
 
   switch (config.provider) {
     case 'claude_cli':
@@ -50,7 +55,7 @@ export function createModel(config: AIConfig, opts: ProviderOptions = {}): BaseC
       return new ChatAnthropic({
         model: model ?? DEFAULT_MODELS.anthropic,
         apiKey: config.apiKey,
-        maxTokens: 8192,
+        maxTokens,
         clientOptions: { timeout },
       })
 
@@ -58,6 +63,7 @@ export function createModel(config: AIConfig, opts: ProviderOptions = {}): BaseC
       return new ChatOpenAI({
         model: model ?? DEFAULT_MODELS.openai,
         apiKey: config.apiKey,
+        maxTokens,
         temperature: 0.7,
         timeout: timeout,
       })
@@ -69,7 +75,7 @@ export function createModel(config: AIConfig, opts: ProviderOptions = {}): BaseC
       return new ChatGoogleGenerativeAI({
         model: model ?? DEFAULT_MODELS.gemini,
         apiKey: config.apiKey,
-        maxOutputTokens: 8192,
+        maxOutputTokens: maxTokens,
         temperature: 0.7,
       })
 
@@ -85,6 +91,9 @@ export function createModel(config: AIConfig, opts: ProviderOptions = {}): BaseC
         model: effectiveModel,
         apiKey: config.apiKey ?? 'none',
         configuration: { baseURL: config.baseUrl ?? 'http://localhost:11434/v1' },
+        // custom 端点此前完全不设 max_tokens，取网关默认值（常远低于模型能力上限），
+        // 同样会把整章 JSON 截断——必须显式给出
+        maxTokens: resolveMaxTokens(effectiveModel, opts.actionKey),
         temperature: 0.7,
         timeout: timeout,
         ...(disableThinking ? { modelKwargs: { thinking: { type: 'disabled' } } } : {}),

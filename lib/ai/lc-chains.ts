@@ -49,6 +49,26 @@ function extractJson(text: string): unknown {
   return null
 }
 
+/**
+ * 判断响应是否因达到输出上限被截断。各家字段不同：
+ * Anthropic 用 `stop_reason: 'max_tokens'`，OpenAI 兼容端点（含 GLM/DeepSeek/Qwen）
+ * 用 `finish_reason: 'length'`，Gemini 用 `finishReason: 'MAX_TOKENS'`。
+ * LangChain 把它们放在 response_metadata / additional_kwargs 里，逐个探测。
+ */
+function isTruncated(result: { response_metadata?: Record<string, unknown>; additional_kwargs?: Record<string, unknown> }): boolean {
+  const meta = { ...(result.response_metadata ?? {}), ...(result.additional_kwargs ?? {}) }
+  const reason = String(
+    meta.stop_reason ?? meta.finish_reason ?? meta.finishReason ?? '',
+  ).toLowerCase()
+  return reason === 'max_tokens' || reason === 'length'
+}
+
+/** 粗略 token 估算：中文约 1 token/字，英文与符号约 0.3 token/字符。仅用于错误提示。 */
+function estimateTokens(text: string): number {
+  const cjk = (text.match(/[一-鿿　-〿＀-￯]/g) ?? []).length
+  return Math.round(cjk + (text.length - cjk) * 0.3)
+}
+
 async function runWithCliRetry(
   model: BaseChatModel,
   prompt: string,
@@ -62,6 +82,12 @@ async function runWithCliRetry(
     const input = i === 0 ? prompt : prompt + RETRY_SUFFIX
     const result = await model.invoke([new HumanMessage(input)], { callbacks, signal })
     const raw = typeof result.content === 'string' ? result.content : JSON.stringify(result.content)
+    // 输出被 max_tokens 截断时重试没有意义：RETRY_SUFFIX 纠正的是「格式」，
+    // 而截断是「长度」问题——同一提示重试三次会在同一处被砍断，白等三轮再失败。
+    // 直接报可执行的错误：调高上限或减小单次生成规模。
+    if (isTruncated(result)) {
+      throw new Error(`truncated: 模型输出达到长度上限被截断（约 ${estimateTokens(raw)} token）——请在 AI 设置中改用输出上限更大的模型，或减少每章节点数后重试`)
+    }
     const extracted = extractJson(raw)
     if (extracted !== null) {
       const parsed = schema.safeParse(extracted)
@@ -97,11 +123,13 @@ export interface ChainRunOptions {
 let cachedModel: BaseChatModel | null = null
 let cachedCacheKey = ''
 
-async function getModel(timeoutMs: number, mode?: AiMode): Promise<{ model: BaseChatModel; provider: string }> {
+async function getModel(timeoutMs: number, mode?: AiMode, actionKey?: string): Promise<{ model: BaseChatModel; provider: string }> {
   const config = await loadServerAIConfig()
-  const cacheKey = `${config.provider}:${config.apiKey ?? ''}:${config.baseUrl ?? ''}:${config.model ?? ''}:${config.modelFast ?? ''}:${config.modelThinking ?? ''}:${mode ?? ''}:${timeoutMs}`
+  // actionKey 必须进缓存键：输出预算按动作分配（整章生成 16K vs 单字段补全 4K），
+  // 不入键会让后一个动作复用前一个动作的预算实例
+  const cacheKey = `${config.provider}:${config.apiKey ?? ''}:${config.baseUrl ?? ''}:${config.model ?? ''}:${config.modelFast ?? ''}:${config.modelThinking ?? ''}:${mode ?? ''}:${timeoutMs}:${actionKey ?? ''}`
   if (!cachedModel || cachedCacheKey !== cacheKey) {
-    cachedModel = createModel(config, { timeoutMs, mode })
+    cachedModel = createModel(config, { timeoutMs, mode, actionKey })
     cachedCacheKey = cacheKey
   }
   return { model: cachedModel, provider: config.provider }
@@ -122,7 +150,7 @@ export async function runChain(opts: ChainRunOptions): Promise<ChainRunResult> {
   }
 
   const prompt = buildPrompt(phase as Phase, action, context)
-  const { model, provider } = await getModel(timeoutMs, mode)
+  const { model, provider } = await getModel(timeoutMs, mode, key)
   const collector = new RunCollectorCallbackHandler()
 
   try {

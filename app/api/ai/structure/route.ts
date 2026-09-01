@@ -38,7 +38,8 @@ export const POST = withAuth(async (req: NextRequest) => {
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err)
     const errorType = msg.startsWith('no_cli:') ? 'no_cli'
-      : msg.startsWith('timeout:') ? 'timeout' : 'unknown'
+      : msg.startsWith('timeout:') ? 'timeout'
+      : msg.startsWith('truncated:') ? 'truncated' : 'unknown'
     return NextResponse.json({ ok: false, error: msg, errorType, runId: getRunId(collector) }, { status: 500 })
   }
 })

@@ -13,6 +13,7 @@ function classifyError(msg: string): { error: string; errorType: string } {
   if (msg.startsWith('no_cli:')) return { error: msg, errorType: 'no_cli' }
   if (msg.startsWith('timeout:')) return { error: msg, errorType: 'timeout' }
   if (msg.startsWith('parse_failed:')) return { error: msg, errorType: 'parse_failed' }
+  if (msg.startsWith('truncated:')) return { error: msg, errorType: 'truncated' }
   return { error: msg, errorType: 'unknown' }
 }
 

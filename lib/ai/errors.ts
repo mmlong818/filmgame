@@ -1,7 +1,7 @@
 // AI 错误的统一形态：服务端 classifyError 产出的 errorType 在此映射为可操作的中文引导。
 // 此前后端已返回 errorType 但前端零处理，所有页面只把 error 字符串原样展示。
 
-export type AiErrorType = 'no_cli' | 'timeout' | 'parse_failed' | 'unknown'
+export type AiErrorType = 'no_cli' | 'timeout' | 'parse_failed' | 'truncated' | 'unknown'
 
 export class AiActionError extends Error {
   errorType: AiErrorType
@@ -18,6 +18,7 @@ const HINTS: Record<AiErrorType, string> = {
   no_cli: '未检测到 Claude CLI：请确认本机已安装并登录 claude 命令，或到「AI 设置」切换其他 Provider。',
   timeout: 'AI 响应超时：可切换到快速模式、缩小生成范围后重试；本地部署可直接重试。',
   parse_failed: 'AI 返回内容无法解析（已自动重试仍失败）：请再试一次，或切换思考模式提升输出质量。',
+  truncated: '模型输出达到长度上限被截断（不是格式问题，重试无用）：请在「AI 设置」改用输出上限更大的模型，或减少每章节点数后重试。',
   unknown: '',
 }
 
