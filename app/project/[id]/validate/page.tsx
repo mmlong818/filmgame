@@ -16,6 +16,7 @@ import { Tag } from '@/app/components/ui/tag'
 import { SkeletonPage } from '@/app/components/ui/skeleton'
 import { AssistRail, AssistSection } from '@/app/components/ui/assist-rail'
 import type { ValidationReport, ValidationIssue, IssueLevel, DirectorReview, Project, StoryNode, NodeType } from '@/lib/types/project'
+import { stripWorkflowTags } from '@/lib/ui/endingLabel'
 
 interface AiReportResult { summary: string; priority_issues: string[]; suggestions: string[] }
 
@@ -337,7 +338,9 @@ function PathDurationTable({ project }: { project: Project }) {
     const type = endingDef?.type ?? 'neutral'
     const key = endingNode?.id ?? `p${i}`
     const entry = byEnding.get(key) ?? {
-      label: endingDef?.title ?? endingNode?.title ?? `路径 ${i + 1}`,
+      // 剥掉工序词：5 条即死 BE 的标题都以「路径C·即死结局：」开头，
+      // 标签截断后作者也分辨不出是哪一个（实测 5 行看起来完全一样）
+      label: stripWorkflowTags(endingDef?.title ?? endingNode?.title ?? '') || `路径 ${i + 1}`,
       barClass: ENDING_TONE[type]?.bar ?? ENDING_TONE.neutral.bar,
       mins: [], nodeCounts: [],
     }

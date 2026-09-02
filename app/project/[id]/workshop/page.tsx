@@ -27,6 +27,7 @@ import { BulkAiScopeBar, BulkFailureReport } from './components/BulkAiControls'
 import { useBulkAi } from './hooks/useBulkAi'
 import { NodeAssistRail } from './components/NodeAssistRail'
 import type { NodeDraft, SceneAnalysisResult, SceneTensionResult, ChoiceSuggestion, ChoiceConsequenceResult } from './components/types'
+import { setPendingDrafts } from '@/lib/ui/pendingDraftGuard'
 
 // 场景描述文本框 + 字数提示需共享同一份本地缓冲值（提示要随打字实时变化，而不是等回写 store 才更新）。
 /** 变量名进正则前必须转义：含 . ( ) + 等字符会抛异常使该次点击静默失效；
@@ -105,6 +106,14 @@ function WorkshopPageInner() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams])
+
+  // beforeunload 只覆盖关页/刷新；应用内跳转（顶栏返回、阶段切换）走客户端路由会绕过，
+  // 因此同时登记到跨组件守卫，由 layout 的导航入口在跳转前询问（见 lib/ui/pendingDraftGuard）
+  useEffect(() => {
+    const n = Object.keys(nodeDrafts).length
+    setPendingDrafts(n, n > 0 ? `${n} 处 AI 草稿尚未采纳` : '')
+    return () => setPendingDrafts(0)
+  }, [nodeDrafts])
 
   useEffect(() => {
     if (!hasPendingDraft) return

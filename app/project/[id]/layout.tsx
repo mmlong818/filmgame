@@ -4,6 +4,7 @@ import { useRouter, useSelectedLayoutSegment, useParams } from 'next/navigation'
 import Link from 'next/link'
 import { useProjectStore } from '@/lib/store/projectStore'
 import { hasPendingWrites, flushPendingWrites } from '@/lib/persistence'
+import { confirmLeaveWithDrafts } from '@/lib/ui/pendingDraftGuard'
 import { useToast } from '@/app/components/toast'
 import { PHASES } from '@/lib/types/phase'
 import type { Phase } from '@/lib/types/phase'
@@ -146,6 +147,7 @@ export default function ProjectLayout({ children }: { children: React.ReactNode 
         {/* Back */}
         <Link
           href="/projects"
+          onClick={(e) => { if (!confirmLeaveWithDrafts()) e.preventDefault() }}
           className="text-xs font-medium text-pencil hover:text-ink transition-colors shrink-0 cursor-pointer"
         >
           ← 返回
@@ -225,6 +227,7 @@ export default function ProjectLayout({ children }: { children: React.ReactNode 
               <Link
                 key={phase.key}
                 href={`/project/${project.id}/${phase.key}`}
+                onClick={(e) => { if (!confirmLeaveWithDrafts()) e.preventDefault() }}
                 className={`relative text-xs font-medium px-3 py-1.5 border-b-2 transition-colors cursor-pointer ${
                   isActive
                     ? 'text-ink font-semibold border-vermilion'
