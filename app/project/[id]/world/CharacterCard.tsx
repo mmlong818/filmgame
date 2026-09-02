@@ -15,10 +15,13 @@ interface Props {
   worldAnchor: WorldAnchor
   onUpdate: (patch: Partial<Character>) => void
   onDelete: () => void
+  /** 该角色作为说话人出现在多少行对白里。删除前必须让作者看见这个数字：
+      对白只按名字引用，角色一删这些行就成了无主台词，且没有单角色重生成可以救回 */
+  dialogueRefs?: number
 }
 
 /** 单个角色的索引卡：字段本地缓冲回写 + AI 声音指纹（自带独立的 loading/error/取消） */
-export function CharacterCard({ character, worldAnchor, onUpdate, onDelete }: Props) {
+export function CharacterCard({ character, worldAnchor, onUpdate, onDelete, dialogueRefs = 0 }: Props) {
   const { toast } = useToast()
   const voiceAi = useAiAction()
   const [voiceProfile, setVoiceProfile] = useState<VoiceProfile | undefined>(character.voiceProfile)
@@ -54,11 +57,12 @@ export function CharacterCard({ character, worldAnchor, onUpdate, onDelete }: Pr
         </select>
         <ConfirmButton
           size="sm"
-          confirmLabel="确认删除"
+          variant={dialogueRefs > 0 ? 'danger' : undefined}
+          confirmLabel={`确认删除角色「${character.name || '未命名'}」${dialogueRefs > 0 ? `（${dialogueRefs} 行对白引用）` : ''}`}
           className="ml-auto"
           onConfirm={() => {
             onDelete()
-            toast('已删除角色', 'success', { action: { label: '撤销', onClick: () => undo() } })
+            toast(`已删除角色「${character.name || '未命名'}」${dialogueRefs > 0 ? `，${dialogueRefs} 行对白失去说话人` : ''}`, dialogueRefs > 0 ? 'error' : 'success', { action: { label: '撤销', onClick: () => undo() } })
           }}
         >
           ✕

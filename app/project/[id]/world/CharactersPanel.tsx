@@ -5,12 +5,14 @@ import { CharacterCard } from './CharacterCard'
 import type { Character, WorldAnchor } from '@/lib/types/project'
 
 /** 主要角色（核心产出）。AI 生成入口在右侧辅助区。 */
-export function CharactersPanel({ characters, worldAnchor, onAdd, onUpdate, onDelete }: {
+export function CharactersPanel({ characters, worldAnchor, onAdd, onUpdate, onDelete, dialogueRefsOf }: {
   characters: Character[]
   worldAnchor: WorldAnchor
   onAdd: () => void
   onUpdate: (id: string, patch: Partial<Character>) => void
   onDelete: (id: string) => void
+  /** 按角色名统计对白引用数，供删除确认展示 */
+  dialogueRefsOf?: (name: string) => number
 }) {
   return (
     <div>
@@ -29,6 +31,7 @@ export function CharactersPanel({ characters, worldAnchor, onAdd, onUpdate, onDe
               worldAnchor={worldAnchor}
               onUpdate={patch => onUpdate(ch.id, patch)}
               onDelete={() => onDelete(ch.id)}
+              dialogueRefs={dialogueRefsOf?.(ch.name) ?? 0}
             />
           ))}
         </div>

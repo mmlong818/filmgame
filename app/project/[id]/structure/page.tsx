@@ -414,7 +414,7 @@ export default function StructurePage() {
                                           <select value={node.type} onChange={e => updateNode(node.id, { type: e.target.value as NodeType })} className="text-xs text-pencil border-none bg-transparent outline-none cursor-pointer">
                                             {Object.entries(NODE_TYPES).map(([value, s]) => <option key={value} value={value}>{s.label}</option>)}
                                           </select>
-                                          <ConfirmButton size="sm" variant="danger" confirmLabel="确认删除" onConfirm={() => deleteNode(node.id)}>✕</ConfirmButton>
+                                          <ConfirmButton size="sm" variant="danger" confirmLabel={`确认删除节点「${(node.title || "无标题").slice(0, 8)}」`} onConfirm={() => deleteNode(node.id)}>✕</ConfirmButton>
                                         </IndexCard>
                                       ))}
                                       <button onClick={() => addNode(act.id)} className="w-full text-xs text-vermilion hover:text-vermilion-deep py-1.5 border border-dashed border-vermilion/40 cursor-pointer">+ 添加节点</button>

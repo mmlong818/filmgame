@@ -537,7 +537,7 @@ function WorkshopPageInner() {
                         <ConfirmButton
                           size="sm"
                           variant="ghost"
-                          confirmLabel="确认删除"
+                          confirmLabel="确认删除这句台词"
                           className="absolute right-0 top-2 text-xs opacity-0 group-hover:opacity-100 transition-opacity px-1.5 py-0.5"
                           onConfirm={() => {
                             pushUndo('删除台词', project)
@@ -604,7 +604,7 @@ function WorkshopPageInner() {
                               <ConfirmButton
                                 size="sm"
                                 variant="ghost"
-                                confirmLabel="确认删除"
+                                confirmLabel={`确认删除选项「${(choice.text || '').slice(0, 8)}」`}
                                 className="ml-auto text-[10px] px-1.5 py-0.5 opacity-0 group-hover:opacity-100 transition-opacity shrink-0"
                                 onConfirm={() => {
                                   deleteChoice(choice.id)

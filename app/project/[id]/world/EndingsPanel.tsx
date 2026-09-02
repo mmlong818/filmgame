@@ -49,7 +49,7 @@ export function EndingsPanel({ endings, onUpdate, onDelete }: Props) {
             </select>
             <BufferedInput value={e.title} onCommit={v => onUpdate(i, { title: v })} placeholder="结局标题" className="flex-1 text-[13px] font-medium" />
             <BufferedInput value={e.keyVariable ?? ''} onCommit={v => onUpdate(i, { keyVariable: v || undefined })} placeholder="关键变量" className="!w-32 text-[11px] font-mono" />
-            <ConfirmButton size="sm" variant="danger" confirmLabel="确认删除" onConfirm={() => onDelete(i)}>✕</ConfirmButton>
+            <ConfirmButton size="sm" variant="danger" confirmLabel={`确认删除结局线「${(e.title || "未命名").slice(0, 8)}」`} onConfirm={() => onDelete(i)}>✕</ConfirmButton>
           </div>
           <BufferedTextarea value={e.description} onCommit={v => onUpdate(i, { description: v })} rows={2} placeholder="结局描述：玩家最后看到的画面与意味" className="text-xs" />
           <div className="grid grid-cols-2 gap-2">
