@@ -683,17 +683,41 @@ export function exportInk(project: Project): void {
     }).filter(Boolean)
   }
 
-  if (project.variables.length > 0) {
-    const mappings: string[] = []
-    for (const v of project.variables) {
-      const converted = inkVarName(v.name)
-      if (converted !== v.name) mappings.push(`// 变量映射: ${converted} = "${v.name}"`)
-      const val = isNaN(Number(v.defaultValue)) ? `"${v.defaultValue}"` : v.defaultValue
-      lines.push(`VAR ${converted} = ${val}`)
+  // Ink 里引用未声明的变量是编译错误。VAR 此前只从 project.variables 产出——
+  // 若作者跳过「AI 建议变量」，变量表为空而选项里照样写着 courage+1 与 { courage >= 3: }，
+  // 导出的 .ink 一行 VAR 都没有、直接编不过（实测午夜电台：0 行 VAR / 4 个被引用变量）。
+  // 这是交付边界，必须自洽：把正文实际引用到的变量补齐声明，不依赖登记是否做过。
+  const declaredVars = new Map<string, string>()  // ink 名 → 初值
+  const varMappings: string[] = []
+  for (const v of project.variables) {
+    const converted = inkVarName(v.name)
+    if (converted !== v.name) varMappings.push(`// 变量映射: ${converted} = "${v.name}"`)
+    const val = isNaN(Number(v.defaultValue)) ? `"${v.defaultValue}"` : v.defaultValue
+    declaredVars.set(converted, val)
+  }
+  for (const node of project.nodes) {
+    for (const c of node.choices ?? []) {
+      for (const part of (c.variableEffects ?? '').split(',')) {
+        const parsed = parseEffectPart(part)
+        if (!parsed) continue
+        const converted = inkVarName(parsed.name)
+        if (!declaredVars.has(converted)) {
+          declaredVars.set(converted, parsed.kind === 'set' && typeof parsed.value === 'string' ? `"${parsed.value}"` : '0')
+          varMappings.push(`// 未登记变量，导出时按引用补齐: ${converted}`)
+        }
+      }
+      for (const m of (c.conditions ?? '').matchAll(/([a-zA-Z_]\w*)\s*(?:>=|<=|>|<|==|!=)/g)) {
+        const converted = inkVarName(m[1])
+        if (!declaredVars.has(converted)) {
+          declaredVars.set(converted, '0')
+          varMappings.push(`// 未登记变量，导出时按引用补齐: ${converted}`)
+        }
+      }
     }
-    if (mappings.length > 0) {
-      lines.unshift('', ...mappings)
-    }
+  }
+  if (declaredVars.size > 0) {
+    for (const [name, val] of declaredVars) lines.push(`VAR ${name} = ${val}`)
+    if (varMappings.length > 0) lines.unshift('', ...varMappings)
     lines.push('')
   }
 
