@@ -90,7 +90,15 @@ export default function StructurePage() {
     return 'edit'
   })
 
-  const [viewMode, setViewMode] = useState<ViewMode>('list')
+  // 视图模式跨刷新保留：在流程图上工作的人刷新一次就被踢回列表（真实检查 10.6）
+  const [viewMode, setViewModeState] = useState<ViewMode>(() => {
+    if (typeof window === 'undefined') return 'list'
+    try { return localStorage.getItem('filmgame:structure-view') === 'flow' ? 'flow' : 'list' } catch { return 'list' }
+  })
+  const setViewMode = (m: ViewMode) => {
+    setViewModeState(m)
+    try { localStorage.setItem('filmgame:structure-view', m) } catch { /* ignore */ }
+  }
   const [expandedChapters, setExpandedChapters] = useState<Set<string>>(new Set())
   const [expandedActs, setExpandedActs] = useState<Set<string>>(new Set())
 
@@ -406,7 +414,7 @@ export default function StructurePage() {
                                           <select value={node.type} onChange={e => updateNode(node.id, { type: e.target.value as NodeType })} className="text-xs text-pencil border-none bg-transparent outline-none cursor-pointer">
                                             {Object.entries(NODE_TYPES).map(([value, s]) => <option key={value} value={value}>{s.label}</option>)}
                                           </select>
-                                          <button onClick={() => deleteNode(node.id)} className="text-pencil/60 hover:text-vermilion text-xs cursor-pointer">✕</button>
+                                          <ConfirmButton size="sm" variant="danger" confirmLabel="确认删除" onConfirm={() => deleteNode(node.id)}>✕</ConfirmButton>
                                         </IndexCard>
                                       ))}
                                       <button onClick={() => addNode(act.id)} className="w-full text-xs text-vermilion hover:text-vermilion-deep py-1.5 border border-dashed border-vermilion/40 cursor-pointer">+ 添加节点</button>

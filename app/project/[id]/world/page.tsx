@@ -13,7 +13,8 @@ import { VariablesPanel } from './VariablesPanel'
 import { CharactersPanel } from './CharactersPanel'
 import { ReviewPanel } from './ReviewPanel'
 import { useWorldAi } from './useWorldAi'
-import type { WorldAnchor } from '@/lib/types/project'
+import type { WorldAnchor, EndingDesign } from '@/lib/types/project'
+import { nanoid } from 'nanoid'
 
 export default function WorldPage() {
   const router = useRouter()
@@ -76,6 +77,18 @@ export default function WorldPage() {
   const isComplete = Boolean(form.storyCore && form.theme && form.genre && form.worldRules)
   const endings = form.endingsDesign ?? project.worldAnchor?.endingsDesign ?? []
 
+  // 结局线手动编辑：走 store 的 setEndingsDesign（整批覆盖 + 一条撤销记录），
+  // 字段级输入在 EndingsPanel 里 blur/防抖后才提交，不会每个字符落一次库
+  function updateEnding(index: number, patch: Partial<EndingDesign>) {
+    setEndingsDesign(endings.map((e, i) => (i === index ? { ...e, ...patch } : e)))
+  }
+  function deleteEnding(index: number) {
+    setEndingsDesign(endings.filter((_, i) => i !== index))
+  }
+  function addEnding() {
+    setEndingsDesign([...endings, { id: nanoid(8), title: '新结局线', type: 'neutral', description: '', triggerCondition: '', avoidCondition: '' }])
+  }
+
   return (
     <div className="corkboard min-h-full px-6 py-8">
       <div className="max-w-6xl mx-auto">
@@ -119,14 +132,18 @@ export default function WorldPage() {
               </Field>
 
               <div>
-                <SectionHeading title="结局线" hint="结局数量建议 2-5 个，将作为故事结构阶段的目标节点" />
+                <SectionHeading
+                  title="结局线"
+                  hint="结局数量建议 2-5 个，将作为故事结构阶段的目标节点"
+                  action={<Button variant="ghost" size="sm" onClick={addEnding}>+ 添加结局线</Button>}
+                />
                 <div className="flex items-center gap-3 mb-3">
                   <label className="text-xs text-pencil">数量</label>
                   <Input type="number" value={form.endingCount} onChange={e => update('endingCount', Number(e.target.value))} min={2} max={10} className="!w-24" />
                 </div>
                 {endings.length === 0
                   ? <p className="text-xs text-pencil italic">尚未设计——填完上方四项后，用右侧「AI 设计结局线」生成</p>
-                  : <EndingsPanel endings={endings} />}
+                  : <EndingsPanel endings={endings} onUpdate={updateEnding} onDelete={deleteEnding} />}
               </div>
 
               <VariablesPanel variables={project.variables} />

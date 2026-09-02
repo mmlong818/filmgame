@@ -115,6 +115,8 @@ export function CommandPalette() {
     }
     list.push({ id: 'projects', group: '全局', label: '项目列表', hint: '返回档案室', run: () => router.push('/projects') })
     list.push({ id: 'new-project', group: '全局', label: '新建项目', run: () => router.push('/projects?new=1') })
+    list.push({ id: 'archive', group: '全局', label: '归档室', hint: '恢复或永久删除已归档项目', run: () => router.push('/projects?archive=1') })
+    list.push({ id: 'ai-settings', group: '全局', label: 'AI 设置', hint: 'Provider / 模型 / 连接测试', run: () => router.push('/projects?settings=1') })
     return list
   }, [inProject, project, query, undoCount, redoCount, aiTasks, goToPhase, router, toast])
 

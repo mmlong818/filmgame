@@ -474,10 +474,14 @@ async function flushPendingForId(id: string): Promise<void> {
     dispatchSaveState({ state: 'conflict', id })
     return
   }
-  for (const op of readPending(id)) {
-    const ok = op.kind === 'node' ? await flushNodeOp(id, op) : await flushProjectLevelOp(id, op)
-    if (!ok) return
-  }
+  // 必须进同一条串行队列：此前冲刷直接发请求，与重连后用户紧接着的新编辑并发，
+  // 两边拿同一 expectedVersion，后到者 409 进冲突锁——"刚重连又说冲突"（真实检查 10.4）
+  return enqueueSave(id, async () => {
+    for (const op of readPending(id)) {
+      const ok = op.kind === 'node' ? await flushNodeOp(id, op) : await flushProjectLevelOp(id, op)
+      if (!ok) return
+    }
+  })
 }
 
 /** 扫描所有 filmgame:pending:* 键并逐一 flush。手动调用或 `online` 事件触发。 */

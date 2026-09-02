@@ -7,6 +7,7 @@ import { useProjectStore } from '@/lib/store/projectStore'
 import { aiJson } from '@/lib/ai/client'
 import { AiActionError, isAbortError } from '@/lib/ai/errors'
 import { useAiAction } from '@/lib/hooks/useAiAction'
+import { setRunningGeneration } from '@/lib/ui/pendingDraftGuard'
 import type { Project, StoryNode, VariableType } from '@/lib/types/project'
 import type { AiChoice, AiNodeChoices, Stage } from './draftTypes'
 
@@ -40,6 +41,7 @@ export function useBranchGeneration({ project, setStage }: Params) {
     const chunks = chapterChunks.length > 0 ? chapterChunks : [nodeList]
     setBranchProgress({ done: 0, total: chunks.length })
 
+    setRunningGeneration('分支生成')
     const result = await branchAi.run('生成分支', async (signal) => {
       const all: AiNodeChoices[] = []
       for (let i = 0; i < chunks.length; i++) {
@@ -71,6 +73,7 @@ export function useBranchGeneration({ project, setStage }: Params) {
     })
 
     setBranchProgress(null)
+    setRunningGeneration(null)
     if (result === null) setStage('edit')
   }
 

@@ -10,6 +10,27 @@
 
 let pendingCount = 0
 let noticeText = ''
+// 进行中的长任务（结构生成/分支生成/批量 AI）。这些走流式或长轮询请求，页面一关或
+// 一跳转就中断，取消传导会让服务端整轮作废——标准版结构 8 分钟、分支 5 分钟全部重来，
+// 而此前离开时没有任何警告（真实检查里自己就栽了两次）。
+let runningLabel: string | null = null
+
+export function setRunningGeneration(label: string | null): void {
+  runningLabel = label
+}
+
+export function hasRunningGeneration(): boolean {
+  return runningLabel !== null
+}
+
+// 关页/刷新兜底：草稿或生成任何一项在途就拦。只注册一次（模块级）。
+if (typeof window !== 'undefined') {
+  window.addEventListener('beforeunload', (e) => {
+    if (pendingCount === 0 && runningLabel === null) return
+    e.preventDefault()
+    e.returnValue = ''
+  })
+}
 
 export function setPendingDrafts(count: number, notice = ''): void {
   pendingCount = Math.max(0, count)
@@ -26,8 +47,11 @@ export function hasPendingDrafts(): boolean {
  * @returns true 表示可以继续跳转
  */
 export function confirmLeaveWithDrafts(): boolean {
-  if (pendingCount === 0) return true
   if (typeof window === 'undefined') return true
+  if (runningLabel !== null) {
+    return window.confirm(`「${runningLabel}」正在进行，离开将中断并作废本次生成（需重头再来）。确定离开吗？`)
+  }
+  if (pendingCount === 0) return true
   const what = noticeText || `${pendingCount} 处 AI 草稿尚未采纳`
   return window.confirm(`${what}，离开将丢弃。确定离开吗？`)
 }

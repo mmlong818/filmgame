@@ -103,6 +103,8 @@ function ProjectsPageInner() {
   useEffect(() => {
     refresh()
     if (searchParams.get('new') === '1') setShowNew(true)
+    if (searchParams.get('archive') === '1') void openArchive()
+    if (searchParams.get('settings') === '1') setShowSettings(true)
     if (hasUnimportedLegacyData()) setShowLegacyPrompt(true)
   }, [refresh, searchParams])
 
@@ -130,13 +132,16 @@ function ProjectsPageInner() {
     }
   }
 
+  // 清掉 ?new=1 / ?archive=1 / ?settings=1，否则浏览器前进/后退会把已关闭的弹窗重新弹出来
+  function clearOpenerQuery() {
+    if (typeof window !== 'undefined' && /[?&](new|archive|settings)=1/.test(window.location.search)) {
+      window.history.replaceState(null, '', window.location.pathname)
+    }
+  }
   function openNewModal() { setShowNew(true) }
   function closeNewModal() {
     setShowNew(false)
-    // 清掉 ?new=1，否则浏览器前进/后退会把已关闭的弹窗重新弹出来
-    if (typeof window !== 'undefined' && window.location.search.includes('new=1')) {
-      window.history.replaceState(null, '', window.location.pathname)
-    }
+    clearOpenerQuery()
     setNewTitle('')
     setSelectedTemplate(null)
     setNewAiMode('thinking')
@@ -412,10 +417,10 @@ function ProjectsPageInner() {
         )}
       </div>
 
-      <AISettingsModal open={showSettings} onClose={() => setShowSettings(false)} />
+      <AISettingsModal open={showSettings} onClose={() => { setShowSettings(false); clearOpenerQuery() }} />
 
       {/* ── Archive Modal ── */}
-      <Modal open={showArchive} onClose={() => setShowArchive(false)} title="归档室" width="md">
+      <Modal open={showArchive} onClose={() => { setShowArchive(false); clearOpenerQuery() }} title="归档室" width="md">
         {archivedProjects.length === 0 ? (
           <p className="text-sm py-8 text-center text-pencil">归档室空无一物</p>
         ) : (

@@ -250,7 +250,7 @@ ${needChoices.map((n, i) => `${i+1}. [${n.type}] id="${n.id}" "${n.title}"`).joi
       "nodeId": "节点id（原样复制）",
       "exploreReturnNodeId": "",
       "choices": [
-        { "text": "选项文字（≤10字）", "targetNodeId": "从拓扑复制", "variableEffects": "", "choiceWeight": "light" }
+        { "text": "选项文字（≤10字）", "targetNodeId": "从拓扑复制", "variableEffects": "", "choiceWeight": "light", "consequence": "一句话预判该选择的直接后果（≤20字，给编剧看，不展示给玩家）" }
       ]
     }
   ]

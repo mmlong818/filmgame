@@ -8,6 +8,7 @@ import { useProjectStore } from '@/lib/store/projectStore'
 import { aiStructureFetch } from '@/lib/ai/client'
 import { AiActionError, isAbortError } from '@/lib/ai/errors'
 import { useAiAction } from '@/lib/hooks/useAiAction'
+import { setRunningGeneration } from '@/lib/ui/pendingDraftGuard'
 import type { Project, Chapter, Act, StoryNode } from '@/lib/types/project'
 import {
   normalizeChapters, toErrorType, draftNodeType,
@@ -122,6 +123,7 @@ export function useStructureGeneration({ project, setStage, toast }: Params) {
     const scalePlan = project!.scalePlanOptions.find(p => p.id === project!.selectedScalePlanId)
     const context = { worldAnchor: project!.worldAnchor, scalePlan, characters: project!.characters }
 
+    setRunningGeneration('结构生成')
     const result = await structAi.run('生成结构', async (signal) => {
       let streamStarted = false
       try {
@@ -149,6 +151,7 @@ export function useStructureGeneration({ project, setStage, toast }: Params) {
       return true
     })
 
+    setRunningGeneration(null)
     if (result === null) setStage('edit')
   }
 

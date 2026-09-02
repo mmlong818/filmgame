@@ -1,4 +1,5 @@
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
+import { setRunningGeneration } from '@/lib/ui/pendingDraftGuard'
 import { nanoid } from 'nanoid'
 import { aiFetch } from '@/lib/ai/client'
 import type { Project, StoryNode, DialogueLine } from '@/lib/types/project'
@@ -18,7 +19,32 @@ export function useBulkAi({ project, selectedId, updateNode, toast }: Params) {
   const [bulkLoading, setBulkLoading] = useState(false)
   const [bulkProgress, setBulkProgress] = useState<{ done: number; total: number; phase: 'generate' | 'refine' } | null>(null)
   const [bulkScope, setBulkScope] = useState<BulkScope>('act')
-  const [bulkFailedIds, setBulkFailedIds] = useState<string[]>([])
+  // 失败清单持久化：此前只在组件 state 里，刷新后「12 个节点生成失败」与「仅重试失败项」
+  // 一起消失（真实检查 6.8 实测）。按项目存 localStorage，加载时剔除已不存在的节点。
+  const failedKey = project ? `filmgame:bulk-failed:${project.id}` : null
+  const [bulkFailedIds, setBulkFailedIdsState] = useState<string[]>([])
+  const loadedFailedFor = useRef<string | null>(null)
+  useEffect(() => {
+    if (!failedKey || !project || loadedFailedFor.current === failedKey) return
+    loadedFailedFor.current = failedKey
+    try {
+      const raw = localStorage.getItem(failedKey)
+      if (!raw) return
+      const alive = new Set(project.nodes.map(n => n.id))
+      const ids = (JSON.parse(raw) as string[]).filter(id => alive.has(id))
+      if (ids.length) setBulkFailedIdsState(ids)
+    } catch { /* ignore */ }
+  }, [failedKey, project])
+  const setBulkFailedIds = useCallback((ids: string[]) => {
+    setBulkFailedIdsState(ids)
+    if (!failedKey) return
+    try { ids.length ? localStorage.setItem(failedKey, JSON.stringify(ids)) : localStorage.removeItem(failedKey) } catch { /* ignore */ }
+  }, [failedKey])
+  // 进行中登记：离开页面前由 layout 的导航守卫询问，关页由 beforeunload 兜底
+  useEffect(() => {
+    setRunningGeneration(bulkLoading ? '批量 AI 设计' : null)
+    return () => setRunningGeneration(null)
+  }, [bulkLoading])
   const bulkCancelRef = useRef(false)
   // 与协作式取消标志配套：中止当前批量运行里所有在飞请求，而不只是让循环停止发起下一轮。
   const bulkCtlRef = useRef<AbortController | null>(null)
