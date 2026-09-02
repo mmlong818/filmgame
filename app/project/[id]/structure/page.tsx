@@ -8,6 +8,7 @@ import { aiJson, aiStructureFetch } from '@/lib/ai/client'
 import { AiActionError, isAbortError, type AiErrorType } from '@/lib/ai/errors'
 import { useAiAction } from '@/lib/hooks/useAiAction'
 import { NODE_TYPES } from '@/lib/ui/nodeTypes'
+import { stripWorkflowTags } from '@/lib/ui/endingLabel'
 import type { NodeType, Chapter, Act, StoryNode, VariableType } from '@/lib/types/project'
 import { Button } from '@/app/components/ui/button'
 import { Input } from '@/app/components/ui/input'
@@ -69,14 +70,15 @@ function importEndingDefinitions(): number {
   for (const node of p.nodes) {
     if (node.type !== 'ending' || matchedNodeIds.has(node.id)) continue
     bindEnding(node.id, {
-      title: node.title,
+      title: stripWorkflowTags(node.title) || node.title,
       type: 'bad',
-      description: node.notes || '一步踏错，故事在此戛然而止。',
+      description: stripWorkflowTags(node.notes) || '一步踏错，故事在此戛然而止。',
       conditions: '',
     })
   }
   return imported
 }
+
 
 export default function StructurePage() {
   const router = useRouter()

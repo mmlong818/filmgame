@@ -230,8 +230,12 @@ export function runValidation(project: Project): ValidationReport {
         id: nanoid(4),
         level: 'error',
         code: 'ENDING_ORPHAN',
-        message: `结局定义「${e.title}」指向的节点不存在或不是结局节点，结局将无法触发`,
+        message: `结局定义「${e.title}」指向的节点不存在或不是结局节点，结局将无法触发——请在「结局定义」区重新绑定或删除该定义`,
+        // relatedIds 曾是空数组，于是这一类问题在报告里没有「去修复 →」按钮，
+        // 只能拿标题去人肉找（午夜电台一次出现 9 条）。悬空定义本身没有有效节点可跳，
+        // 就退一步指向结构页的结局定义区，至少把人送到能改的地方。
         relatedIds: [],
+        fixHref: 'structure#endings',
       })
     }
   }

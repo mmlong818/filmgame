@@ -288,12 +288,16 @@ function IssueGroup({ level, items, projectId }: { level: IssueLevel; items: Val
             <div key={issue.id} className={`bg-paper border-l-4 ${conf.border} px-3 py-2 text-sm text-ink`} style={{ boxShadow: 'var(--shadow-card)' }}>
               <div className="flex items-start justify-between gap-2">
                 <span><span className="courier text-xs text-pencil">[{issue.code}]</span> {issue.message}</span>
-                {issue.relatedIds?.length > 0 && (
+                {(issue.relatedIds?.length > 0 || issue.fixHref) && (
                   <Button
                     variant="link"
                     size="sm"
                     className="shrink-0"
-                    onClick={() => router.push(`/project/${projectId}/workshop?node=${issue.relatedIds[0]}`)}
+                    onClick={() => router.push(
+                      issue.relatedIds?.length > 0
+                        ? `/project/${projectId}/workshop?node=${issue.relatedIds[0]}`
+                        : `/project/${projectId}/${issue.fixHref}`,
+                    )}
                   >
                     去修复 →
                   </Button>
@@ -322,18 +326,37 @@ function PathDurationTable({ project }: { project: Project }) {
   const paths = enumeratePaths(startNode.id, nodeMap, 30)
   if (paths.length === 0) return null
 
-  const pathData = paths.map((path, i) => {
+  // 按结局聚合：多条路径通往同一结局是常态（分支再汇合），逐条平铺会出现
+  // 30 行同名同长度的条目（实测新旧项目都复现），信息量为零。
+  // 每个结局一行，展示最短~最长区间与路径条数——这才是"各结局分别多长"。
+  const byEnding = new Map<string, { label: string; barClass: string; mins: number[]; nodeCounts: number[] }>()
+  paths.forEach((path, i) => {
     const totalSeconds = path.reduce((sum, id) => sum + (nodeMap.get(id)?.durationSeconds ?? 0), 0)
     const endingNode = nodeMap.get(path[path.length - 1])
     const endingDef = project.endings.find(e => e.nodeId === endingNode?.id)
     const type = endingDef?.type ?? 'neutral'
-    return {
+    const key = endingNode?.id ?? `p${i}`
+    const entry = byEnding.get(key) ?? {
       label: endingDef?.title ?? endingNode?.title ?? `路径 ${i + 1}`,
-      nodes: path.length,
-      minutes: Math.round(totalSeconds / 60),
       barClass: ENDING_TONE[type]?.bar ?? ENDING_TONE.neutral.bar,
+      mins: [], nodeCounts: [],
     }
+    entry.mins.push(Math.round(totalSeconds / 60))
+    entry.nodeCounts.push(path.length)
+    byEnding.set(key, entry)
   })
+  const pathData = [...byEnding.values()].map(e => {
+    const minM = Math.min(...e.mins), maxM = Math.max(...e.mins)
+    const minN = Math.min(...e.nodeCounts), maxN = Math.max(...e.nodeCounts)
+    return {
+      label: e.label,
+      barClass: e.barClass,
+      minutes: maxM,
+      routes: e.mins.length,
+      durationText: minM === maxM ? `${minM}分` : `${minM}–${maxM}分`,
+      nodeText: minN === maxN ? `${minN}节点` : `${minN}–${maxN}节点`,
+    }
+  }).sort((a, b) => b.minutes - a.minutes)
   const maxMinutes = Math.max(...pathData.map(p => p.minutes), 1)
 
   return (
@@ -346,13 +369,16 @@ function PathDurationTable({ project }: { project: Project }) {
             <div className="flex-1 h-3 bg-pencil/15 overflow-hidden">
               <div className={`h-full ${p.barClass}`} style={{ width: `${(p.minutes / maxMinutes) * 100}%` }} />
             </div>
-            <div className="text-xs text-pencil shrink-0 w-24 text-right">{p.minutes}分 · {p.nodes}节点</div>
+            <div className="text-xs text-pencil shrink-0 w-36 text-right">
+              {p.durationText} · {p.nodeText}
+              {p.routes > 1 && <span className="text-pencil/70"> · {p.routes} 条路径</span>}
+            </div>
           </div>
         ))}
       </div>
-      {paths.length >= 30 && (
-        <p className="text-xs text-pencil mt-2">仅显示前30条路径</p>
-      )}
+      <p className="text-xs text-pencil mt-2">
+        按结局聚合自 {paths.length} 条采样路径{paths.length >= 30 ? '（采样上限 30 条）' : ''}
+      </p>
     </div>
   )
 }

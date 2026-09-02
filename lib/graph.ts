@@ -45,19 +45,41 @@ export function enumeratePaths(
   }
   if (!canReachEnding.has(startId)) return []
 
-  // ② 有界广度扩展
+  // ② 有界广度扩展，但按结局分配配额。
+  // 广度优先天然按路径长度出结果，若不限配额，前 maxPaths 条会全是最短路径、
+  // 且大多汇向同一个最近的结局——校验页「路径时长分布」曾因此显示 30 行一模一样的
+  // 「路径C·即死结局 14分·7节点」，等于没有信息。每个结局最多取 perEnding 条，
+  // 保证结果覆盖到不同终局（这也是调用方真正想看的：各结局分别多长）。
+  const reachableEndings = endings.filter(id => canReachEnding.has(id))
+  const perEnding = Math.max(1, Math.ceil(maxPaths / Math.max(1, reachableEndings.length)))
+  const countByEnding = new Map<string, number>()
+
   const paths: string[][] = []
   let frontier: { path: string[]; visited: Set<string> }[] = [{ path: [startId], visited: new Set([startId]) }]
   while (frontier.length > 0 && paths.length < maxPaths) {
     const next: typeof frontier = []
     for (const item of frontier) {
       if (paths.length >= maxPaths) break
-      const node = nodeMap.get(item.path[item.path.length - 1])!
-      if (node.type === 'ending') { paths.push(item.path); continue }
+      const lastId = item.path[item.path.length - 1]
+      const node = nodeMap.get(lastId)!
+      if (node.type === 'ending') {
+        const used = countByEnding.get(lastId) ?? 0
+        if (used < perEnding) {
+          countByEnding.set(lastId, used + 1)
+          paths.push(item.path)
+        }
+        continue
+      }
+      // 同一节点的多个选项常指向同一后继（v2 起「2-3 个选项对应同一推进」是刻意设计，
+      // 让对话有真选择而结构不炸）。路径只记节点序列，若逐 choice 扩展，同一条节点序列
+      // 会被复制 2-3 份——分支分析页因此出现「1~5 条路径完全相同」，路径总数虚高。
+      // 按目标节点去重后，每条路径在结果里只出现一次。
+      const seenTargets = new Set<string>()
       for (const choice of (node.choices ?? [])) {
         const t = choice.targetNodeId
-        if (!t || item.visited.has(t) || !canReachEnding.has(t)) continue
-        if (next.length + paths.length >= maxPaths * 4) break // 前沿宽度同样设界，避免宽图撑爆内存
+        if (!t || seenTargets.has(t) || item.visited.has(t) || !canReachEnding.has(t)) continue
+        seenTargets.add(t)
+        if (next.length >= maxPaths * 4) break // 前沿宽度设界，避免宽图撑爆内存
         next.push({ path: [...item.path, t], visited: new Set(item.visited).add(t) })
       }
     }

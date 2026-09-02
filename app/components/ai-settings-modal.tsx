@@ -195,9 +195,13 @@ export function AISettingsModal({ open, onClose }: Props) {
       footer={
         <>
           <div className="mr-auto flex items-center text-xs">
-            {testResult?.ok
-              ? <span className="text-leaf">✓ 已通过连接测试</span>
-              : <span className="text-amberink">未通过连接测试</span>}
+            {/* 三态而非两态：从未测试过时显示中性的「尚未测试」，
+                此前一律显示琥珀色「未通过连接测试」，会被误读为"当前配置是坏的" */}
+            {testResult == null
+              ? <span className="text-pencil">尚未测试连接</span>
+              : testResult.ok
+                ? <span className="text-leaf">✓ 已通过连接测试</span>
+                : <span className="text-amberink">未通过连接测试</span>}
           </div>
           <Button variant="secondary" onClick={onClose}>取消</Button>
           <Button variant="primary" onClick={handleSave}>{saved ? '已保存 ✓' : '保存'}</Button>

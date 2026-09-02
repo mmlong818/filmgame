@@ -178,6 +178,9 @@ export interface ValidationIssue {
   code: string
   message: string
   relatedIds: string[]
+  /** 无具体节点可跳时的兜底去处（相对项目根，如 'structure#endings'）；
+      悬空结局定义这类问题没有有效节点，仍需把人送到能改的页面 */
+  fixHref?: string
 }
 
 export interface ValidationReport {

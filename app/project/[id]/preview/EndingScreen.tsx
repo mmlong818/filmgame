@@ -1,6 +1,7 @@
 'use client'
 import type { Ending, StoryNode } from '@/lib/types/project'
 import { ENDING_ACCENTS } from './theme'
+import { stripWorkflowTags } from '@/lib/ui/endingLabel'
 
 interface Props {
   node: StoryNode
@@ -32,7 +33,7 @@ export function EndingScreen({ node, ending, totalEndings, unlockedCount, stepsT
           {accent.label}
         </div>
         <h2 className="text-2xl font-light mb-6 leading-relaxed text-[var(--pv-text)]">
-          {ending?.title ?? node.title}
+          {ending?.title ?? stripWorkflowTags(node.title) ?? node.title}
         </h2>
         {ending?.description && (
           <p className="text-sm leading-loose mb-6 opacity-80 text-[var(--pv-text-soft)]">{ending.description}</p>

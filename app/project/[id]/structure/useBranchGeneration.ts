@@ -7,7 +7,7 @@ import { useProjectStore } from '@/lib/store/projectStore'
 import { aiJson } from '@/lib/ai/client'
 import { AiActionError, isAbortError } from '@/lib/ai/errors'
 import { useAiAction } from '@/lib/hooks/useAiAction'
-import type { Project, StoryNode } from '@/lib/types/project'
+import type { Project, StoryNode, VariableType } from '@/lib/types/project'
 import type { AiChoice, AiNodeChoices, Stage } from './draftTypes'
 
 interface Params {
@@ -222,6 +222,53 @@ export function useBranchGeneration({ project, setStage }: Params) {
     // 一次性批量写入
     const store = useProjectStore.getState()
     store.bulkSetStructure(fresh.chapters, fresh.acts, suturedNodes)
+    registerOrphanVariables(suturedNodes)
+  }
+
+  /**
+   * 把选项里用到但未登记的变量补进变量表。
+   *
+   * 若作者跳过世界锚点的「AI 建议变量」，分支生成的 AI 会自创变量名（courage/trust…）
+   * 写进 variableEffects 与 conditions，却没有任何环节把它们登记为项目变量。
+   * 后果极隐蔽：运行时动态累加照常工作，但试玩的调试面板无变量可看、分支分析显示
+   * 「暂无变量」、校验引擎无法判定门控是否可满足——三处同时失明。
+   * （实测：跑过建议变量的项目孤儿变量 0 个，跳过的两个项目全部孤儿。）
+   * 类型推断：出现 ±N 形态按 counter，出现 =true/=值 形态按 flag。
+   */
+  function registerOrphanVariables(nodes: StoryNode[]) {
+    const store = useProjectStore.getState()
+    const current = store.project
+    if (!current) return
+    const defined = new Set(current.variables.map(v => v.name))
+    const seen = new Map<string, VariableType>()
+
+    for (const n of nodes) {
+      for (const c of n.choices ?? []) {
+        for (const part of (c.variableEffects ?? '').split(',')) {
+          const p = part.trim()
+          if (!p) continue
+          const inc = p.match(/^([a-zA-Z_]\w*)\s*[+-]\s*\d+$/) ?? p.match(/^[+-]([a-zA-Z_]\w*)$/)
+          if (inc) { if (!seen.has(inc[1])) seen.set(inc[1], 'counter'); continue }
+          const set = p.match(/^([a-zA-Z_]\w*)\s*=/)
+          if (set && !seen.has(set[1])) seen.set(set[1], 'flag')
+        }
+        for (const m of (c.conditions ?? '').matchAll(/([a-zA-Z_]\w*)\s*(?:>=|<=|>|<|==|!=)/g)) {
+          if (!seen.has(m[1])) seen.set(m[1], 'counter')
+        }
+      }
+    }
+    for (const [name, type] of seen) {
+      if (defined.has(name)) continue
+      store.addVariable(name)
+      const created = useProjectStore.getState().project?.variables.find(v => v.name === name)
+      if (created) {
+        store.updateVariable(created.id, {
+          type,
+          defaultValue: type === 'flag' ? 'false' : '0',
+          description: '由分支生成自动登记（选项里已在使用）',
+        })
+      }
+    }
   }
 
   return {
