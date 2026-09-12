@@ -1,10 +1,11 @@
 import { create } from 'zustand'
 import { nanoid } from 'nanoid'
+import { PROJECT_ID_ARRAY_KEYS } from '@/lib/types/project'
 import type { Project, StoryNode, Choice, Variable, WorldAnchor, ScalePlan, ValidationReport, Chapter, Act, Character, Ending, EndingDesign, AiMode } from '@/lib/types/project'
 import type { Phase } from '@/lib/types/phase'
 import { loadLocalSnapshot, writeLocalSnapshot, saveProject, saveProjectMeta, saveNode, setHydrated, clearConflictLock, resetConfirmedVersion } from '@/lib/persistence'
 import type { SaveStateDetail } from '@/lib/persistence'
-import { bindHistory, pushUndo, clearHistory, isRestoring, invalidateRedo } from '@/lib/store/history'
+import { bindHistory, pushUndo, clearHistory, isRestoring, invalidateRedo, recordAfterState } from '@/lib/store/history'
 
 const PHASE_ORDER: Phase[] = ['world', 'scale', 'structure', 'workshop', 'validate']
 
@@ -49,9 +50,9 @@ type HydrateResult = 'ok' | 'not-found' | 'error'
 // （paintBase）为基线，找出 current 相对基线真正被用户改过的顶层字段（带 id 的数组精确到
 // 单个条目的改/增/删），只把这些字段叠加到 DB 副本上；其余字段一律以 DB 为准。
 const MERGE_SKIP_KEYS = new Set<string>(['id', 'createdAt', 'updatedAt', 'schemaVersion'])
-// 逐条目合并的数组字段。此前只有 nodes 这样做，其余数组只要本地与基线不同就整表覆盖 DB——
-// 多标签页下 A 新增的角色会被 B 的整表覆盖静默丢掉。
-const ID_ARRAY_KEYS = ['nodes', 'characters', 'variables', 'endings', 'acts', 'chapters', 'scalePlanOptions'] as const satisfies readonly (keyof Project)[]
+// 逐条目合并的数组字段（PROJECT_ID_ARRAY_KEYS）。此前只有 nodes 这样做，其余数组只要本地与
+// 基线不同就整表覆盖 DB——多标签页下 A 新增的角色会被 B 的整表覆盖静默丢掉。
+const ID_ARRAY_KEYS = PROJECT_ID_ARRAY_KEYS
 
 interface WithId { id: string }
 
@@ -630,7 +631,12 @@ useProjectStore.subscribe((state, prev) => {
     state.project !== prev.project &&
     state.project.id === prev.project.id &&
     !isRestoring()
-  ) invalidateRedo()
+  ) {
+    invalidateRedo()
+    // pushUndo 在 action 的 set 回调内调用，因此紧随其后的第一次变更就是该 action 的结果——
+    // 记为「动作后」快照，供撤销时只回退动作触碰的条目、保留其后的编辑（见 history.revertTouched）
+    recordAfterState(state.project)
+  }
 })
 
 // ─── 多标签页协同（BroadcastChannel）+ 保存状态桥接 ───────────────────

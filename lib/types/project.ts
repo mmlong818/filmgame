@@ -232,6 +232,9 @@ export interface Project {
   aiMode?: AiMode
 }
 
+/** Project 上元素带 id 的数组字段——对账合并（projectStore）与精确撤销（history）都按 id 逐条处理它们 */
+export const PROJECT_ID_ARRAY_KEYS = ['nodes', 'characters', 'variables', 'endings', 'acts', 'chapters', 'scalePlanOptions'] as const satisfies readonly (keyof Project)[]
+
 export interface ProjectSummary {
   id: string
   title: string
