@@ -1,6 +1,6 @@
 import type { Project, ValidationIssue, ValidationReport } from '@/lib/types/project'
 import { nanoid } from 'nanoid'
-import { parseEffectPart, lintConditions } from '@/lib/conditions'
+import { parseEffectPart, lintConditions, splitEffects } from '@/lib/conditions'
 import { reachableNodeIds } from '@/lib/graph'
 
 export function runValidation(project: Project): ValidationReport {
@@ -240,7 +240,7 @@ export function runValidation(project: Project): ValidationReport {
   // 复用 lib/conditions.ts 的 parseEffectPart（与 preview/ink 导出共用同一套解析规则）。
   function extractEffectVars(expr: string | undefined): string[] {
     if (!expr || !expr.trim()) return []
-    return expr.split(',').map(p => parseEffectPart(p)?.name).filter((n): n is string => !!n)
+    return splitEffects(expr).map(p => parseEffectPart(p)?.name).filter((n): n is string => !!n)
   }
 
   for (const node of safeNodes) {
@@ -261,8 +261,7 @@ export function runValidation(project: Project): ValidationReport {
       // 不会落进上面的 unknown 变量检查——但预览（applyVariableEffect）和 ink 导出（applyInkEffects）
       // 同样解析失败会跳过该片段，于是作者拿到绿色报告，效果却在运行时静默不执行。这里单独收集
       // 非空但解析失败的片段并报 warning（与 unknown 变量检查互斥，一个片段只会落进其中一个）。
-      const unparseable = (choice.variableEffects ?? '')
-        .split(',')
+      const unparseable = splitEffects(choice.variableEffects)
         .map(p => p.trim())
         .filter(Boolean)
         .filter(p => parseEffectPart(p) === null)
@@ -308,7 +307,7 @@ export function runValidation(project: Project): ValidationReport {
     const setMin = new Map<string, number>()
     for (const node of safeNodes) {
       for (const choice of node.choices) {
-        for (const part of (choice.variableEffects ?? '').split(',')) {
+        for (const part of splitEffects(choice.variableEffects)) {
           const parsed = parseEffectPart(part)
           if (!parsed || !numericBounds.has(parsed.name)) continue
           const val = Number(parsed.value)

@@ -156,11 +156,27 @@ export function parseEffectPart(part: string): ParsedEffect | null {
   return null
 }
 
+/**
+ * 把 variableEffects 切成单个效果。分隔符是逗号，但 set 取值本身也可能含逗号
+ * （`line=好的, 走吧`）：紧跟在 set 后、自身又解析不成效果的片段，并回前一段当作取值的一部分。
+ * preview / ink 导出 / 校验引擎 / 覆盖率统计全部经此切分，避免各处 split(',') 再漂移。
+ */
+export function splitEffects(effects: string | undefined): string[] {
+  const out: string[] = []
+  for (const seg of (effects ?? '').split(',')) {
+    const prev = out[out.length - 1]
+    const continuesSetValue = prev !== undefined && seg.trim() !== '' && parseEffectPart(seg) === null && parseEffectPart(prev)?.kind === 'set'
+    if (continuesSetValue) out[out.length - 1] = `${prev},${seg}`
+    else out.push(seg)
+  }
+  return out
+}
+
 /** 预览播放时把一次选项的 variableEffects 应用到当前变量状态，返回新状态（不修改入参）。 */
 export function applyVariableEffect(state: Record<string, string | number>, effect: string): Record<string, string | number> {
   if (!effect || !effect.trim()) return state
   const next = { ...state }
-  for (const part of effect.split(',')) {
+  for (const part of splitEffects(effect)) {
     const parsed = parseEffectPart(part)
     if (!parsed) continue
     const { name, kind, value } = parsed

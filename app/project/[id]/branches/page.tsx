@@ -7,7 +7,7 @@ import { nodeTypeStyle } from '@/lib/ui/nodeTypes'
 import type { NodeType } from '@/lib/types/project'
 import { Button } from '@/app/components/ui/button'
 import { Skeleton, SkeletonLines } from '@/app/components/ui/skeleton'
-import { parseEffectPart, extractConditionVars } from '@/lib/conditions'
+import { parseEffectPart, extractConditionVars, splitEffects } from '@/lib/conditions'
 
 // ── Type config（图标本地维护，文案与配色一律取自 lib/ui/nodeTypes） ──────────
 
@@ -106,7 +106,7 @@ export default function BranchesPage() {
   // 条件里引用的变量同样算"已使用"（门控是变量最主要的用途）。
   const usedVarNames = new Set(
     nodes.flatMap(n => n.choices ?? []).flatMap(c => {
-      const fromEffects = (c.variableEffects ?? '').split(',')
+      const fromEffects = splitEffects(c.variableEffects)
         .map(part => parseEffectPart(part)?.name)
         .filter((v): v is string => !!v)
       const fromConditions = extractConditionVars(c.conditions ?? '')

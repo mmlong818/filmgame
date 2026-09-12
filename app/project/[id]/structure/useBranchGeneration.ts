@@ -8,6 +8,7 @@ import { aiJson } from '@/lib/ai/client'
 import { AiActionError, isAbortError } from '@/lib/ai/errors'
 import { useAiAction } from '@/lib/hooks/useAiAction'
 import { setRunningGeneration } from '@/lib/ui/pendingDraftGuard'
+import { splitEffects } from '@/lib/conditions'
 import type { Project, StoryNode, VariableType } from '@/lib/types/project'
 import type { AiChoice, AiNodeChoices, Stage } from './draftTypes'
 
@@ -247,7 +248,7 @@ export function useBranchGeneration({ project, setStage }: Params) {
 
     for (const n of nodes) {
       for (const c of n.choices ?? []) {
-        for (const part of (c.variableEffects ?? '').split(',')) {
+        for (const part of splitEffects(c.variableEffects)) {
           const p = part.trim()
           if (!p) continue
           const inc = p.match(/^([a-zA-Z_]\w*)\s*[+-]\s*\d+$/) ?? p.match(/^[+-]([a-zA-Z_]\w*)$/)

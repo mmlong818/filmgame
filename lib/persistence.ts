@@ -6,7 +6,7 @@
 //   写入失败/离线时排队进 filmgame:pending:<id>，`online` 事件时自动 flush。
 // - 保存状态通过 window 事件 `filmgame:save-state` 广播，供 UI（如保存指示器）监听。
 import type { Project, StoryNode } from './types/project'
-import { conditionsToInk, parseEffectPart } from './conditions'
+import { conditionsToInk, parseEffectPart, splitEffects } from './conditions'
 
 const projectKey = (id: string) => `filmgame:project:${id}`
 const pendingKey = (id: string) => `filmgame:pending:${id}`
@@ -688,7 +688,7 @@ export function exportInk(project: Project): void {
   // 导致 89 个 AI 生成选项的 variableEffects 在导出的 .ink 里全部消失，无法变更任何变量）。
   const applyInkEffects = (effects: string): string[] => {
     if (!effects.trim()) return []
-    return effects.split(',').map(part => {
+    return splitEffects(effects).map(part => {
       const parsed = parseEffectPart(part)
       if (!parsed) return ''
       const name = inkVarName(parsed.name)
@@ -715,7 +715,7 @@ export function exportInk(project: Project): void {
   }
   for (const node of project.nodes) {
     for (const c of node.choices ?? []) {
-      for (const part of (c.variableEffects ?? '').split(',')) {
+      for (const part of splitEffects(c.variableEffects)) {
         const parsed = parseEffectPart(part)
         if (!parsed) continue
         const converted = inkVarName(parsed.name)
