@@ -660,15 +660,29 @@ export function exportInk(project: Project): void {
   lines.push(`// 由 filmgame 导出 · ${new Date().toLocaleDateString('zh-CN')}`)
   lines.push('')
 
+  // 与下方 inkKnotName 同一套路：按原名缓存 + 已用名去重。此前无去重，「变量A」「参数A」
+  // 都被替换成 __A，VAR 声明后写覆盖先写，两个变量在 .ink 里静默合成一个。
+  const varNameCache = new Map<string, string>()
+  const usedVarNames = new Set<string>()
   const inkVarName = (name: string): string => {
+    const cached = varNameCache.get(name)
+    if (cached) return cached
     const direct = name.replace(/[^a-zA-Z0-9_]/g, '_')
-    const fixed = /^[0-9]/.test(direct) ? `var_${direct}` : direct
-    if (!fixed || fixed === '_' || fixed.replace(/_/g, '') === '') {
+    let base = /^[0-9]/.test(direct) ? `var_${direct}` : direct
+    if (!base || base.replace(/_/g, '') === '') {
       const hash = name.split('').reduce((acc, ch) => acc + ch.charCodeAt(0), 0)
-      return `var_${hash}`
+      base = `var_${hash}`
     }
-    return fixed
+    let candidate = base
+    let suffix = 2
+    while (usedVarNames.has(candidate)) candidate = `${base}_${suffix++}`
+    usedVarNames.add(candidate)
+    varNameCache.set(name, candidate)
+    return candidate
   }
+  // 字符串取值里的 " 会提前闭合 Ink 字面量、换行会截断，产出编不过的 .ink。
+  // 不依赖 Ink 的转义规则：用中文引号替换、换行折成空格，字面量必定合法且语义可读。
+  const inkStr = (s: string): string => `"${s.replace(/"/g, '”').replace(/\r?\n/g, ' ')}"`
   // 解析交给 lib/conditions.ts 的 parseEffectPart 统一处理（同时认识 AI 生成的
   // "name+1" 后缀写法与工坊快捷按钮的 "+name" 前缀写法，此前这里只认后者，
   // 导致 89 个 AI 生成选项的 variableEffects 在导出的 .ink 里全部消失，无法变更任何变量）。
@@ -679,7 +693,7 @@ export function exportInk(project: Project): void {
       if (!parsed) return ''
       const name = inkVarName(parsed.name)
       if (parsed.kind === 'set') {
-        const val = typeof parsed.value === 'number' ? parsed.value : `"${parsed.value}"`
+        const val = typeof parsed.value === 'number' ? parsed.value : inkStr(parsed.value)
         return `~ ${name} = ${val}`
       }
       const op = parsed.kind === 'inc' ? '+' : '-'
@@ -696,7 +710,7 @@ export function exportInk(project: Project): void {
   for (const v of project.variables) {
     const converted = inkVarName(v.name)
     if (converted !== v.name) varMappings.push(`// 变量映射: ${converted} = "${v.name}"`)
-    const val = isNaN(Number(v.defaultValue)) ? `"${v.defaultValue}"` : v.defaultValue
+    const val = isNaN(Number(v.defaultValue)) ? inkStr(v.defaultValue) : v.defaultValue
     declaredVars.set(converted, val)
   }
   for (const node of project.nodes) {
@@ -706,7 +720,7 @@ export function exportInk(project: Project): void {
         if (!parsed) continue
         const converted = inkVarName(parsed.name)
         if (!declaredVars.has(converted)) {
-          declaredVars.set(converted, parsed.kind === 'set' && typeof parsed.value === 'string' ? `"${parsed.value}"` : '0')
+          declaredVars.set(converted, parsed.kind === 'set' && typeof parsed.value === 'string' ? inkStr(parsed.value) : '0')
           varMappings.push(`// 未登记变量，导出时按引用补齐: ${converted}`)
         }
       }
