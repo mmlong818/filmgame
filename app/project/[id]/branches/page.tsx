@@ -2,7 +2,7 @@
 import Link from 'next/link'
 import { useParams } from 'next/navigation'
 import { useProjectStore } from '@/lib/store/projectStore'
-import { enumeratePaths } from '@/lib/graph'
+import { enumeratePaths, reachableNodeIds } from '@/lib/graph'
 import { nodeTypeStyle } from '@/lib/ui/nodeTypes'
 import type { NodeType } from '@/lib/types/project'
 import { Button } from '@/app/components/ui/button'
@@ -90,15 +90,13 @@ export default function BranchesPage() {
   }
 
   // Health checks
-  const allTargetIds = new Set(
-    nodes.flatMap(n => (n.choices ?? []).map(c => c.targetNodeId).filter(Boolean))
-  )
+  const reachable = reachableNodeIds(nodes)
   const deadEndNodes = nodes.filter(n =>
     n.type !== 'ending' &&
     (n.choices ?? []).length === 0 &&
     !(n.type === 'explore' && n.exploreReturnNodeId)  // 探索节点有自动返回，不是死路
   )
-  const unreachableNodes = nodes.filter(n => n.type !== 'start' && !allTargetIds.has(n.id))
+  const unreachableNodes = nodes.filter(n => !reachable.has(n.id))
 
   // Variable coverage: how many variables are used in choices
   const allVarNames = new Set((project.variables ?? []).map(v => v.name))
@@ -358,7 +356,7 @@ export default function BranchesPage() {
               {unreachableNodes.length > 0 && (
                 <div className="bg-amberink/10 border border-amberink/30 px-4 py-3">
                   <div className="text-sm font-medium text-amberink mb-2">
-                    无法到达节点（{unreachableNodes.length} 个）— 没有任何选项指向它
+                    无法到达节点（{unreachableNodes.length} 个）— 从开场出发没有任何路径到达它
                   </div>
                   <ul className="space-y-1">
                     {unreachableNodes.map(n => (

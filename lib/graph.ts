@@ -1,6 +1,33 @@
 import type { StoryNode } from '@/lib/types/project'
 
 /**
+ * 从 start 节点（没有则取首个）出发的正向可达集。口径：沿 choices 出边；结局是终点不再展开；
+ * explore 节点的 exploreReturnNodeId 算一条出边。校验引擎（UNREACHABLE）与分支概览页共用，
+ * 此前分支页用「有没有选项指向它」的入度判断代替，孤岛 A→B→C 只报 A、漏掉 B/C。
+ */
+export function reachableNodeIds(nodes: StoryNode[]): Set<string> {
+  const nodeMap = new Map(nodes.map(n => [n.id, n]))
+  const startId = nodes.find(n => n.type === 'start')?.id ?? nodes[0]?.id
+  const reachable = new Set<string>()
+  if (!startId) return reachable
+  const queue = [startId]
+  while (queue.length > 0) {
+    const curr = queue.shift()!
+    if (reachable.has(curr)) continue
+    reachable.add(curr)
+    const node = nodeMap.get(curr)
+    if (!node || node.type === 'ending') continue
+    for (const choice of (node.choices ?? [])) {
+      if (choice.targetNodeId && !reachable.has(choice.targetNodeId)) queue.push(choice.targetNodeId)
+    }
+    if (node.type === 'explore' && node.exploreReturnNodeId && !reachable.has(node.exploreReturnNodeId)) {
+      queue.push(node.exploreReturnNodeId)
+    }
+  }
+  return reachable
+}
+
+/**
  * 从 startId 出发，沿节点的 choices 枚举最多 maxPaths 条能到达 `ending` 类型节点的路径。
  *
  * 实现要点（此前是递归 DFS + 每分支 `new Set(visited)` 拷贝，与 FlowView 那次线上卡死

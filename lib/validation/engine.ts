@@ -1,6 +1,7 @@
 import type { Project, ValidationIssue, ValidationReport } from '@/lib/types/project'
 import { nanoid } from 'nanoid'
 import { parseEffectPart, lintConditions } from '@/lib/conditions'
+import { reachableNodeIds } from '@/lib/graph'
 
 export function runValidation(project: Project): ValidationReport {
   const issues: ValidationIssue[] = []
@@ -45,31 +46,8 @@ export function runValidation(project: Project): ValidationReport {
     }
   }
 
-  // 可达性检测（BFS 从 start 节点出发，真正遍历可达节点）
-  const bfsNodeMap = new Map(safeNodes.map(n => [n.id, n]))
-  const startNodeId = safeNodes.find(n => n.type === 'start')?.id ?? (safeNodes[0]?.id)
-  const reachable = new Set<string>()
-  if (startNodeId) {
-    const queue = [startNodeId]
-    while (queue.length > 0) {
-      const curr = queue.shift()!
-      if (reachable.has(curr)) continue
-      reachable.add(curr)
-      const node = bfsNodeMap.get(curr)
-      if (!node) continue
-      // 结局是终点，与下方 canReachEnding 口径一致：不沿其（历史数据里可能残留的）choices 展开
-      if (node.type === 'ending') continue
-      for (const choice of (node.choices ?? [])) {
-        if (choice.targetNodeId && !reachable.has(choice.targetNodeId)) {
-          queue.push(choice.targetNodeId)
-        }
-      }
-      // explore 节点 choices 恒为空，靠 exploreReturnNodeId 自动返回主线，这条边也要算作出边
-      if (node.type === 'explore' && node.exploreReturnNodeId && !reachable.has(node.exploreReturnNodeId)) {
-        queue.push(node.exploreReturnNodeId)
-      }
-    }
-  }
+  // 可达性检测（与分支概览页共用 lib/graph 的 BFS，口径见 reachableNodeIds）
+  const reachable = reachableNodeIds(safeNodes)
 
   for (const node of safeNodes) {
     if (!reachable.has(node.id) && safeNodes.length > 1) {
