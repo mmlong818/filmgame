@@ -100,8 +100,15 @@ const nodeTypes = { storyNode: StoryNodeView }
 /** 选中节点的可达路径 = 前向可达集 ∩ 能到达结局的节点集。两遍 BFS，O(V+E)。
     此前的递归 DFS 每个分支复制 visited 并重扫子树，路径数随分支×汇合组合爆炸，
     在 58 节点图上点击靠前节点直接卡死主线程（锁死事故的根因）。 */
-function getPathNodeIds(startId: string, nodeMap: Map<string, { choices: { targetNodeId: string }[]; type: string }>): Set<string> {
-  // 前向：从选中节点沿 choices 可达的所有节点
+type PathNode = { choices: { targetNodeId: string }[]; type: string; exploreReturnNodeId?: string }
+/** 节点的全部出边：choices + explore 的自动返回边（口径同 lib/graph reachableNodeIds / 校验引擎） */
+const outEdges = (node: PathNode): string[] => [
+  ...node.choices.map(c => c.targetNodeId),
+  ...(node.type === 'explore' && node.exploreReturnNodeId ? [node.exploreReturnNodeId] : []),
+].filter(Boolean)
+
+function getPathNodeIds(startId: string, nodeMap: Map<string, PathNode>): Set<string> {
+  // 前向：从选中节点沿出边可达的所有节点
   const forward = new Set<string>()
   const queue = [startId]
   while (queue.length > 0) {
@@ -111,7 +118,7 @@ function getPathNodeIds(startId: string, nodeMap: Map<string, { choices: { targe
     if (!node) continue
     forward.add(id)
     if (node.type === 'ending') continue
-    for (const c of node.choices) if (c.targetNodeId) queue.push(c.targetNodeId)
+    queue.push(...outEdges(node))
   }
   // 反向：只保留能通向某个结局的节点（剪掉断头支线，与旧语义一致）
   const parentsOf = new Map<string, string[]>()
@@ -119,11 +126,11 @@ function getPathNodeIds(startId: string, nodeMap: Map<string, { choices: { targe
   for (const id of forward) {
     const node = nodeMap.get(id)!
     if (node.type === 'ending') { endings.push(id); continue }
-    for (const c of node.choices) {
-      if (!c.targetNodeId || !forward.has(c.targetNodeId)) continue
-      const list = parentsOf.get(c.targetNodeId)
+    for (const t of outEdges(node)) {
+      if (!forward.has(t)) continue
+      const list = parentsOf.get(t)
       if (list) list.push(id)
-      else parentsOf.set(c.targetNodeId, [id])
+      else parentsOf.set(t, [id])
     }
   }
   const result = new Set<string>()
@@ -318,7 +325,7 @@ function buildFlowData(project: Project, focusNodeId: string | null, manualPos: 
   // Highlight path
   let highlightedIds = new Set<string>()
   if (focusNodeId) {
-    highlightedIds = getPathNodeIds(focusNodeId, nodeMap as Map<string, { choices: { targetNodeId: string }[]; type: string }>)
+    highlightedIds = getPathNodeIds(focusNodeId, nodeMap as Map<string, PathNode>)
     if (highlightedIds.size === 0) highlightedIds.add(focusNodeId)
   }
 
