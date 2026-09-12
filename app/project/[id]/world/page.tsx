@@ -154,7 +154,7 @@ export default function WorldPage() {
                 onAdd={addCharacter}
                 onUpdate={updateCharacter}
                 onDelete={deleteCharacter}
-                dialogueRefsOf={name => project.nodes.reduce((sum, n) => sum + (n.dialogue ?? []).filter(l => l.speaker === name).length, 0)}
+                dialogueRefsOf={name => name ? project.nodes.reduce((sum, n) => sum + (n.dialogue ?? []).filter(l => l.speaker === name).length, 0) : 0}
               />
             </div>
 

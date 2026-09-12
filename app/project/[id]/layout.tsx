@@ -279,6 +279,7 @@ export default function ProjectLayout({ children }: { children: React.ReactNode 
 
         <Link
           href={`/project/${project.id}/preview`}
+          onClick={(e) => { if (!confirmLeaveWithDrafts()) e.preventDefault() }}
           className={`text-xs px-3 py-1.5 font-medium transition-colors border cursor-pointer ${
             segment === 'preview'
               ? 'bg-vermilion text-paper border-vermilion'

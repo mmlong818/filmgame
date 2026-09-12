@@ -27,7 +27,7 @@ import { BulkAiScopeBar, BulkFailureReport } from './components/BulkAiControls'
 import { useBulkAi } from './hooks/useBulkAi'
 import { NodeAssistRail } from './components/NodeAssistRail'
 import type { NodeDraft, SceneAnalysisResult, SceneTensionResult, ChoiceSuggestion, ChoiceConsequenceResult } from './components/types'
-import { setPendingDrafts } from '@/lib/ui/pendingDraftGuard'
+import { setPendingDrafts, confirmLeaveWithDrafts } from '@/lib/ui/pendingDraftGuard'
 
 // 场景描述文本框 + 字数提示需共享同一份本地缓冲值（提示要随打字实时变化，而不是等回写 store 才更新）。
 /** 变量名进正则前必须转义：含 . ( ) + 等字符会抛异常使该次点击静默失效；
@@ -604,7 +604,7 @@ function WorkshopPageInner() {
                               <ConfirmButton
                                 size="sm"
                                 variant="ghost"
-                                confirmLabel={`确认删除选项「${(choice.text || '').slice(0, 8)}」`}
+                                confirmLabel={`确认删除选项「${(choice.text || '未命名').slice(0, 8)}」`}
                                 className="ml-auto text-[10px] px-1.5 py-0.5 opacity-0 group-hover:opacity-100 transition-opacity shrink-0"
                                 onConfirm={() => {
                                   deleteChoice(choice.id)
@@ -739,7 +739,7 @@ function WorkshopPageInner() {
       </div>
 
       <div className="flex-shrink-0 border-t border-line bg-paper px-6 py-4 flex justify-end">
-        <Button variant="primary" size="md" onClick={() => { advancePhase(); if (project) router.push(`/project/${project.id}/validate`) }}>
+        <Button variant="primary" size="md" onClick={() => { if (!confirmLeaveWithDrafts()) return; advancePhase(); if (project) router.push(`/project/${project.id}/validate`) }}>
           下一步：全局校验 →
         </Button>
       </div>

@@ -57,7 +57,7 @@ export function CharacterCard({ character, worldAnchor, onUpdate, onDelete, dial
         </select>
         <ConfirmButton
           size="sm"
-          variant={dialogueRefs > 0 ? 'danger' : undefined}
+          variant={dialogueRefs > 0 ? 'danger' : 'ghost'}
           confirmLabel={`确认删除角色「${character.name || '未命名'}」${dialogueRefs > 0 ? `（${dialogueRefs} 行对白引用）` : ''}`}
           className="ml-auto"
           onConfirm={() => {

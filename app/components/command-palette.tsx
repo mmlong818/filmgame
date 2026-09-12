@@ -8,6 +8,7 @@ import { useHistoryStore, undo, redo } from '@/lib/store/history'
 import { useAiTaskStore } from '@/lib/ai/taskStore'
 import { PHASES } from '@/lib/types/phase'
 import { nodeTypeStyle } from '@/lib/ui/nodeTypes'
+import { confirmLeaveWithDrafts } from '@/lib/ui/pendingDraftGuard'
 import { useToast } from './toast'
 
 interface Command {
@@ -67,6 +68,9 @@ export function CommandPalette() {
   // 在项目内才提供阶段/节点命令
   const inProject = Boolean(project) && pathname?.startsWith('/project/')
 
+  // 所有跳转类命令都会离开当前页，和布局层导航入口一样先过草稿/生成守卫
+  const go = useCallback((href: string) => { if (confirmLeaveWithDrafts()) router.push(href) }, [router])
+
   const commands = useMemo<Command[]>(() => {
     const list: Command[] = []
     if (inProject && project) {
@@ -78,7 +82,7 @@ export function CommandPalette() {
           group: '阶段',
           label: `前往 · ${ph.label}`,
           hint: ph.description,
-          run: () => { goToPhase(ph.key); router.push(`/project/${project.id}/${ph.key}`) },
+          run: () => { if (!confirmLeaveWithDrafts()) return; goToPhase(ph.key); router.push(`/project/${project.id}/${ph.key}`) },
         })
       }
       list.push({
@@ -86,7 +90,7 @@ export function CommandPalette() {
         group: '阶段',
         label: '预览播放',
         hint: '实时体验交互剧情',
-        run: () => router.push(`/project/${project.id}/preview`),
+        run: () => go(`/project/${project.id}/preview`),
       })
       if (undoCount > 0) {
         list.push({ id: 'undo', group: '编辑', label: '撤销上一步', hint: '⌘Z', run: () => { const l = undo(); if (l) toast(`已撤销：${l}`, 'info') } })
@@ -107,18 +111,18 @@ export function CommandPalette() {
             group: '节点',
             label: n.title,
             hint: nodeTypeStyle(n.type).label,
-            run: () => router.push(`/project/${project.id}/workshop?node=${n.id}`),
+            run: () => go(`/project/${project.id}/workshop?node=${n.id}`),
           })
           if (list.filter(c => c.group === '节点').length >= 8) break
         }
       }
     }
-    list.push({ id: 'projects', group: '全局', label: '项目列表', hint: '返回档案室', run: () => router.push('/projects') })
-    list.push({ id: 'new-project', group: '全局', label: '新建项目', run: () => router.push('/projects?new=1') })
-    list.push({ id: 'archive', group: '全局', label: '归档室', hint: '恢复或永久删除已归档项目', run: () => router.push('/projects?archive=1') })
-    list.push({ id: 'ai-settings', group: '全局', label: 'AI 设置', hint: 'Provider / 模型 / 连接测试', run: () => router.push('/projects?settings=1') })
+    list.push({ id: 'projects', group: '全局', label: '项目列表', hint: '返回档案室', run: () => go('/projects') })
+    list.push({ id: 'new-project', group: '全局', label: '新建项目', run: () => go('/projects?new=1') })
+    list.push({ id: 'archive', group: '全局', label: '归档室', hint: '恢复或永久删除已归档项目', run: () => go('/projects?archive=1') })
+    list.push({ id: 'ai-settings', group: '全局', label: 'AI 设置', hint: 'Provider / 模型 / 连接测试', run: () => go('/projects?settings=1') })
     return list
-  }, [inProject, project, query, undoCount, redoCount, aiTasks, goToPhase, router, toast])
+  }, [inProject, project, query, undoCount, redoCount, aiTasks, goToPhase, router, go, toast])
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase()
