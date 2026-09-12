@@ -443,9 +443,14 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
   // 单节点自身字段变化 —— 走节点级保存（只 PATCH 这一条 nodes 行）。
   updateNode: (nodeId, patch) => set((s) => {
     if (!s.project) return s
-    const nodes = s.project.nodes.map(n => n.id === nodeId ? { ...n, ...patch } : n)
-    const updatedNode = nodes.find(n => n.id === nodeId)
-    if (!updatedNode) return s
+    const prev = s.project.nodes.find(n => n.id === nodeId)
+    if (!prev) return s
+    // ending / explore 没有出边（explore 靠 exploreReturnNodeId 回主线）。改成这两类时
+    // 一并清掉 choices：否则校验引擎沿残留 choices 算可达、预览却不渲染选项，报告全绿玩家却卡死。
+    const dropChoices = (patch.type === 'ending' || patch.type === 'explore') && prev.choices.length > 0
+    if (dropChoices) pushUndo('修改节点类型', s.project)
+    const updatedNode = { ...prev, ...patch, ...(dropChoices ? { choices: [] } : {}) }
+    const nodes = s.project.nodes.map(n => n.id === nodeId ? updatedNode : n)
     const p = { ...s.project, nodes, updatedAt: new Date().toISOString() }
     writeLocalSnapshot(p)
     saveNode(p.id, updatedNode)

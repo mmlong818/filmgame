@@ -201,6 +201,8 @@ function applyUpdateNode(ctx: ApplyCtx, op: Extract<TargetedFixOp, { op: 'update
     ...n,
     ...(op.patch.title !== undefined ? { title: op.patch.title } : {}),
     ...(op.patch.type !== undefined ? { type: op.patch.type } : {}),
+    // 与 projectStore.updateNode 同一不变量：ending / explore 不能带 choices
+    ...(op.patch.type === 'ending' || op.patch.type === 'explore' ? { choices: [] } : {}),
     ...(op.patch.notes !== undefined ? { notes: op.patch.notes } : {}),
   })
   return true

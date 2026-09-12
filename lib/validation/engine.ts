@@ -57,6 +57,8 @@ export function runValidation(project: Project): ValidationReport {
       reachable.add(curr)
       const node = bfsNodeMap.get(curr)
       if (!node) continue
+      // 结局是终点，与下方 canReachEnding 口径一致：不沿其（历史数据里可能残留的）choices 展开
+      if (node.type === 'ending') continue
       for (const choice of (node.choices ?? [])) {
         if (choice.targetNodeId && !reachable.has(choice.targetNodeId)) {
           queue.push(choice.targetNodeId)
