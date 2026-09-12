@@ -1,0 +1,11 @@
+# 统一换行：仓库内一律 LF，检出也用 LF（Windows 上的 git 默认 autocrlf=false，
+# 此前 34 个文件混入 CRLF，几行改动在 diff 里变成整文件重写，污染 blame 与合并）。
+* text=auto eol=lf
+
+# 二进制资源，不做任何换行处理
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.ico binary
+*.woff binary
+*.woff2 binary
