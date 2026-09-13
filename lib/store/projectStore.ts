@@ -6,6 +6,7 @@ import type { Phase } from '@/lib/types/phase'
 import { loadLocalSnapshot, writeLocalSnapshot, saveProject, saveProjectMeta, saveNode, setHydrated, clearConflictLock, resetConfirmedVersion } from '@/lib/persistence'
 import type { SaveStateDetail } from '@/lib/persistence'
 import { bindHistory, pushUndo, clearHistory, isRestoring, invalidateRedo, recordAfterState } from '@/lib/store/history'
+import { renameVariableRefs, renameSpeakerRefs } from '@/lib/store/rename'
 
 const PHASE_ORDER: Phase[] = ['world', 'scale', 'structure', 'workshop', 'validate']
 
@@ -289,9 +290,14 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
 
   updateCharacter: (id, patch) => set((s) => {
     if (!s.project) return s
+    const prev = s.project.characters.find(c => c.id === id)
     const characters = s.project.characters.map(c => c.id === id ? { ...c, ...patch } : c)
-    const p = { ...s.project, characters, updatedAt: new Date().toISOString() }
-    saveProjectMeta(p, s.loadedVersion ?? undefined)
+    // 改名级联：对白说话人按名字引用，跟着改；触碰到节点就是跨行变更，走整档保存
+    const cascaded = prev && patch.name !== undefined ? renameSpeakerRefs(s.project, prev.name, patch.name) : null
+    if (cascaded) pushUndo('重命名角色', s.project)
+    const p = { ...(cascaded ?? s.project), characters, updatedAt: new Date().toISOString() }
+    if (cascaded) saveProject(p, s.loadedVersion ?? undefined)
+    else saveProjectMeta(p, s.loadedVersion ?? undefined)
     return { project: p }
   }),
 
@@ -537,9 +543,14 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
 
   updateVariable: (id, patch) => set((s) => {
     if (!s.project) return s
+    const prev = s.project.variables.find(v => v.id === id)
     const variables = s.project.variables.map(v => v.id === id ? { ...v, ...patch } : v)
-    const p = { ...s.project, variables, updatedAt: new Date().toISOString() }
-    saveProjectMeta(p, s.loadedVersion ?? undefined)
+    // 改名级联：条件/效果/结局条件/系统功能读写表按名字引用，跟着改；触碰到节点或结局就走整档保存
+    const cascaded = prev && patch.name !== undefined ? renameVariableRefs(s.project, prev.name, patch.name) : null
+    if (cascaded) pushUndo('重命名变量', s.project)
+    const p = { ...(cascaded ?? s.project), variables, updatedAt: new Date().toISOString() }
+    if (cascaded) saveProject(p, s.loadedVersion ?? undefined)
+    else saveProjectMeta(p, s.loadedVersion ?? undefined)
     return { project: p }
   }),
 

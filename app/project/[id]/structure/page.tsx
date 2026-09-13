@@ -12,6 +12,7 @@ import { stripWorkflowTags } from '@/lib/ui/endingLabel'
 import type { NodeType, Chapter, Act, StoryNode, VariableType } from '@/lib/types/project'
 import { Button } from '@/app/components/ui/button'
 import { Input } from '@/app/components/ui/input'
+import { BufferedInput } from '../world/ai-widgets'
 import { ConfirmButton } from '@/app/components/ui/confirm'
 import { IndexCard } from '@/app/components/ui/index-card'
 import { NodeTypeBadge } from '@/app/components/ui/tag'
@@ -443,7 +444,8 @@ export default function StructurePage() {
                   <div className="space-y-2">
                     {project.variables.map(v => (
                       <div key={v.id} className="flex items-center gap-2">
-                        <Input value={v.name} onChange={e => updateVariable(v.id, { name: e.target.value })} className="flex-1" />
+                        {/* 改名会级联重写全部引用并整档保存，必须缓冲到 blur/停顿再提交，不能逐键触发 */}
+                        <BufferedInput value={v.name} onCommit={name => updateVariable(v.id, { name })} className="flex-1" />
                         <select value={v.type} onChange={e => updateVariable(v.id, { type: e.target.value as VariableType })} className="text-xs border border-line px-2 py-2 bg-paper text-ink cursor-pointer">
                           <option value="flag">开关</option>
                           <option value="counter">计数</option>
