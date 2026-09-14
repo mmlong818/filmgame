@@ -108,7 +108,7 @@
 - 手动拖拽的节点位置持久化（`position + positionManual`，经节点级保存管线落库），刷新后不丢；未拖动过的节点仍走自动布局。
 
 **分支路径页**
-- 枚举从开场到结局的路径（共用 `lib/graph.ts` 的 DFS，带环防护与路径数上限），展示路径统计。
+- 枚举从开场到结局的路径（共用 `lib/graph.ts` 的 `enumeratePaths`：反向可达剪枝 + 有界广度扩展，带环防护与路径数上限），展示路径统计；「无法到达节点」与校验引擎共用 `reachableNodeIds`，两处结论一致。
 
 ### FR-5 阶段四：场景工坊（workshop）
 
@@ -122,12 +122,12 @@
 
 **本地校验引擎**（`lib/validation/engine.ts`，免费、即时，进入页面自动运行）
 
-共 23 项检测，按严重度分级（error / warning / info），产出通过率评分（100 − error×20 − warning×8 − info×2，下限 0）。可达性类检测（UNREACHABLE / NO_PATH_TO_ENDING / TRAP_BRANCH）的图遍历必须承认 explore 节点经 `exploreReturnNodeId` 返回主线的边，与预览、ink 导出的运行时语义一致；条件类检测须覆盖"图上连通但条件永假"的软锁（变量阈值超过全图效果加总的理论上界）：
+共 24 项检测，按严重度分级（error / warning / info），产出通过率评分（100 − error×20 − warning×8 − info×2，下限 0）。可达性类检测（UNREACHABLE / NO_PATH_TO_ENDING / TRAP_BRANCH）的图遍历必须承认 explore 节点经 `exploreReturnNodeId` 返回主线的边，与预览、ink 导出的运行时语义一致；条件类检测须覆盖"图上连通但条件永假"的软锁（变量阈值超过全图效果加总的理论上界）：
 
 | 类别 | 检测项 |
 |------|--------|
 | 结构完整性（error） | DEAD_END 死路、BROKEN_LINK 断链、NO_PATH_TO_ENDING 无法到达结局、TRAP_BRANCH 陷阱分支、ENDING_ORPHAN 孤儿结局定义、UNSATISFIABLE_CONDITION 条件永不可满足（选项/结局永不可达） |
-| 结构完整性（warning） | UNREACHABLE 不可达节点、NO_ENDING 无结局、DUPLICATE_CHOICE 重复选项文本、ENDING_NO_DEF 结局节点缺定义、UNKNOWN_VARIABLE_REF 变量断链、UNPARSEABLE_EFFECT 无法解析的变量效果（运行时不会执行）、ALL_CHOICES_GATED 无保底出口（全部选项带条件，可能软锁玩家） |
+| 结构完整性（warning） | UNREACHABLE 不可达节点、NO_ENDING 无结局、DUPLICATE_CHOICE 重复选项文本、ENDING_NO_DEF 结局节点缺定义、UNKNOWN_VARIABLE_REF 变量断链、UNPARSEABLE_EFFECT 无法解析的变量效果（运行时不会执行）、CONDITION_SYNTAX 条件表达式语法错误、ALL_CHOICES_GATED 无保底出口（全部选项带条件，可能软锁玩家） |
 | 叙事质量（warning） | THIN_DIALOGUE 对白深度不足（McKee ≥6 行标准）、SHORT_DURATION 内容量不足目标时长 50% |
 | 叙事质量（info） | EMOTION_MONOTONE 情感节奏单调、SINGLE_ENDING 结局单一、ENDING_VARIETY 结局差异度不足、LOW_BRANCH_DENSITY 分支密度 <25%、WEAK_CHOICES 选择力度不足、NO_EXPLORE_CONTENT 无探索内容、SHALLOW_EMOTION 缺内心谎言、THIN_SCENE_DESC 场景描述过短 |
 
@@ -169,7 +169,7 @@
 
 ### FR-10 AI 动作注册表
 
-- 全部 AI 动作（19 项）统一注册于 `lib/ai/schemas.ts` 的 `SCHEMA_REGISTRY`，按 `phase:action` 组织，每项定义输出 schema 并在服务端校验（解析失败自动带 `RETRY_SUFFIX` 重试，最多 3 次）。
+- 全部 AI 动作（20 项，含 FR-19 的 `structure:targeted_fix`）统一注册于 `lib/ai/schemas.ts` 的 `SCHEMA_REGISTRY`，按 `phase:action` 组织，每项定义输出 schema 并在服务端校验（解析失败自动带 `RETRY_SUFFIX` 重试，最多 3 次）。
 - Prompt 模板集中于 `lib/ai/prompts.ts`。
 
 ### FR-11 可观测性

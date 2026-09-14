@@ -28,14 +28,9 @@ import { useBulkAi } from './hooks/useBulkAi'
 import { NodeAssistRail } from './components/NodeAssistRail'
 import type { NodeDraft, SceneAnalysisResult, SceneTensionResult, ChoiceSuggestion, ChoiceConsequenceResult } from './components/types'
 import { setPendingDrafts, confirmLeaveWithDrafts } from '@/lib/ui/pendingDraftGuard'
+import { splitEffects, parseEffectPart } from '@/lib/conditions'
 
 // 场景描述文本框 + 字数提示需共享同一份本地缓冲值（提示要随打字实时变化，而不是等回写 store 才更新）。
-/** 变量名进正则前必须转义：含 . ( ) + 等字符会抛异常使该次点击静默失效；
-    配合调用处的 \b 词边界，避免变量名互为前缀时误吃（如 trust 吃掉 trustLevel） */
-function escapeRegExp(s: string): string {
-  return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
-}
-
 function SceneDescField({ value, onCommit }: { value: string; onCommit: (v: string) => void }) {
   const { value: local, onChange, onBlur } = useBufferedField(value, onCommit)
   return (
@@ -620,17 +615,18 @@ function WorkshopPageInner() {
                             {project.variables.length > 0 && (
                               <div className="mt-1.5 flex flex-wrap gap-1">
                                 {project.variables.map(v => {
-                                  const isActive = choice.variableEffects.includes(v.name)
+                                  // 按解析后的变量名判定/移除，而非子串或正则：`trust` 不再命中 `trusted`，取值含逗号的 set 也不会被删多
+                                  const parts = splitEffects(choice.variableEffects).filter(p => p.trim())
+                                  const isActive = parts.some(p => parseEffectPart(p)?.name === v.name)
                                   return (
                                     <button
                                       key={v.id}
                                       type="button"
                                       onClick={() => {
-                                        const effects = choice.variableEffects
                                         const newEffects = isActive
-                                          ? effects.replace(new RegExp(`[+-]?${escapeRegExp(v.name)}\\b[^,]*,?\\s*`), '').trim()
-                                          : effects ? `${effects}, +${v.name}` : `+${v.name}`
-                                        updateChoice(choice.id, { variableEffects: newEffects.replace(/,\s*$/, '') })
+                                          ? parts.filter(p => parseEffectPart(p)?.name !== v.name).map(p => p.trim()).join(', ')
+                                          : [...parts.map(p => p.trim()), `+${v.name}`].join(', ')
+                                        updateChoice(choice.id, { variableEffects: newEffects })
                                       }}
                                       className={`cursor-pointer text-[10px] px-2 py-0.5 border transition-colors ${
                                         isActive
