@@ -94,7 +94,7 @@
 ### FR-4 阶段三：结构与分支（structure / branches）
 
 **列表视图**
-- 按 章 → 幕 → 节点 三级层级管理；支持增删、排序。
+- 按 章 → 幕 → 节点 三级层级管理；三级均支持增、改名、删（章/幕删除级联其下内容并清理牵连的选项与结局定义，进撤销栈）、上下移排序（按钮，键盘可达）。节点在幕内的顺序以 `act.nodeIds` 为唯一真源（流程图 / 分支生成 / 侧栏 / 结构列表同此），`node.order` 随重排重写。
 - 节点类型：`start / normal / branch / merge / explore / ending`。
 - 幕支持戏剧功能标注（setup / conflict / turn / resolution）。
 

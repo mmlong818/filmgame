@@ -24,6 +24,7 @@ import EndingsSection from './EndingsSection'
 import { TargetedFixPanel } from './TargetedFixPanel'
 import { TargetedFixTrigger } from './TargetedFixTrigger'
 import { SelfCheckPanel } from './SelfCheckPanel'
+import { RowActions } from './RowActions'
 import { useTargetedFix } from './useTargetedFix'
 import { useStructureGeneration } from './useStructureGeneration'
 import { useBranchGeneration } from './useBranchGeneration'
@@ -84,7 +85,7 @@ function importEndingDefinitions(): number {
 export default function StructurePage() {
   const router = useRouter()
   const { toast } = useToast()
-  const { project, updateNode, deleteNode, addNode, addChapter, addAct, updateAct, addVariable, updateVariable, bulkSetStructure, advancePhase, resetStructure, clearDownstream, clearStaleFlag, addEnding, updateEnding, deleteEnding } = useProjectStore()
+  const { project, updateNode, deleteNode, moveNode, addNode, addChapter, updateChapter, deleteChapter, moveChapter, addAct, updateAct, deleteAct, moveAct, addVariable, updateVariable, bulkSetStructure, advancePhase, resetStructure, clearDownstream, clearStaleFlag, addEnding, updateEnding, deleteEnding } = useProjectStore()
 
   const [stage, setStage] = useState<Stage>(() => {
     if (!project || project.nodes.length === 0) return 'struct_loading'
@@ -372,26 +373,38 @@ export default function StructurePage() {
                 </div>
               ) : (
                 <div className="space-y-3">
-                  {[...project.chapters].sort((a, b) => a.order - b.order).map(chapter => {
+                  {[...project.chapters].sort((a, b) => a.order - b.order).map((chapter, ci, sortedChapters) => {
                     const isOpen = expandedChapters.has(chapter.id)
-                    const acts = project.acts.filter(a => a.chapterId === chapter.id)
+                    const acts = project.acts.filter(a => a.chapterId === chapter.id).sort((a, b) => a.order - b.order)
+                    const chapterNodeCount = acts.reduce((a, act) => a + act.nodeIds.length, 0)
                     return (
                       <div key={chapter.id} className="bg-paper border border-line" style={{ boxShadow: 'var(--shadow-card)' }}>
                         <div className="flex items-center gap-2 px-4 py-3 cursor-pointer hover:bg-paper-dim" onClick={() => toggleChapter(chapter.id)}>
                           <span className="text-pencil text-xs">{isOpen ? '▼' : '▶'}</span>
-                          <span className="tape-label text-sm text-ink">{chapter.title}</span>
-                          <span className="text-xs text-pencil ml-auto">{acts.length} 幕 · {acts.reduce((a, act) => a + act.nodeIds.length, 0)} 节点</span>
+                          <span onClick={e => e.stopPropagation()}>
+                            <BufferedInput value={chapter.title} onCommit={title => updateChapter(chapter.id, { title })} className="!w-44 text-sm font-medium" />
+                          </span>
+                          <span className="text-xs text-pencil">{acts.length} 幕 · {chapterNodeCount} 节点</span>
+                          <RowActions
+                            canUp={ci > 0} canDown={ci < sortedChapters.length - 1}
+                            onUp={() => moveChapter(chapter.id, -1)} onDown={() => moveChapter(chapter.id, 1)}
+                            confirmLabel={`确认删除章「${(chapter.title || '未命名').slice(0, 8)}」（${acts.length} 幕 · ${chapterNodeCount} 节点）`}
+                            onDelete={() => deleteChapter(chapter.id)}
+                          />
                         </div>
                         {isOpen && (
                           <div className="border-t border-line-soft px-4 py-3 space-y-2">
-                            {acts.sort((a, b) => a.order - b.order).map(act => {
+                            {acts.map((act, ai) => {
                               const isActOpen = expandedActs.has(act.id)
-                              const nodes = project.nodes.filter(n => act.nodeIds.includes(n.id))
+                              // 节点顺序以 act.nodeIds 为唯一真源（流程图 / 分支生成 / 侧栏同此），不按 project.nodes 数组序
+                              const nodes = act.nodeIds.map(id => project.nodes.find(n => n.id === id)).filter((n): n is StoryNode => !!n)
                               return (
                                 <div key={act.id} className="bg-paper-dim border border-line-soft">
                                   <div className="flex items-center gap-2 px-3 py-2 cursor-pointer hover:bg-kraft/30" onClick={() => toggleAct(act.id)}>
                                     <span className="text-pencil text-xs">{isActOpen ? '▼' : '▶'}</span>
-                                    <span className="text-xs font-medium text-ink-soft">{act.title}</span>
+                                    <span onClick={e => e.stopPropagation()}>
+                                      <BufferedInput value={act.title} onCommit={title => updateAct(act.id, { title })} className="!w-36 text-xs font-medium" />
+                                    </span>
                                     <select
                                       value={act.dramaticFunction ?? ''}
                                       onChange={e => updateAct(act.id, { dramaticFunction: e.target.value as Act['dramaticFunction'] || undefined })}
@@ -404,18 +417,29 @@ export default function StructurePage() {
                                       <option value="turn">转折</option>
                                       <option value="resolution">解决</option>
                                     </select>
-                                    <span className="text-xs text-pencil ml-auto">{nodes.length} 节点</span>
+                                    <span className="text-xs text-pencil">{nodes.length} 节点</span>
+                                    <RowActions
+                                      canUp={ai > 0} canDown={ai < acts.length - 1}
+                                      onUp={() => moveAct(act.id, -1)} onDown={() => moveAct(act.id, 1)}
+                                      confirmLabel={`确认删除幕「${(act.title || '未命名').slice(0, 8)}」（${nodes.length} 节点）`}
+                                      onDelete={() => deleteAct(act.id)}
+                                    />
                                   </div>
                                   {isActOpen && (
                                     <div className="px-3 pb-2 space-y-1.5">
-                                      {nodes.map(node => (
+                                      {nodes.map((node, ni) => (
                                         <IndexCard key={node.id} pinned={false} className="flex items-center gap-2">
                                           <NodeTypeBadge type={node.type} />
                                           <input value={node.title} onChange={e => updateNode(node.id, { title: e.target.value })} className="flex-1 text-sm text-ink bg-transparent border-none outline-none" />
                                           <select value={node.type} onChange={e => updateNode(node.id, { type: e.target.value as NodeType })} className="text-xs text-pencil border-none bg-transparent outline-none cursor-pointer">
                                             {Object.entries(NODE_TYPES).map(([value, s]) => <option key={value} value={value}>{s.label}</option>)}
                                           </select>
-                                          <ConfirmButton size="sm" variant="danger" confirmLabel={`确认删除节点「${(node.title || "无标题").slice(0, 8)}」`} onConfirm={() => deleteNode(node.id)}>✕</ConfirmButton>
+                                          <RowActions
+                                            canUp={ni > 0} canDown={ni < nodes.length - 1}
+                                            onUp={() => moveNode(node.id, -1)} onDown={() => moveNode(node.id, 1)}
+                                            confirmLabel={`确认删除节点「${(node.title || '无标题').slice(0, 8)}」`}
+                                            onDelete={() => deleteNode(node.id)}
+                                          />
                                         </IndexCard>
                                       ))}
                                       <button onClick={() => addNode(act.id)} className="w-full text-xs text-vermilion hover:text-vermilion-deep py-1.5 border border-dashed border-vermilion/40 cursor-pointer">+ 添加节点</button>

@@ -101,6 +101,25 @@ export function mergeWindowEdits(
   return { project: merged, changed }
 }
 
+/** 删除一批节点并清理牵连：其他节点指向它们的 choices、acts.nodeIds、绑定在其上的 endings */
+function removeNodes(p: Project, ids: Set<string>): Pick<Project, 'nodes' | 'acts' | 'endings'> {
+  return {
+    nodes: p.nodes.filter(n => !ids.has(n.id)).map(n => ({ ...n, choices: n.choices.filter(c => !ids.has(c.targetNodeId)) })),
+    acts: p.acts.map(a => ({ ...a, nodeIds: a.nodeIds.filter(id => !ids.has(id)) })),
+    endings: p.endings.filter(e => !ids.has(e.nodeId)),
+  }
+}
+
+/** 同级列表按 order 排好后把 id 与相邻项换位，返回全体新 order（按下标重编，顺带修掉重复 order）；越界返回 null */
+function swapOrder(siblings: { id: string; order: number }[], id: string, dir: -1 | 1): Map<string, number> | null {
+  const sorted = [...siblings].sort((a, b) => a.order - b.order)
+  const i = sorted.findIndex(x => x.id === id)
+  const j = i + dir
+  if (i < 0 || j < 0 || j >= sorted.length) return null
+  ;[sorted[i], sorted[j]] = [sorted[j], sorted[i]]
+  return new Map(sorted.map((x, idx) => [x.id, idx]))
+}
+
 interface ProjectStore {
   project: Project | null
   /** 最近一次从服务端确认的整档 version（乐观锁基线）；null 表示未知（未 hydrate 过或离线兜底）。 */
@@ -145,8 +164,18 @@ interface ProjectStore {
   setCharacters: (characters: Character[]) => void
 
   addChapter: (title: string) => void
+  updateChapter: (chapterId: string, patch: Partial<Chapter>) => void
+  /** 级联删除其下全部幕与节点（清理牵连的 choices / endings） */
+  deleteChapter: (chapterId: string) => void
   addAct: (chapterId: string, title: string) => void
   updateAct: (actId: string, patch: Partial<Act>) => void
+  /** 级联删除其下全部节点 */
+  deleteAct: (actId: string) => void
+  /** 与相邻同级项交换顺序；已在首/末则不动 */
+  moveChapter: (chapterId: string, dir: -1 | 1) => void
+  moveAct: (actId: string, dir: -1 | 1) => void
+  /** 在所属幕的 nodeIds 内与相邻项交换；nodeIds 是节点顺序的唯一真源，node.order 随之重写 */
+  moveNode: (nodeId: string, dir: -1 | 1) => void
   bulkSetStructure: (chapters: Chapter[], acts: Act[], nodes: StoryNode[]) => void
   addNode: (actId: string) => StoryNode
   updateNode: (nodeId: string, patch: Partial<StoryNode>) => void
@@ -410,6 +439,40 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
     return { project: p }
   }),
 
+  updateChapter: (chapterId, patch) => set((s) => {
+    if (!s.project) return s
+    const chapters = s.project.chapters.map(c => c.id === chapterId ? { ...c, ...patch } : c)
+    const p = { ...s.project, chapters, updatedAt: new Date().toISOString() }
+    saveProjectMeta(p, s.loadedVersion ?? undefined)
+    return { project: p }
+  }),
+
+  deleteChapter: (chapterId) => set((s) => {
+    if (!s.project) return s
+    pushUndo('删除章', s.project)
+    const actIds = new Set(s.project.acts.filter(a => a.chapterId === chapterId).map(a => a.id))
+    const nodeIds = new Set(s.project.acts.filter(a => actIds.has(a.id)).flatMap(a => a.nodeIds))
+    const removed = removeNodes(s.project, nodeIds)
+    const p = {
+      ...s.project, ...removed,
+      acts: removed.acts.filter(a => !actIds.has(a.id)),
+      chapters: s.project.chapters.filter(c => c.id !== chapterId),
+      updatedAt: new Date().toISOString(),
+    }
+    saveProject(p, s.loadedVersion ?? undefined)
+    return { project: p }
+  }),
+
+  moveChapter: (chapterId, dir) => set((s) => {
+    if (!s.project) return s
+    const orderOf = swapOrder(s.project.chapters, chapterId, dir)
+    if (!orderOf) return s
+    const chapters = s.project.chapters.map(c => ({ ...c, order: orderOf.get(c.id) ?? c.order }))
+    const p = { ...s.project, chapters, updatedAt: new Date().toISOString() }
+    saveProjectMeta(p, s.loadedVersion ?? undefined)
+    return { project: p }
+  }),
+
   addAct: (chapterId, title) => set((s) => {
     if (!s.project) return s
     const acts = s.project.acts.filter(a => a.chapterId === chapterId)
@@ -424,6 +487,47 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
     const acts = s.project.acts.map(a => a.id === actId ? { ...a, ...patch } : a)
     const p = { ...s.project, acts, updatedAt: new Date().toISOString() }
     saveProjectMeta(p, s.loadedVersion ?? undefined)
+    return { project: p }
+  }),
+
+  deleteAct: (actId) => set((s) => {
+    if (!s.project) return s
+    const act = s.project.acts.find(a => a.id === actId)
+    if (!act) return s
+    pushUndo('删除幕', s.project)
+    const removed = removeNodes(s.project, new Set(act.nodeIds))
+    const p = { ...s.project, ...removed, acts: removed.acts.filter(a => a.id !== actId), updatedAt: new Date().toISOString() }
+    saveProject(p, s.loadedVersion ?? undefined)
+    return { project: p }
+  }),
+
+  moveAct: (actId, dir) => set((s) => {
+    if (!s.project) return s
+    const act = s.project.acts.find(a => a.id === actId)
+    if (!act) return s
+    const orderOf = swapOrder(s.project.acts.filter(a => a.chapterId === act.chapterId), actId, dir)
+    if (!orderOf) return s
+    const acts = s.project.acts.map(a => orderOf.has(a.id) ? { ...a, order: orderOf.get(a.id)! } : a)
+    const p = { ...s.project, acts, updatedAt: new Date().toISOString() }
+    saveProjectMeta(p, s.loadedVersion ?? undefined)
+    return { project: p }
+  }),
+
+  // 改了 acts.nodeIds 又重写节点 order —— 跨行，走整档保存
+  moveNode: (nodeId, dir) => set((s) => {
+    if (!s.project) return s
+    const act = s.project.acts.find(a => a.nodeIds.includes(nodeId))
+    if (!act) return s
+    const i = act.nodeIds.indexOf(nodeId)
+    const j = i + dir
+    if (j < 0 || j >= act.nodeIds.length) return s
+    const nodeIds = [...act.nodeIds]
+    ;[nodeIds[i], nodeIds[j]] = [nodeIds[j], nodeIds[i]]
+    const orderOf = new Map(nodeIds.map((id, idx) => [id, idx]))
+    const acts = s.project.acts.map(a => a.id === act.id ? { ...a, nodeIds } : a)
+    const nodes = s.project.nodes.map(n => orderOf.has(n.id) && n.order !== orderOf.get(n.id) ? { ...n, order: orderOf.get(n.id)! } : n)
+    const p = { ...s.project, acts, nodes, updatedAt: new Date().toISOString() }
+    saveProject(p, s.loadedVersion ?? undefined)
     return { project: p }
   }),
 
@@ -481,12 +585,7 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
   deleteNode: (nodeId) => set((s) => {
     if (!s.project) return s
     pushUndo('删除节点', s.project)
-    const nodes = s.project.nodes
-      .filter(n => n.id !== nodeId)
-      .map(n => ({ ...n, choices: n.choices.filter(c => c.targetNodeId !== nodeId) }))
-    const acts = s.project.acts.map(a => ({ ...a, nodeIds: a.nodeIds.filter(id => id !== nodeId) }))
-    const endings = s.project.endings.filter(e => e.nodeId !== nodeId)
-    const p = { ...s.project, nodes, acts, endings, updatedAt: new Date().toISOString() }
+    const p = { ...s.project, ...removeNodes(s.project, new Set([nodeId])), updatedAt: new Date().toISOString() }
     saveProject(p, s.loadedVersion ?? undefined)
     return { project: p }
   }),
