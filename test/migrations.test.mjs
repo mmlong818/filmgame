@@ -17,12 +17,12 @@ function minimalDoc(overrides = {}) {
   }
 }
 
-test('CURRENT_SCHEMA_VERSION 为 1', () => {
-  assert.equal(CURRENT_SCHEMA_VERSION, 1)
+test('CURRENT_SCHEMA_VERSION 为 2', () => {
+  assert.equal(CURRENT_SCHEMA_VERSION, 2)
 })
 
-test('MIGRATIONS 注册表当前为空（框架就位，无历史版本需要迁移）', () => {
-  assert.deepEqual(MIGRATIONS, {})
+test('MIGRATIONS 注册了 1→2（引用层），且链条连续到 CURRENT_SCHEMA_VERSION', () => {
+  for (let v = 1; v < CURRENT_SCHEMA_VERSION; v++) assert.equal(typeof MIGRATIONS[v], 'function', `缺 ${v}→${v + 1}`)
 })
 
 test('normalizeLegacy: 缺失 schemaVersion 的文档补齐为 1，并补齐缺失数组/默认值', () => {

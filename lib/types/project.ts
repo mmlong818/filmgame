@@ -1,4 +1,5 @@
 import type { Phase } from './phase'
+import type { CondNode, EffectItem } from '../refs/types'
 
 export type AiMode = 'fast' | 'thinking'
 export type NodeType = 'normal' | 'branch' | 'merge' | 'ending' | 'start' | 'explore'
@@ -101,6 +102,9 @@ export interface SystemFunction {
   variablesRead: string[]
   variablesWrite: string[]
   requirements: string
+  /** 引用层（schemaVersion 2）：variablesRead/Write 里绑上的变量 id；只经 lib/refs/bind 写入 */
+  readIds?: string[]
+  writeIds?: string[]
 }
 
 export interface DialogueLine {
@@ -108,6 +112,8 @@ export interface DialogueLine {
   speaker: string
   text: string
   emotion: string
+  /** 引用层：speaker 命中唯一角色时的角色 id；缺省 = 未绑定（名字自由文本） */
+  speakerId?: string
 }
 
 export interface Choice {
@@ -120,6 +126,9 @@ export interface Choice {
   variableEffects: string
   consequence?: string
   choiceWeight?: 'light' | 'heavy' | 'critical'
+  /** 引用层：conditions / variableEffects 的结构化真源（AST + varId）；原文串是人机/AI 通道 */
+  cond?: CondNode | null
+  effects?: EffectItem[]
 }
 
 export interface StoryNode {
@@ -158,6 +167,8 @@ export interface EndingCondition {
   variableName: string
   operator: '>=' | '<=' | '==' | '>' | '<' | '!='
   value: number | string
+  /** 引用层：variableName 绑上的变量 id */
+  variableId?: string
 }
 
 export interface Ending {
@@ -170,6 +181,8 @@ export interface Ending {
   variableConditions: EndingCondition[]
   requiredChoiceIds: string[]
   reachPath: string
+  /** 引用层：conditions 的 AST（自然语言会落成 raw 节点） */
+  cond?: CondNode | null
 }
 
 export interface ValidationIssue {

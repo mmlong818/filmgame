@@ -10,6 +10,22 @@
 // （Project 的必填字段天然满足 zod 的可选字段约束）。
 import { z } from 'zod'
 import type { Project } from '../types/project'
+import type { CondNode } from '../refs/types'
+
+// ─── 引用层（schemaVersion 2，见 lib/refs/types.ts）────────────────────
+
+const VarRefSchema = z.object({ varId: z.string().optional(), name: z.string() })
+const CompareOpSchema = z.enum(['>=', '<=', '>', '<', '==', '!='])
+const CondNodeSchema: z.ZodType<CondNode> = z.lazy(() => z.discriminatedUnion('k', [
+  z.object({ k: z.literal('cmp'), ref: VarRefSchema, op: CompareOpSchema, value: z.union([z.string(), z.number()]) }),
+  z.object({ k: z.literal('and'), parts: z.array(CondNodeSchema) }),
+  z.object({ k: z.literal('or'), parts: z.array(CondNodeSchema) }),
+  z.object({ k: z.literal('raw'), text: z.string() }),
+]))
+const EffectItemSchema = z.discriminatedUnion('k', [
+  z.object({ k: z.literal('eff'), ref: VarRefSchema, kind: z.enum(['inc', 'dec', 'set']), value: z.union([z.string(), z.number()]) }),
+  z.object({ k: z.literal('raw'), text: z.string() }),
+])
 
 // ─── 基础枚举 ──────────────────────────────────────────────────────
 
@@ -66,6 +82,8 @@ export const ChoiceSchema = z.object({
   variableEffects: z.string(),
   consequence: z.string().optional(),
   choiceWeight: z.enum(['light', 'heavy', 'critical']).optional(),
+  cond: CondNodeSchema.nullable().optional(),
+  effects: z.array(EffectItemSchema).optional(),
 })
 
 // ─── StoryNode ──────────────────────────────────────────────────────
@@ -84,6 +102,8 @@ export const SystemFunctionSchema = z.object({
   variablesRead: z.array(z.string()).default([]),
   variablesWrite: z.array(z.string()).default([]),
   requirements: z.string(),
+  readIds: z.array(z.string()).optional(),
+  writeIds: z.array(z.string()).optional(),
 })
 
 export const DialogueLineSchema = z.object({
@@ -91,6 +111,7 @@ export const DialogueLineSchema = z.object({
   speaker: z.string(),
   text: z.string(),
   emotion: z.string(),
+  speakerId: z.string().optional(),
 })
 
 export const PositionSchema = z.object({
@@ -147,6 +168,7 @@ export const EndingConditionSchema = z.object({
   variableName: z.string(),
   operator: z.enum(['>=', '<=', '==', '>', '<', '!=']),
   value: z.union([z.number(), z.string()]),
+  variableId: z.string().optional(),
 })
 
 export const EndingSchema = z.object({
@@ -159,6 +181,7 @@ export const EndingSchema = z.object({
   variableConditions: z.array(EndingConditionSchema).default([]),
   requiredChoiceIds: z.array(z.string()).default([]),
   reachPath: z.string(),
+  cond: CondNodeSchema.nullable().optional(),
 })
 
 // ─── ScalePlan ──────────────────────────────────────────────────────

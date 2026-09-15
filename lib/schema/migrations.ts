@@ -1,10 +1,12 @@
 // schemaVersion 迁移链：文档级迁移，与 lib/db/schema.ts 的物理表迁移（drizzle-kit）正交。
 // - normalizeLegacy：把早期 localStorage 导出的“形状不全”文档补齐到可被 ProjectSchema 解析的最小形态。
-// - MIGRATIONS：按 schemaVersion 顺序注册的纯函数迁移，目前为空（框架就位，见下方示范注释）。
+// - MIGRATIONS：按 schemaVersion 顺序注册的纯函数迁移（1→2：变量/角色引用层，见 lib/refs）。
 // - migrateProject：normalizeLegacy → 顺序应用 MIGRATIONS → 返回迁移后的文档（未做 zod 校验，
 //   调用方应在迁移后自行 ProjectSchema.parse/safeParse）。
 
-export const CURRENT_SCHEMA_VERSION = 1
+import { bindProjectRefs } from '../refs/bind.ts'
+
+export const CURRENT_SCHEMA_VERSION = 2
 
 const EMPTY_PHASE_PROGRESS = {
   world: 'locked',
@@ -47,17 +49,17 @@ export function normalizeLegacy(doc: any): any {
 }
 
 /**
- * 按 schemaVersion 顺序注册的文档迁移函数。目前为空——CURRENT_SCHEMA_VERSION 从 1 开始，
- * 尚无需要迁移的历史版本。加新版本时的写法示范（不要删除这段注释）：
+ * 按 schemaVersion 顺序注册的文档迁移函数。key 是“迁移前”的 schemaVersion，
+ * 函数返回“迁移后”的文档（含更新后的 schemaVersion）；注册新版本时同步提升 CURRENT_SCHEMA_VERSION。
  *
- *   export const MIGRATIONS: Record<number, (doc: any) => any> = {
- *     1: (doc) => ({ ...doc, schemaVersion: 2, someNewField: doc.someNewField ?? 'default' }),
- *   }
- *
- * 注册后需同步把 CURRENT_SCHEMA_VERSION 提升到 2。key 是“迁移前”的 schemaVersion，
- * 函数返回“迁移后”的文档（含更新后的 schemaVersion）。
+ * 1 → 2（docs/plans/2026-09-16-id-refs.md 期 1）：变量/角色引用层。用文档自带的 variables/characters
+ * 把 conditions / variableEffects / speaker / variablesRead|Write / variableConditions 解析成 AST 与 id，
+ * 纯附加——任何原文串一个字节不动；同名歧义不猜、找不到留未绑定。纯函数、幂等，
+ * 惰性跑在既有 migrateProject 调用点上，不做批量写回（saveProject 会给每个节点行 version+1）。
  */
-export const MIGRATIONS: Record<number, (doc: any) => any> = {}
+export const MIGRATIONS: Record<number, (doc: any) => any> = {
+  1: (doc) => ({ ...bindProjectRefs(doc).project, schemaVersion: 2 }),
+}
 
 /**
  * 把任意版本的文档顺序迁移到 CURRENT_SCHEMA_VERSION。

@@ -8,14 +8,20 @@
 
 type VarState = Record<string, string | number>
 
-function evalSingle(expr: string, state: VarState): boolean | null {
+export type CompareOp = '>=' | '<=' | '>' | '<' | '==' | '!='
+
+/** 单个比较式 `name op value` 的词法解析；value 数字化、去首尾引号。lib/refs/parse 与求值器共用同一口径。 */
+export function parseComparison(expr: string): { name: string; op: CompareOp; value: string | number } | null {
   const m = expr.trim().match(/^([a-zA-Z_][a-zA-Z0-9_]*)\s*(>=|<=|>|<|==|!=)\s*(.+)$/)
   if (!m) return null
   const [, name, op, raw] = m
-  const lhs = state[name] ?? 0
-  const rhs = isNaN(Number(raw)) ? raw.replace(/^["']|["']$/g, '') : Number(raw)
-  const l = typeof lhs === 'number' ? lhs : (isNaN(Number(lhs)) ? lhs : Number(lhs))
-  const r = rhs
+  return { name, op: op as CompareOp, value: isNaN(Number(raw)) ? raw.replace(/^["']|["']$/g, '') : Number(raw) }
+}
+
+/** 比较运算的语义：数值比较前把可数值化的字符串转数字；== / != 按字符串比对 */
+export function compareValues(lhs: string | number | undefined, op: CompareOp, r: string | number): boolean {
+  const l0 = lhs ?? 0
+  const l = typeof l0 === 'number' ? l0 : (isNaN(Number(l0)) ? l0 : Number(l0))
   switch (op) {
     case '>=': return (l as number) >= (r as number)
     case '<=': return (l as number) <= (r as number)
@@ -24,11 +30,15 @@ function evalSingle(expr: string, state: VarState): boolean | null {
     case '==': return String(l) === String(r)
     case '!=': return String(l) !== String(r)
   }
-  return null
+}
+
+function evalSingle(expr: string, state: VarState): boolean | null {
+  const cmp = parseComparison(expr)
+  return cmp ? compareValues(state[cmp.name], cmp.op, cmp.value) : null
 }
 
 /** 在括号深度 0 处按 op 切分；括号不平衡返回 null（交给调用方判定为语法错误）。 */
-function splitTopLevel(expr: string, op: '&&' | '||'): string[] | null {
+export function splitTopLevel(expr: string, op: '&&' | '||'): string[] | null {
   const parts: string[] = []
   let depth = 0
   let start = 0
