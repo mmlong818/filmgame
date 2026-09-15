@@ -2,7 +2,6 @@
 // world 页 5 个页面级 AI 动作（角色卡的声音指纹动作独立、自持于 CharacterCard 内）。
 // 抽成 hook 避免 page.tsx 把 5 套 loading/error 状态机与请求逻辑全堆进主渲染函数。
 import { useState } from 'react'
-import { nanoid } from 'nanoid'
 import { aiJson } from '@/lib/ai/client'
 import { useAiAction } from '@/lib/hooks/useAiAction'
 import type { WorldAnchor, Character, EndingDesign, Variable, AiReview } from '@/lib/types/project'
@@ -13,8 +12,9 @@ interface Params {
   setForm: (updater: (f: WorldAnchor) => WorldAnchor) => void
   markUserEdited: () => void
   setEndingsDesign: (endings: EndingDesign[]) => void
-  setCharacters: (characters: Character[]) => void
-  setVariables: (variables: Variable[]) => void
+  /** 不带 id：由 store 按名字对账分配（同名沿用旧 id），AI 覆盖不再让全项目引用悬空 */
+  setCharacters: (characters: Omit<Character, 'id'>[]) => void
+  setVariables: (variables: Omit<Variable, 'id'>[]) => void
 }
 
 export function useWorldAi({ form, characters, setForm, markUserEdited, setEndingsDesign, setCharacters, setVariables }: Params) {
@@ -61,7 +61,6 @@ export function useWorldAi({ form, characters, setForm, markUserEdited, setEndin
     const list = data?.result?.characters
     if (Array.isArray(list)) {
       setCharacters(list.map(c => ({
-        id: nanoid(8),
         name: c.name ?? '新角色',
         role: (c.role ?? 'support') as Character['role'],
         motivation: c.motivation ?? '',
@@ -81,7 +80,6 @@ export function useWorldAi({ form, characters, setForm, markUserEdited, setEndin
     const list = data?.result?.variables
     if (Array.isArray(list)) {
       setVariables(list.map(v => ({
-        id: nanoid(8),
         name: v.name ?? 'var',
         type: (v.type ?? 'counter') as Variable['type'],
         defaultValue: v.defaultValue ?? '0',

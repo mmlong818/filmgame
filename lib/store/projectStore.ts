@@ -8,6 +8,10 @@ import { bindHistory, pushUndo, clearHistory, isRestoring, invalidateRedo, recor
 import { renameVariableRefs, renameSpeakerRefs } from '@/lib/store/rename'
 import { mergeWindowEdits } from '@/lib/store/merge'
 import { removeNodes, swapOrder } from '@/lib/store/structureOps'
+import { normalizeVarName, normalizeCharName, uniqueName, reconcileByName } from '@/lib/refs/names'
+
+/** AI 批量覆盖的入参：id 可缺省，由 store 按名字对账分配（沿用同名旧 id / 新增才发新 id） */
+type Incoming<T extends { id: string }> = Omit<T, 'id'> & { id?: string }
 
 const PHASE_ORDER: Phase[] = ['world', 'scale', 'structure', 'workshop', 'validate']
 
@@ -87,7 +91,7 @@ interface ProjectStore {
   addCharacter: () => void
   updateCharacter: (id: string, patch: Partial<Character>) => void
   deleteCharacter: (id: string) => void
-  setCharacters: (characters: Character[]) => void
+  setCharacters: (characters: Incoming<Character>[]) => void
 
   addChapter: (title: string) => void
   updateChapter: (chapterId: string, patch: Partial<Chapter>) => void
@@ -113,7 +117,7 @@ interface ProjectStore {
 
   addVariable: (name: string) => void
   updateVariable: (id: string, patch: Partial<Variable>) => void
-  setVariables: (variables: Variable[]) => void
+  setVariables: (variables: Incoming<Variable>[]) => void
 
   addEnding: (nodeId: string) => void
   updateEnding: (id: string, patch: Partial<Ending>) => void
@@ -235,9 +239,11 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
     return { project: p }
   }),
 
+  // 角色名在项目内唯一（重名自动加「 2」后缀）：名字→id 的解析才是确定的，见 docs/plans/2026-09-16-id-refs.md 期 0
   addCharacter: () => set((s) => {
     if (!s.project) return s
-    const c: Character = { id: nanoid(8), name: '新角色', role: 'support', motivation: '', relationship: '' }
+    const taken = new Set(s.project.characters.map(c => normalizeCharName(c.name)))
+    const c: Character = { id: nanoid(8), name: uniqueName('新角色', taken, normalizeCharName, ' '), role: 'support', motivation: '', relationship: '' }
     const p = { ...s.project, characters: [...s.project.characters, c], updatedAt: new Date().toISOString() }
     saveProjectMeta(p, s.loadedVersion ?? undefined)
     return { project: p }
@@ -246,6 +252,10 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
   updateCharacter: (id, patch) => set((s) => {
     if (!s.project) return s
     const prev = s.project.characters.find(c => c.id === id)
+    if (patch.name !== undefined) {
+      const others = new Set(s.project.characters.filter(c => c.id !== id).map(c => normalizeCharName(c.name)))
+      patch = { ...patch, name: uniqueName(patch.name, others, normalizeCharName, ' ') }
+    }
     const characters = s.project.characters.map(c => c.id === id ? { ...c, ...patch } : c)
     // 改名级联：对白说话人按名字引用，跟着改；触碰到节点就是跨行变更，走整档保存
     const cascaded = prev && patch.name !== undefined ? renameSpeakerRefs(s.project, prev.name, patch.name) : null
@@ -264,9 +274,11 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
     return { project: p }
   }),
 
-  setCharacters: (characters) => set((s) => {
+  // 按名字对账：同名沿用旧 id，否则「AI 生成角色」一次就让全项目 speakerId 集体悬空
+  setCharacters: (incoming) => set((s) => {
     if (!s.project) return s
     pushUndo('批量覆盖角色', s.project)
+    const characters = reconcileByName(s.project.characters, incoming, normalizeCharName, () => nanoid(8), ' ')
     const p = { ...s.project, characters, updatedAt: new Date().toISOString() }
     saveProjectMeta(p, s.loadedVersion ?? undefined)
     return { project: p }
@@ -558,9 +570,11 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
     return { project: p }
   }),
 
+  // 变量名在项目内唯一（重名自动加 _2 后缀，保持合法标识符），理由同 addCharacter
   addVariable: (name) => set((s) => {
     if (!s.project) return s
-    const v: Variable = { id: nanoid(8), name, type: 'flag', defaultValue: '0', description: '' }
+    const taken = new Set(s.project.variables.map(v => normalizeVarName(v.name)))
+    const v: Variable = { id: nanoid(8), name: uniqueName(name, taken, normalizeVarName), type: 'flag', defaultValue: '0', description: '' }
     const p = { ...s.project, variables: [...s.project.variables, v], updatedAt: new Date().toISOString() }
     saveProjectMeta(p, s.loadedVersion ?? undefined)
     return { project: p }
@@ -569,6 +583,10 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
   updateVariable: (id, patch) => set((s) => {
     if (!s.project) return s
     const prev = s.project.variables.find(v => v.id === id)
+    if (patch.name !== undefined) {
+      const others = new Set(s.project.variables.filter(v => v.id !== id).map(v => normalizeVarName(v.name)))
+      patch = { ...patch, name: uniqueName(patch.name, others, normalizeVarName) }
+    }
     const variables = s.project.variables.map(v => v.id === id ? { ...v, ...patch } : v)
     // 改名级联：条件/效果/结局条件/系统功能读写表按名字引用，跟着改；触碰到节点或结局就走整档保存
     const cascaded = prev && patch.name !== undefined ? renameVariableRefs(s.project, prev.name, patch.name) : null
@@ -579,9 +597,11 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
     return { project: p }
   }),
 
-  setVariables: (variables) => set((s) => {
+  // 按名字对账：同名沿用旧 id，否则「AI 建议变量」一次就让全项目变量引用集体悬空
+  setVariables: (incoming) => set((s) => {
     if (!s.project) return s
     pushUndo('批量覆盖变量', s.project)
+    const variables = reconcileByName(s.project.variables, incoming, normalizeVarName, () => nanoid(8))
     const p = { ...s.project, variables, updatedAt: new Date().toISOString() }
     saveProjectMeta(p, s.loadedVersion ?? undefined)
     return { project: p }

@@ -1,6 +1,6 @@
 import type { Project, ValidationIssue, ValidationReport } from '@/lib/types/project'
 import { nanoid } from 'nanoid'
-import { parseEffectPart, lintConditions, splitEffects } from '@/lib/conditions'
+import { parseEffectPart, lintConditions, splitEffects, extractConditionVars } from '@/lib/conditions'
 import { reachableNodeIds } from '@/lib/graph'
 
 export function runValidation(project: Project): ValidationReport {
@@ -222,17 +222,7 @@ export function runValidation(project: Project): ValidationReport {
 
   // 变量断链检测：条件/效果引用了不存在的变量（改名或删除变量后静默失效，视为0）
   const knownVarNames = new Set((project.variables ?? []).map(v => v.name))
-
-  function extractConditionVars(expr: string | undefined): string[] {
-    if (!expr || !expr.trim()) return []
-    const parts = expr.includes('&&') ? expr.split('&&') : expr.includes('||') ? expr.split('||') : [expr]
-    const names: string[] = []
-    for (const part of parts) {
-      const m = part.trim().match(/^([a-zA-Z_][a-zA-Z0-9_]*)\s*(>=|<=|>|<|==|!=)\s*(.+)$/)
-      if (m) names.push(m[1])
-    }
-    return names
-  }
+  // 变量名提取统一用 lib/conditions 的导出版（支持括号与 &&/|| 混合）；此前这里有一份只切单层的本地实现
 
   // 曾经只会剥离前缀 "+name"/"-name" 或按 "=" 切分，对 AI 生成的绝大多数选项使用的
   // 后缀写法 "name+1"（见 lib/ai/prompts.ts 'branches:generate'）完全不识别——会把整个
