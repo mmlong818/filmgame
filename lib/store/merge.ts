@@ -3,8 +3,9 @@
 // 否则这些输入会无声消失且无处可恢复。这里做字段级合并：以最后一次服务端对齐快照
 // （paintBase）为基线，找出 current 相对基线真正被用户改过的顶层字段（带 id 的数组精确到
 // 单个条目的改/增/删），只把这些字段叠加到 DB 副本上；其余字段一律以 DB 为准。
-import { PROJECT_ID_ARRAY_KEYS } from '@/lib/types/project'
-import type { Project } from '@/lib/types/project'
+// 相对导入带 .ts：纯函数，node:test 直接加载（别名 @/ 在 Node ESM 下不可解析）
+import { PROJECT_ID_ARRAY_KEYS } from '../types/project.ts'
+import type { Project } from '../types/project.ts'
 
 const MERGE_SKIP_KEYS = new Set<string>(['id', 'createdAt', 'updatedAt', 'schemaVersion'])
 // 逐条目合并的数组字段（PROJECT_ID_ARRAY_KEYS）。此前只有 nodes 这样做，其余数组只要本地与

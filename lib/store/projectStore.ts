@@ -9,9 +9,15 @@ import { renameVariableRefs, renameSpeakerRefs } from '@/lib/store/rename'
 import { mergeWindowEdits } from '@/lib/store/merge'
 import { removeNodes, swapOrder } from '@/lib/store/structureOps'
 import { normalizeVarName, normalizeCharName, uniqueName, reconcileByName } from '@/lib/refs/names'
+import { bindNodeRefs, bindChoiceRefs, bindEndingRefs, newBindReport } from '@/lib/refs/bind'
 
 /** AI 批量覆盖的入参：id 可缺省，由 store 按名字对账分配（沿用同名旧 id / 新增才发新 id） */
 type Incoming<T extends { id: string }> = Omit<T, 'id'> & { id?: string }
+
+// 引用层（docs/plans/2026-09-16-id-refs.md 期 1b）：所有会改动 conditions / variableEffects / speaker /
+// variablesRead|Write / 结局条件 的写入最终都汇到下面几个 action，绑定就放在这里——UI 层不必各自记得双写。
+const bindNode = (p: Project, node: StoryNode) => bindNodeRefs(node, p.variables, p.characters, newBindReport())
+const touchesNodeRefs = (patch: Partial<StoryNode>) => 'dialogue' in patch || 'choices' in patch || 'systemFunction' in patch
 
 const PHASE_ORDER: Phase[] = ['world', 'scale', 'structure', 'workshop', 'validate']
 
@@ -476,7 +482,9 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
     // 结构被整体替换后，绑定在旧节点上的结局实例是悬空引用，只保留仍指向现存节点的
     const nodeIds = new Set(nodes.map(n => n.id))
     const endings = s.project.endings.filter(e => nodeIds.has(e.nodeId))
-    const p = { ...s.project, chapters, acts, nodes, endings, updatedAt: new Date().toISOString() }
+    // AI 生成/定向重构落库的节点带的是名字串，这里统一解析绑定（调用方须先把孤儿变量登记进变量表）
+    const boundNodes = nodes.map(n => bindNode(s.project!, n))
+    const p = { ...s.project, chapters, acts, nodes: boundNodes, endings, updatedAt: new Date().toISOString() }
     saveProject(p, s.loadedVersion ?? undefined)
     return { project: p }
   }),
@@ -511,7 +519,8 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
     // 一并清掉 choices：否则校验引擎沿残留 choices 算可达、预览却不渲染选项，报告全绿玩家却卡死。
     const dropChoices = (patch.type === 'ending' || patch.type === 'explore') && prev.choices.length > 0
     if (dropChoices) pushUndo('修改节点类型', s.project)
-    const updatedNode = { ...prev, ...patch, ...(dropChoices ? { choices: [] } : {}) }
+    const merged = { ...prev, ...patch, ...(dropChoices ? { choices: [] } : {}) }
+    const updatedNode = touchesNodeRefs(patch) ? bindNode(s.project, merged) : merged
     const nodes = s.project.nodes.map(n => n.id === nodeId ? updatedNode : n)
     const p = { ...s.project, nodes, updatedAt: new Date().toISOString() }
     writeLocalSnapshot(p)
@@ -549,7 +558,15 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
     if (!s.project) return s
     const owner = s.project.nodes.find(n => n.choices.some(c => c.id === choiceId))
     if (!owner) return s
-    const updatedNode = { ...owner, choices: owner.choices.map(c => c.id === choiceId ? { ...c, ...patch } : c) }
+    const rebind = 'conditions' in patch || 'variableEffects' in patch
+    const updatedNode = {
+      ...owner,
+      choices: owner.choices.map(c => {
+        if (c.id !== choiceId) return c
+        const next = { ...c, ...patch }
+        return rebind ? bindChoiceRefs(next, s.project!.variables, newBindReport()) : next
+      }),
+    }
     const nodes = s.project.nodes.map(n => n.id === owner.id ? updatedNode : n)
     const p = { ...s.project, nodes, updatedAt: new Date().toISOString() }
     writeLocalSnapshot(p)
@@ -617,7 +634,12 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
 
   updateEnding: (id, patch) => set((s) => {
     if (!s.project) return s
-    const endings = s.project.endings.map(e => e.id === id ? { ...e, ...patch } : e)
+    const rebind = 'conditions' in patch || 'variableConditions' in patch
+    const endings = s.project.endings.map(e => {
+      if (e.id !== id) return e
+      const next = { ...e, ...patch }
+      return rebind ? bindEndingRefs(next, s.project!.variables, newBindReport()) : next
+    })
     const p = { ...s.project, endings, updatedAt: new Date().toISOString() }
     saveProjectMeta(p, s.loadedVersion ?? undefined)
     return { project: p }

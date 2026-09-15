@@ -14,6 +14,7 @@ import { bindProjectRefs, bindChoiceRefs, newBindReport } from '../lib/refs/bind
 import { evalConditions, applyVariableEffect } from '../lib/conditions.ts'
 import { migrateProject } from '../lib/schema/migrations.ts'
 import { ProjectSchema } from '../lib/schema/project.ts'
+import { mergeWindowEdits } from '../lib/store/merge.ts'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const fixturePath = path.join(__dirname, '..', 'data', 'projects', 'g120MnzS.json')
@@ -102,6 +103,26 @@ test('bind：绑定态带 varId，speaker 命中写 speakerId，systemFunction �
   assert.equal(p.endings[0].cond.ref.varId, 'v1')
   assert.equal(p.endings[0].variableConditions[0].variableId, 'v1')
   assert.deepEqual([...report.unresolved], ['ghost'])
+})
+
+test('V3 迁移与对账合并的版本顺序：v1 文档经迁移后再进 mergeWindowEdits，结果无 v1 残留（每个选项都带引用层）', () => {
+  const v1 = () => ({
+    id: 'p', title: 't', createdAt: 'x', updatedAt: 'x', currentPhase: 'world', schemaVersion: 1,
+    variables: [{ id: 'v1', name: 'trust', type: 'counter', defaultValue: '0', description: '' }],
+    nodes: [{ id: 'n1', choices: [{ id: 'c1', conditions: 'trust>=1', variableEffects: 'trust+1' }], dialogue: [] }],
+  })
+  const db = migrateProject(v1())
+  const base = migrateProject(v1())
+  const current = migrateProject(v1())
+  current.nodes[0].choices[0].variableEffects = 'trust+2' // 本地窗口内编辑
+  const { project: merged, changed } = mergeWindowEdits(db, base, current)
+  assert.equal(changed, true)
+  assert.equal(merged.schemaVersion, 2)
+  for (const n of merged.nodes) for (const c of n.choices) {
+    assert.ok('cond' in c && 'effects' in c, '合并结果每个选项都带引用层字段')
+  }
+  assert.equal(merged.nodes[0].choices[0].variableEffects, 'trust+2')
+  assert.equal(merged.nodes[0].choices[0].cond.ref.varId, 'v1')
 })
 
 test('V3/V5 迁移 1→2：真实 fixture 不抛错、原文串逐字节不变、schema 可解析、幂等、全部引用为未绑定态', { skip: !existsSync(fixturePath) && 'fixture 不在本机' }, () => {

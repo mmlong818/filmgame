@@ -3,13 +3,14 @@
 // 固定 id，故意不用 nanoid(8)（那是运行时新建项目用的），避免和用户后续新建的
 // 项目 id 撞车，同时让幂等判断（"同 id 已存在则跳过 / 直接打开"）可预期。
 import { ProjectSchema } from '@/lib/schema/project'
+import { migrateProject } from '@/lib/schema/migrations'
 import type { Project } from '@/lib/types/project'
 
 export const SEED_PROJECT_ID = 'seed-demo-01'
 
-/** 每次调用产出新对象（时间戳取当前），并经 ProjectSchema 校验后返回 */
+/** 每次调用产出新对象（时间戳取当前）；原文按 schemaVersion 1 书写，经迁移链补齐引用层后过 ProjectSchema */
 export function buildSeedProject(): Project {
-  return ProjectSchema.parse(buildRaw()) as Project
+  return ProjectSchema.parse(migrateProject(buildRaw())) as Project
 }
 
 function buildRaw() {

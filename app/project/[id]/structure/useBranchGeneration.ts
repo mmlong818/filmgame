@@ -223,10 +223,10 @@ export function useBranchGeneration({ project, setStage }: Params) {
       }
     })
 
-    // 一次性批量写入
-    const store = useProjectStore.getState()
-    store.bulkSetStructure(fresh.chapters, fresh.acts, suturedNodes)
+    // 先登记孤儿变量，再批量写入：bulkSetStructure 会把选项里的名字串绑定到变量 id，
+    // 变量表必须在那之前齐全，否则这些引用会以「未绑定」落库
     registerOrphanVariables(suturedNodes)
+    useProjectStore.getState().bulkSetStructure(fresh.chapters, fresh.acts, suturedNodes)
   }
 
   /**
