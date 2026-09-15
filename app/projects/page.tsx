@@ -4,6 +4,7 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import { nanoid } from 'nanoid'
 import { createProject, hasUnimportedLegacyData, importLegacyLocalData, removeLocalSnapshot } from '@/lib/persistence'
 import { createEmptyProject, useProjectStore } from '@/lib/store/projectStore'
+import { SEED_PROJECT_ID, buildSeedProject } from '@/lib/seed/demoProject'
 import type { ProjectSummary, AiMode } from '@/lib/types/project'
 import { useToast } from '@/app/components/toast'
 import { AISettingsModal } from '@/app/components/ai-settings-modal'
@@ -173,6 +174,28 @@ function ProjectsPageInner() {
     }
   }
 
+  // 示例项目（FR-1）：库里已有就直接打开，没有就用共享定义创建一份再打开。
+  // 与 scripts/seed-db.mjs 同一份内容、同一个固定 id，两条路径互为幂等。
+  async function openDemoProject() {
+    if (creating) return
+    if (projects.some(p => p.id === SEED_PROJECT_ID)) {
+      router.push(`/project/${SEED_PROJECT_ID}/structure`)
+      return
+    }
+    setCreating(true)
+    try {
+      const result = await createProject(buildSeedProject())
+      if (!result.ok) {
+        toast(`示例项目创建失败：${result.error}`, 'error')
+        return
+      }
+      useProjectStore.getState().setProject(result.project, 1)
+      router.push(`/project/${result.project.id}/structure`)
+    } finally {
+      setCreating(false)
+    }
+  }
+
   async function handleArchive(id: string) {
     const title = projects.find(p => p.id === id)?.title ?? '项目'
     try {
@@ -269,6 +292,7 @@ function ProjectsPageInner() {
           <Button variant="ghost" size="sm" aria-label="AI 设置" onClick={() => setShowSettings(true)}>⚙</Button>
           <Button variant="secondary" size="sm" onClick={openArchive}>归档室</Button>
           <Button variant="secondary" size="sm" onClick={() => importInputRef.current?.click()}>导入 JSON</Button>
+          <Button variant="secondary" size="sm" onClick={openDemoProject} loading={creating}>打开示例项目</Button>
           <Button variant="primary" size="sm" onClick={openNewModal}>+ 新建项目</Button>
         </div>
       </div>
@@ -341,7 +365,10 @@ function ProjectsPageInner() {
             <p className="text-sm mb-10 text-pencil">
               每一个伟大的故事，都从第一个节点开始
             </p>
-            <Button variant="primary" onClick={openNewModal}>创建第一个项目</Button>
+            <div className="flex items-center gap-3">
+              <Button variant="primary" onClick={openNewModal}>创建第一个项目</Button>
+              <Button variant="secondary" onClick={openDemoProject} loading={creating}>先看看示例项目</Button>
+            </div>
           </div>
         ) : visibleProjects.length === 0 ? (
           /* 搜索无结果 */
