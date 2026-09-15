@@ -175,25 +175,46 @@ filmgame/
 │   ├── api/auth/        # 登录/登出（单密码 + 签名会话 cookie）
 │   ├── api/ai/          # AI 网关（LangChain/LangGraph 调度各 provider）
 │   ├── api/projects/    # 项目 CRUD API（含单节点保存端点）
-│   ├── api/settings/    # BYOK API Key 读写（AES-256-GCM 落库）
-│   └── project/[id]/    # 5个阶段页面
+│   ├── api/settings/    # BYOK API Key 读写（AES-256-GCM 落库）、模型发现、连接测试
+│   ├── api/gen-log/     # 生成脚本日志读取/清空（供 /status 页轮询，需登录）
+│   ├── status/          # 开发用：实时查看 scripts/watch.mjs 的生成日志
+│   ├── projects/        # 项目列表（新建 / 模板 / 示例项目 / 导入 / 归档室）
+│   └── project/[id]/    # 5个阶段页面 + 预览 + 分支概览
 │       ├── world/       # 世界观
 │       ├── scale/       # 规模
-│       ├── structure/   # 结构
+│       ├── structure/   # 结构（列表 / 流程图 / 定向重构）
 │       ├── workshop/    # 工坊
-│       └── validate/    # 验收
+│       ├── validate/    # 验收
+│       ├── preview/     # 预览播放
+│       └── branches/    # 分支路径概览
 ├── lib/
 │   ├── ai/              # LangChain provider 适配、prompt 模板、schemas（SCHEMA_REGISTRY）
 │   ├── db/              # Drizzle schema 与仓储层
+│   ├── seed/            # 示例项目定义（脚本与「打开示例项目」按钮共用）
 │   ├── server/          # 加密、会话签名、鉴权
-│   ├── store/           # Zustand 状态管理
+│   ├── store/           # Zustand 状态管理（projectStore + history 撤销 + merge 对账 + rename 改名级联）
 │   ├── types/           # TypeScript 类型定义
-│   ├── validation/      # 10类校验引擎（BFS）
-│   └── persistence.ts   # 客户端自动保存（乐观锁 + 离线队列）
+│   ├── validation/      # 本地校验引擎（24 项检测）
+│   ├── graph.ts         # 可达性 / 路径枚举（校验、分支页、流程图共用）
+│   └── persistence.ts   # 客户端自动保存（乐观锁 + 离线队列）、JSON / ink 导出
 ├── drizzle/             # 数据库迁移 SQL（drizzle-kit 生成）
 ├── docker-compose.yml   # 本地 Postgres 17 容器
-└── scripts/seed-db.mjs  # 示例项目种子脚本
+└── scripts/             # 开发辅助脚本（见下节）
 ```
+
+### 开发辅助脚本
+
+均不在 `pnpm` scripts 里注册，按需手动运行；读 `.env.local` 里的 `DATABASE_URL`。
+
+| 脚本 | 用途 |
+|------|------|
+| `node scripts/seed-db.mjs` | 幂等插入示例项目「深夜实验室」（与项目列表「打开示例项目」按钮同一份定义） |
+| `node scripts/migrate-json-to-db.mjs` | 一次性把旧版 `data/projects/*.json` 存量迁入 Postgres（幂等、不改源文件） |
+| `node scripts/watch.mjs gen-seeds [n]` / `gen-project` | 启动 AI 批量生成脚本并把进度写到 `data/gen-log.txt`，浏览器打开 `/status` 实时查看 |
+| `node scripts/gen-seeds.mjs` / `gen-project.mjs` / `seed-witness.mjs` | 用 AI 批量生成种子项目内容（对白、情感、完整五阶段） |
+| `node scripts/fix-seed-branches.mjs` | 修复种子里所有选项指向同一目标的假分支 |
+| `node scripts/check-schema-prompt.mjs` | 回归防护：prompts 里的 JSON 示例必须通过对应 SCHEMA_REGISTRY 校验 |
+| `python scripts/e2e_test.py` / `test_full_flow.py` / `test_new_project.py` | Playwright 端到端冒烟（需本地服务已启动、已安装 playwright），输出截图到系统临时目录 |
 
 ---
 
