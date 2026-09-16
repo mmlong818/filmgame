@@ -1,5 +1,5 @@
 'use client'
-import type { Ending, StoryNode } from '@/lib/types/project'
+import type { Ending, StoryNode, DialogueLine } from '@/lib/types/project'
 import { ENDING_ACCENTS } from './theme'
 import { stripWorkflowTags } from '@/lib/ui/endingLabel'
 
@@ -14,9 +14,10 @@ interface Props {
   canGoBack: boolean
   onReset: () => void
   onGoBack: () => void
+  speakerName: (line: DialogueLine) => string
 }
 
-export function EndingScreen({ node, ending, totalEndings, unlockedCount, stepsToReach, totalNodes, visitedCount, canGoBack, onReset, onGoBack }: Props) {
+export function EndingScreen({ node, ending, totalEndings, unlockedCount, stepsToReach, totalNodes, visitedCount, canGoBack, onReset, onGoBack, speakerName }: Props) {
   const accent = ENDING_ACCENTS[ending?.type ?? 'neutral']
 
   return (
@@ -46,7 +47,7 @@ export function EndingScreen({ node, ending, totalEndings, unlockedCount, stepsT
             {node.dialogue.map(line => (
               <div key={line.id} className="text-center">
                 <div className="text-xs font-medium uppercase tracking-wider mb-0.5 opacity-70" style={{ color: accent.hex }}>
-                  {line.speaker}
+                  {speakerName(line)}
                 </div>
                 <div className="text-sm leading-relaxed opacity-90 text-[var(--pv-text-soft)]">{line.text}</div>
               </div>

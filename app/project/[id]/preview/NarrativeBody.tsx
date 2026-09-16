@@ -1,5 +1,5 @@
 'use client'
-import type { StoryNode } from '@/lib/types/project'
+import type { StoryNode, DialogueLine } from '@/lib/types/project'
 import type { PreviewMode } from './types'
 
 interface Props {
@@ -8,9 +8,11 @@ interface Props {
   isDeadEnd: boolean
   canGoBack: boolean
   onGoBack: () => void
+  /** 说话人展示名：speakerId 命中角色则用角色当前名字（改名自动跟随） */
+  speakerName: (line: DialogueLine) => string
 }
 
-export function NarrativeBody({ node, mode, isDeadEnd, canGoBack, onGoBack }: Props) {
+export function NarrativeBody({ node, mode, isDeadEnd, canGoBack, onGoBack, speakerName }: Props) {
   return (
     <div className="flex-1 flex flex-col items-center justify-center px-6 py-12 relative">
       <div className="max-w-2xl w-full">
@@ -22,7 +24,7 @@ export function NarrativeBody({ node, mode, isDeadEnd, canGoBack, onGoBack }: Pr
           <div className="space-y-6 mb-12">
             {node.dialogue.map(line => (
               <div key={line.id} className="text-center">
-                <div className="text-xs font-medium uppercase tracking-wider mb-1 text-[var(--pv-accent)]">{line.speaker}</div>
+                <div className="text-xs font-medium uppercase tracking-wider mb-1 text-[var(--pv-accent)]">{speakerName(line)}</div>
                 <div className="text-sm leading-relaxed text-[var(--pv-text)]">{line.text}</div>
               </div>
             ))}

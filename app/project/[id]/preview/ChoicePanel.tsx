@@ -9,8 +9,9 @@ interface Props {
   exploreChoices: Choice[]
   history: string[]
   nodes: StoryNode[]
-  onNavigate: (targetNodeId: string, effect?: string) => void
-  onExplore: (targetNodeId: string, effect?: string) => void
+  /** 传整个 Choice：效果从其引用层（AST + varId）应用，不再解析原文串 */
+  onNavigate: (targetNodeId: string, choice?: Choice) => void
+  onExplore: (targetNodeId: string, choice?: Choice) => void
 }
 
 function isTypingTarget(el: EventTarget | null): boolean {
@@ -34,7 +35,7 @@ function useChoiceHotkeys(choices: Choice[], onNavigate: Props['onNavigate']) {
       if (index < 0 || index >= current.length) return
       e.preventDefault()
       const choice = current[index]
-      navigate(choice.targetNodeId, choice.variableEffects)
+      navigate(choice.targetNodeId, choice)
     }
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
@@ -59,7 +60,7 @@ export function ChoicePanel({ mainChoices, exploreChoices, history, nodes, onNav
                   index={i}
                   history={history}
                   nodes={nodes}
-                  onClick={() => onNavigate(choice.targetNodeId, choice.variableEffects)}
+                  onClick={() => onNavigate(choice.targetNodeId, choice)}
                 />
               ))}
             </div>
@@ -73,7 +74,7 @@ export function ChoicePanel({ mainChoices, exploreChoices, history, nodes, onNav
               {exploreChoices.map(choice => (
                 <button
                   key={choice.id}
-                  onClick={() => onExplore(choice.targetNodeId, choice.variableEffects)}
+                  onClick={() => onExplore(choice.targetNodeId, choice)}
                   className="px-3 py-1.5 bg-[var(--pv-success-soft)] border border-[var(--pv-success)]/30 text-[var(--pv-success)] text-xs rounded-lg hover:bg-[var(--pv-success)]/20 transition-colors cursor-pointer"
                 >
                   ◎ {choice.text}

@@ -4,8 +4,9 @@ import { useState, useCallback, useEffect, useMemo } from 'react'
 import Link from 'next/link'
 import { useParams, useSearchParams, useRouter, usePathname } from 'next/navigation'
 import { useProjectStore } from '@/lib/store/projectStore'
-import { evalConditions, applyVariableEffect } from '@/lib/conditions'
-import type { StoryNode } from '@/lib/types/project'
+import { evalCondOrTrue, applyEffects } from '@/lib/refs/eval'
+import { choiceCond, choiceEffects, refKey, speakerLabel, initVarState } from '@/lib/refs/access'
+import type { StoryNode, Choice, DialogueLine } from '@/lib/types/project'
 import type { PreviewMode } from './types'
 import { PV_VARS } from './theme'
 import { TopBar } from './TopBar'
@@ -80,31 +81,35 @@ export default function PreviewPage() {
   const nodes = useMemo(() => project?.nodes ?? [], [project?.nodes])
   // 每次渲染重建整张 Map（含每次按键/计时器引起的渲染）在大剧本上是无谓开销
   const nodeMap = useMemo(() => new Map(nodes.map(n => [n.id, n])), [nodes])
+  // 变量状态按变量 id 建槽（期 2）：同名变量各自独立，改名不影响运行时；未绑定引用退回 #名 槽位
+  const variables = useMemo(() => project?.variables ?? [], [project?.variables])
+  const keyOf = useCallback((ref: { varId?: string; name: string }) => refKey(ref, variables), [variables])
+  const speakerName = useCallback((line: DialogueLine) => speakerLabel(line, project?.characters ?? []), [project?.characters])
 
   const startNode = findStartNode(nodes)
   const activeId = currentNodeId ?? startNode?.id
   const currentNode = activeId ? nodeMap.get(activeId) : undefined
 
-  const navigateTo = useCallback((nodeId: string, choiceEffect?: string, fromExplore?: boolean) => {
+  const navigateTo = useCallback((nodeId: string, choice?: Choice, fromExplore?: boolean) => {
     const current = currentNodeId ?? startNode?.id
     // fromExplore（探索节点返回主线）不入 history，varHistory 必须同步不入栈，否则索引错位
     if (current && !fromExplore) {
       setHistory(prev => [...prev, current])
       setVarHistory(prev => [...prev, varState])
     }
-    if (choiceEffect) setVarState(s => applyVariableEffect(s, choiceEffect))
+    if (choice) setVarState(s => applyEffects(s, choiceEffects(choice, variables), keyOf))
     setCurrentNodeId(nodeId)
-  }, [currentNodeId, startNode?.id, varState])
+  }, [currentNodeId, startNode?.id, varState, variables, keyOf])
 
-  const enterExplore = useCallback((exploreNodeId: string, choiceEffect?: string) => {
+  const enterExplore = useCallback((exploreNodeId: string, choice?: Choice) => {
     const current = currentNodeId ?? startNode?.id
     if (current) {
       setHistory(prev => [...prev, current])
       setVarHistory(prev => [...prev, varState])
     }
-    if (choiceEffect) setVarState(s => applyVariableEffect(s, choiceEffect))
+    if (choice) setVarState(s => applyEffects(s, choiceEffects(choice, variables), keyOf))
     setCurrentNodeId(exploreNodeId)
-  }, [currentNodeId, startNode?.id, varState])
+  }, [currentNodeId, startNode?.id, varState, variables, keyOf])
 
   const goBack = useCallback(() => {
     setHistory(prev => {
@@ -136,19 +141,12 @@ export default function PreviewPage() {
     setCurrentNodeId(null)
     setHistory([])
     setVarHistory([])
-    const init: Record<string, string | number> = {}
-    project?.variables?.forEach(v => { init[v.name] = v.defaultValue ?? 0 })
-    setVarState(init)
-  }, [project?.variables])
+    setVarState(project ? initVarState(project) : {})
+  }, [project])
 
   useEffect(() => {
     if (!project) return
-    setVarState(s => {
-      if (Object.keys(s).length > 0) return s
-      const init: Record<string, string | number> = {}
-      project.variables?.forEach(v => { init[v.name] = v.defaultValue ?? 0 })
-      return init
-    })
+    setVarState(s => Object.keys(s).length > 0 ? s : initVarState(project))
     setUnlockedEndings(loadUnlockedEndings(project.id))
     setThemeState(loadTheme(project.id))
   }, [project?.id])
@@ -189,7 +187,7 @@ export default function PreviewPage() {
   const isExploreNode = currentNode.type === 'explore'
   const ending = isEnding ? project.endings.find(e => e.nodeId === currentNode.id) : null
   const allChoices = currentNode.choices.filter(c =>
-    c.targetNodeId && nodeMap.has(c.targetNodeId) && evalConditions(c.conditions, varState)
+    c.targetNodeId && nodeMap.has(c.targetNodeId) && evalCondOrTrue(choiceCond(c, variables), varState, keyOf)
   )
   const exploreChoices = allChoices.filter(c => nodeMap.get(c.targetNodeId)?.type === 'explore')
   const mainChoices = allChoices.filter(c => nodeMap.get(c.targetNodeId)?.type !== 'explore')
@@ -226,10 +224,11 @@ export default function PreviewPage() {
           canGoBack={history.length > 0}
           onReset={reset}
           onGoBack={goBack}
+          speakerName={speakerName}
         />
       ) : (
         <>
-          <NarrativeBody node={currentNode} mode={mode} isDeadEnd={isDeadEnd} canGoBack={history.length > 0} onGoBack={goBack} />
+          <NarrativeBody node={currentNode} mode={mode} isDeadEnd={isDeadEnd} canGoBack={history.length > 0} onGoBack={goBack} speakerName={speakerName} />
           {showDebugPanel && (
             <DebugPanel mode={mode} emotionFunction={emotionFunction} variables={project.variables} varState={varState} />
           )}

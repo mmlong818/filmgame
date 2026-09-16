@@ -28,7 +28,8 @@ import { useBulkAi } from './hooks/useBulkAi'
 import { NodeAssistRail } from './components/NodeAssistRail'
 import type { NodeDraft, SceneAnalysisResult, SceneTensionResult, ChoiceSuggestion, ChoiceConsequenceResult } from './components/types'
 import { setPendingDrafts, confirmLeaveWithDrafts } from '@/lib/ui/pendingDraftGuard'
-import { splitEffects, parseEffectPart } from '@/lib/conditions'
+import { choiceEffects, refKey, refLabel } from '@/lib/refs/access'
+import { printEffects } from '@/lib/refs/print'
 
 // 场景描述文本框 + 字数提示需共享同一份本地缓冲值（提示要随打字实时变化，而不是等回写 store 才更新）。
 function SceneDescField({ value, onCommit }: { value: string; onCommit: (v: string) => void }) {
@@ -615,18 +616,20 @@ function WorkshopPageInner() {
                             {project.variables.length > 0 && (
                               <div className="mt-1.5 flex flex-wrap gap-1">
                                 {project.variables.map(v => {
-                                  // 按解析后的变量名判定/移除，而非子串或正则：`trust` 不再命中 `trusted`，取值含逗号的 set 也不会被删多
-                                  const parts = splitEffects(choice.variableEffects).filter(p => p.trim())
-                                  const isActive = parts.some(p => parseEffectPart(p)?.name === v.name)
+                                  // 按引用层（varId）判定/增删，同名变量不再互相串台；回写原文串由 store 重新绑定
+                                  const vars = project.variables
+                                  const effects = choiceEffects(choice, vars)
+                                  const hits = (e: (typeof effects)[number]) => e.k === 'eff' && refKey(e.ref, vars) === v.id
+                                  const isActive = effects.some(hits)
                                   return (
                                     <button
                                       key={v.id}
                                       type="button"
                                       onClick={() => {
-                                        const newEffects = isActive
-                                          ? parts.filter(p => parseEffectPart(p)?.name !== v.name).map(p => p.trim()).join(', ')
-                                          : [...parts.map(p => p.trim()), `+${v.name}`].join(', ')
-                                        updateChoice(choice.id, { variableEffects: newEffects })
+                                        const next = isActive
+                                          ? effects.filter(e => !hits(e))
+                                          : [...effects, { k: 'eff' as const, ref: { varId: v.id, name: v.name }, kind: 'inc' as const, value: 1 }]
+                                        updateChoice(choice.id, { variableEffects: printEffects(next, ref => refLabel(ref, vars)) })
                                       }}
                                       className={`cursor-pointer text-[10px] px-2 py-0.5 border transition-colors ${
                                         isActive

@@ -200,36 +200,3 @@ export function applyVariableEffect(state: Record<string, string | number>, effe
   return next
 }
 
-// Ink 用法：{ varName >= value: -> target | -> other }，这里只产出条件表达式部分。
-// 与 evalConditions 同构地递归下降，保留括号与 &&/|| 的原有结构——此前只切单层 &&，
-// 带括号或 || 的条件在导出时被整体丢成空串，Ink 里退化成无条件选项。
-export function conditionsToInk(conditions: string): string {
-  const expr = (conditions ?? '').trim()
-  if (!expr) return ''
-  const inkVarName = (n: string) => n.replace(/[^a-zA-Z0-9_]/g, '_')
-
-  function build(part: string): string {
-    const t = part.trim()
-    if (!t) return ''
-    const or = splitTopLevel(t, '||')
-    if (!or) return ''
-    if (or.length > 1) {
-      const seg = or.map(build).filter(Boolean)
-      return seg.length > 1 ? `(${seg.join(' || ')})` : (seg[0] ?? '')
-    }
-    const and = splitTopLevel(t, '&&')!
-    if (and.length > 1) {
-      const seg = and.map(build).filter(Boolean)
-      return seg.length > 1 ? seg.join(' && ') : (seg[0] ?? '')
-    }
-    if (t.startsWith('(') && t.endsWith(')')) {
-      // 内层若已是 || 组（自带括号）则不再套一层，避免 ((a || b))
-      const inner = build(t.slice(1, -1))
-      if (!inner) return ''
-      return inner.startsWith('(') && inner.endsWith(')') ? inner : `(${inner})`
-    }
-    const m = t.match(/^([a-zA-Z_][a-zA-Z0-9_]*)\s*(>=|<=|>|<|==|!=)\s*(.+)$/)
-    return m ? `${inkVarName(m[1])} ${m[2]} ${m[3].trim()}` : ''
-  }
-  return build(expr)
-}

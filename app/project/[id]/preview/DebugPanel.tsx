@@ -74,7 +74,7 @@ export function DebugPanel({ mode, emotionFunction, variables, varState }: Props
               {variables.map(v => (
                 <div key={v.id} className="flex items-center justify-between text-xs">
                   <span className="text-[var(--pv-dim)]">{v.name}</span>
-                  <span className="font-mono text-[var(--pv-accent)]">{String(varState[v.name] ?? v.defaultValue ?? 0)}</span>
+                  <span className="font-mono text-[var(--pv-accent)]">{String(varState[v.id] ?? v.defaultValue ?? 0)}</span>
                 </div>
               ))}
             </div>

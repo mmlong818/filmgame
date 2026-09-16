@@ -6,13 +6,27 @@ import type { CondNode, EffectItem, VarRef } from './types.ts'
 export type NameOf = (ref: VarRef) => string
 const byRefName: NameOf = ref => ref.name
 
-export function printCond(node: CondNode | null, nameOf: NameOf = byRefName): string {
+interface PrintOpts {
+  /** 字符串取值加双引号（Ink 需要 `mood == "calm"`；项目内原文约定不加） */
+  quoteStrings?: boolean
+  /** raw 子式的处理：原样吐回（默认）或丢弃（导出到 Ink 时无法编译的残片不能带出去） */
+  dropRaw?: boolean
+}
+
+// 只有 dropRaw 时才丢空片段：默认模式必须保住空 raw，否则 `trust>=3 &&` 往返后会变成单个比较式
+const keep = (parts: string[], opts: PrintOpts) => (opts.dropRaw ? parts.filter(Boolean) : parts)
+
+export function printCond(node: CondNode | null, nameOf: NameOf = byRefName, opts: PrintOpts = {}): string {
   if (!node) return ''
+  const rec = (p: CondNode) => printCond(p, nameOf, opts)
   switch (node.k) {
-    case 'cmp': return `${nameOf(node.ref)} ${node.op} ${node.value}`
-    case 'and': return node.parts.map(p => p.k === 'or' ? `(${printCond(p, nameOf)})` : printCond(p, nameOf)).join(' && ')
-    case 'or': return node.parts.map(p => printCond(p, nameOf)).join(' || ')
-    case 'raw': return node.text
+    case 'cmp': {
+      const v = opts.quoteStrings && typeof node.value === 'string' ? `"${node.value.replace(/"/g, '”')}"` : node.value
+      return `${nameOf(node.ref)} ${node.op} ${v}`
+    }
+    case 'and': return keep(node.parts.map(p => p.k === 'or' ? `(${rec(p)})` : rec(p)), opts).join(' && ')
+    case 'or': return keep(node.parts.map(rec), opts).join(' || ')
+    case 'raw': return opts.dropRaw ? '' : node.text
   }
 }
 

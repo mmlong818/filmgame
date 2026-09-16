@@ -7,7 +7,7 @@ import { nodeTypeStyle } from '@/lib/ui/nodeTypes'
 import type { NodeType } from '@/lib/types/project'
 import { Button } from '@/app/components/ui/button'
 import { Skeleton, SkeletonLines } from '@/app/components/ui/skeleton'
-import { parseEffectPart, extractConditionVars, splitEffects } from '@/lib/conditions'
+import { choiceCond, choiceEffects, refKey, collectCondRefs } from '@/lib/refs/access'
 
 // ── Type config（图标本地维护，文案与配色一律取自 lib/ui/nodeTypes） ──────────
 
@@ -99,19 +99,14 @@ export default function BranchesPage() {
   const unreachableNodes = nodes.filter(n => !reachable.has(n.id))
 
   // Variable coverage: how many variables are used in choices
-  const allVarNames = new Set((project.variables ?? []).map(v => v.name))
-  // 必须用 parseEffectPart 解析，不能只剥前缀 +-：实际数据以后缀写法为主
-  // （AI 分支生成产出 "courage+1"），`'courage+1'.replace(/^[+-]/,'')` 仍是 "courage+1"，
-  // 匹配不到任何变量名，覆盖率恒显示 0%——本轮实测 6 个变量全在用却显示 0/6。
-  // 条件里引用的变量同样算"已使用"（门控是变量最主要的用途）。
+  // 变量覆盖率按变量 id 统计（期 2）：引用层里能落到某个登记变量的才算命中，未绑定引用不计
+  const variables = project.variables ?? []
+  const allVarNames = new Set(variables.map(v => v.id))
   const usedVarNames = new Set(
-    nodes.flatMap(n => n.choices ?? []).flatMap(c => {
-      const fromEffects = splitEffects(c.variableEffects)
-        .map(part => parseEffectPart(part)?.name)
-        .filter((v): v is string => !!v)
-      const fromConditions = extractConditionVars(c.conditions ?? '')
-      return [...fromEffects, ...fromConditions].filter(v => allVarNames.has(v))
-    })
+    nodes.flatMap(n => n.choices ?? []).flatMap(c => [
+      ...choiceEffects(c, variables).flatMap(e => e.k === 'eff' ? [e.ref] : []),
+      ...collectCondRefs(choiceCond(c, variables)),
+    ]).map(ref => refKey(ref, variables)).filter(key => allVarNames.has(key))
   )
   const varCoverage = allVarNames.size > 0 ? Math.round(usedVarNames.size / allVarNames.size * 100) : 100
 

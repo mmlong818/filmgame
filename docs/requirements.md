@@ -122,12 +122,13 @@
 
 **本地校验引擎**（`lib/validation/engine.ts`，免费、即时，进入页面自动运行）
 
-共 24 项检测，按严重度分级（error / warning / info），产出通过率评分（100 − error×20 − warning×8 − info×2，下限 0）。可达性类检测（UNREACHABLE / NO_PATH_TO_ENDING / TRAP_BRANCH）的图遍历必须承认 explore 节点经 `exploreReturnNodeId` 返回主线的边，与预览、ink 导出的运行时语义一致；条件类检测须覆盖"图上连通但条件永假"的软锁（变量阈值超过全图效果加总的理论上界）：
+共 27 项检测，按严重度分级（error / warning / info），产出通过率评分（100 − error×20 − warning×8 − info×2，下限 0）。可达性类检测（UNREACHABLE / NO_PATH_TO_ENDING / TRAP_BRANCH）的图遍历必须承认 explore 节点经 `exploreReturnNodeId` 返回主线的边，与预览、ink 导出的运行时语义一致；条件类检测须覆盖"图上连通但条件永假"的软锁（变量阈值超过全图效果加总的理论上界）：
 
 | 类别 | 检测项 |
 |------|--------|
-| 结构完整性（error） | DEAD_END 死路、BROKEN_LINK 断链、NO_PATH_TO_ENDING 无法到达结局、TRAP_BRANCH 陷阱分支、ENDING_ORPHAN 孤儿结局定义、UNSATISFIABLE_CONDITION 条件永不可满足（选项/结局永不可达） |
-| 结构完整性（warning） | UNREACHABLE 不可达节点、NO_ENDING 无结局、DUPLICATE_CHOICE 重复选项文本、ENDING_NO_DEF 结局节点缺定义、UNKNOWN_VARIABLE_REF 变量断链、UNPARSEABLE_EFFECT 无法解析的变量效果（运行时不会执行）、CONDITION_SYNTAX 条件表达式语法错误、ALL_CHOICES_GATED 无保底出口（全部选项带条件，可能软锁玩家） |
+| 结构完整性（error） | DEAD_END 死路、BROKEN_LINK 断链、NO_PATH_TO_ENDING 无法到达结局、TRAP_BRANCH 陷阱分支、ENDING_ORPHAN 孤儿结局定义、UNSATISFIABLE_CONDITION 条件永不可满足（选项/结局永不可达）、DANGLING_VARIABLE_REF 引用的变量已被删除（曾绑定过 id） |
+| 结构完整性（warning） | UNREACHABLE 不可达节点、NO_ENDING 无结局、DUPLICATE_CHOICE 重复选项文本、ENDING_NO_DEF 结局节点缺定义、UNRESOLVED_VARIABLE_REF 引用了未登记的变量、AMBIGUOUS_VARIABLE_REF 变量名对应多个同名变量、UNPARSEABLE_EFFECT 无法解析的变量效果（运行时不会执行）、CONDITION_SYNTAX 条件表达式语法错误、ALL_CHOICES_GATED 无保底出口（全部选项带条件，可能软锁玩家） |
+| 引用完整性（info） | UNBOUND_SPEAKER 对白说话人未绑定到角色表（按项目聚合成一条） |
 | 叙事质量（warning） | THIN_DIALOGUE 对白深度不足（McKee ≥6 行标准）、SHORT_DURATION 内容量不足目标时长 50% |
 | 叙事质量（info） | EMOTION_MONOTONE 情感节奏单调、SINGLE_ENDING 结局单一、ENDING_VARIETY 结局差异度不足、LOW_BRANCH_DENSITY 分支密度 <25%、WEAK_CHOICES 选择力度不足、NO_EXPLORE_CONTENT 无探索内容、SHALLOW_EMOTION 缺内心谎言、THIN_SCENE_DESC 场景描述过短 |
 
@@ -143,7 +144,7 @@
 
 - 任意阶段可进入，实时体验完整交互剧情。
 - 变量追踪面板、情感面板、历史路径面包屑。
-- 选项按条件表达式（`&&` / `||`，`>= <= > < == !=`）门控显示；选中后应用变量效果（支持 `+n / -n / =v` 及后缀写法 `name+1`，解析规则与 ink 导出、校验引擎共用 `lib/conditions.ts`）。
+- 选项按条件表达式（`&&` / `||`，`>= <= > < == !=`）门控显示；选中后应用变量效果（支持 `+n / -n / =v` 及后缀写法 `name+1`）。预览、校验引擎、ink 导出、覆盖率统计一律读引用层 AST（`lib/refs`，变量按 id 建槽），原文串由 `lib/conditions.ts` 统一解析后经 `lib/refs/bind` 绑定——同名变量互不干扰，改名后引用自动跟随。
 - **变量回滚**：返回上一步 / 跳转历史节点时，变量状态精确恢复到该步之前的快照（快照栈与历史栈索引对齐），不残留已执行的选项效果；重置时全部清空。
 - 探索节点：进入支线后可自动返回主线（`exploreReturnNodeId`）。
 
