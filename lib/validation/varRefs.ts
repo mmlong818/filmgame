@@ -80,8 +80,8 @@ function findUnsat(node: CondNode | null, bounds: Bounds, variables: Variable[])
 
 function refIssues(cls: RefClasses, where: string, related: string[]): ValidationIssue[] {
   const out: ValidationIssue[] = []
-  if (cls.unresolved.length) out.push(issue('warning', 'UNRESOLVED_VARIABLE_REF', `${where}引用了未登记的变量：${cls.unresolved.join('、')}，运行时按 0 处理。可在校验页「登记为变量」一键补齐`, related))
-  if (cls.ambiguous.length) out.push(issue('warning', 'AMBIGUOUS_VARIABLE_REF', `${where}引用的变量名对应多个同名变量：${cls.ambiguous.join('、')}，无法确定指向哪一个，请重命名其一后重新绑定`, related))
+  if (cls.unresolved.length) out.push({ ...issue('warning', 'UNRESOLVED_VARIABLE_REF', `${where}引用了未登记的变量：${cls.unresolved.join('、')}，运行时按 0 处理`, related), fix: { kind: 'register_variables', names: cls.unresolved } })
+  if (cls.ambiguous.length) out.push({ ...issue('warning', 'AMBIGUOUS_VARIABLE_REF', `${where}引用的变量名对应多个同名变量：${cls.ambiguous.join('、')}，无法确定指向哪一个，请在结构页变量表重命名其一`, related), fixHref: 'structure' })
   if (cls.dangling.length) out.push(issue('error', 'DANGLING_VARIABLE_REF', `${where}绑定的变量已被删除：${cls.dangling.join('、')}，条件/效果将静默失效，请重新绑定或清除该引用`, related))
   return out
 }

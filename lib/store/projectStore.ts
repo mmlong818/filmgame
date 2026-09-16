@@ -5,7 +5,7 @@ import type { Phase } from '@/lib/types/phase'
 import { loadLocalSnapshot, writeLocalSnapshot, saveProject, saveProjectMeta, saveNode, setHydrated, clearConflictLock, resetConfirmedVersion } from '@/lib/persistence'
 import type { SaveStateDetail } from '@/lib/persistence'
 import { bindHistory, pushUndo, clearHistory, isRestoring, invalidateRedo, recordAfterState } from '@/lib/store/history'
-import { renameVariableRefs, renameSpeakerRefs } from '@/lib/store/rename'
+import { adoptUnboundVariableRefs, adoptUnboundSpeakers } from '@/lib/refs/adopt'
 import { mergeWindowEdits } from '@/lib/store/merge'
 import { removeNodes, swapOrder } from '@/lib/store/structureOps'
 import { normalizeVarName, normalizeCharName, uniqueName, reconcileByName } from '@/lib/refs/names'
@@ -263,11 +263,11 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
       patch = { ...patch, name: uniqueName(patch.name, others, normalizeCharName, ' ') }
     }
     const characters = s.project.characters.map(c => c.id === id ? { ...c, ...patch } : c)
-    // 改名级联：对白说话人按名字引用，跟着改；触碰到节点就是跨行变更，走整档保存
-    const cascaded = prev && patch.name !== undefined ? renameSpeakerRefs(s.project, prev.name, patch.name) : null
-    if (cascaded) pushUndo('重命名角色', s.project)
-    const p = { ...(cascaded ?? s.project), characters, updatedAt: new Date().toISOString() }
-    if (cascaded) saveProject(p, s.loadedVersion ?? undefined)
+    // 改名：先把此刻按旧名能解析到的未绑定对白认领到 speakerId（原文串不动），再改名字表；
+    // 显示经 speakerLabel 自动跟随。只有真认领到东西才碰节点、走整档保存
+    const adopted = prev && patch.name !== undefined ? adoptUnboundSpeakers(s.project) : null
+    const p = { ...(adopted ?? s.project), characters, updatedAt: new Date().toISOString() }
+    if (adopted) saveProject(p, s.loadedVersion ?? undefined)
     else saveProjectMeta(p, s.loadedVersion ?? undefined)
     return { project: p }
   }),
@@ -605,11 +605,11 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
       patch = { ...patch, name: uniqueName(patch.name, others, normalizeVarName) }
     }
     const variables = s.project.variables.map(v => v.id === id ? { ...v, ...patch } : v)
-    // 改名级联：条件/效果/结局条件/系统功能读写表按名字引用，跟着改；触碰到节点或结局就走整档保存
-    const cascaded = prev && patch.name !== undefined ? renameVariableRefs(s.project, prev.name, patch.name) : null
-    if (cascaded) pushUndo('重命名变量', s.project)
-    const p = { ...(cascaded ?? s.project), variables, updatedAt: new Date().toISOString() }
-    if (cascaded) saveProject(p, s.loadedVersion ?? undefined)
+    // 改名：先把此刻按旧名能解析到的未绑定引用认领到 varId（原文串不动、不再字符串重写），再改名字表；
+    // 预览/校验/导出经 refLabel 自动跟随。只有真认领到东西才碰节点、走整档保存
+    const adopted = prev && patch.name !== undefined ? adoptUnboundVariableRefs(s.project) : null
+    const p = { ...(adopted ?? s.project), variables, updatedAt: new Date().toISOString() }
+    if (adopted) saveProject(p, s.loadedVersion ?? undefined)
     else saveProjectMeta(p, s.loadedVersion ?? undefined)
     return { project: p }
   }),

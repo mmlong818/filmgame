@@ -113,7 +113,7 @@
 ### FR-5 阶段四：场景工坊（workshop）
 
 - 左侧节点树：全局进度一览，支持搜索过滤；大项目下输入不得引发全树重渲染（性能需求见 NFR-1）。
-- 右侧工作区逐节点填充：场景头（地点 / 时段 / 内外景）、场景描述、情感弧（emotionIn / emotionOut / playerEmotion / tension / internal_lie / fear）、对白（说话人 / 文本 / 情绪）、选项（文本 / 目标节点 / 条件 / 变量效果 / 后果 / 权重）、备注、预估时长。
+- 右侧工作区逐节点填充：场景头（地点 / 时段 / 内外景）、场景描述、情感弧（emotionIn / emotionOut / playerEmotion / tension / internal_lie / fear）、对白（说话人——带角色名候选与未绑定标记 / 文本 / 情绪）、选项（文本 / 目标节点 / 条件——文本框 + 快捷追加比较式 / 变量效果 / 后果 / 权重）、备注、预估时长。
 - **角色声纹卡**：记录说话节奏、词汇习惯、压力下的防御机制、说谎特征、示例台词，约束 AI 生成的台词风格一致性；工坊内提供声纹卡入口。
 - AI 能力（8 项）：`fill_emotion`（填情感弧）、`write_dialogue`（写对白）、`revise_dialogue`（单节点一句话指令修订）、`suggest_choices`（选项建议）、`scene_analysis`、`scene_tension`、`character_voice`、`choice_consequence`。
 - **批量 AI 精修**：可选范围（全部节点 / 当前章 / 当前幕），展示预计耗时、逐节点进度覆盖层、失败重试清单。
@@ -254,6 +254,15 @@
 - 背景：真实检查中曾把占位 key 保存进设置导致后续生成 403 且原配置被覆盖——本功能把「key 是否可用」的验证前置到保存之前。
 
 ---
+
+### FR-21 变量与角色引用 id 化（v0.7，实施计划 `docs/plans/2026-09-16-id-refs.md`）
+
+- 引用层为机器真源：`Choice.cond`（递归条件树）/ `Choice.effects` / `DialogueLine.speakerId` / `SystemFunction.readIds|writeIds` / `Ending.cond` / `EndingCondition.variableId`，全部 optional、经 `lib/refs/bind` 单一闸口写入；原文串（`conditions` / `variableEffects` / `speaker`）保留为人机与 AI 通道及「未解析态」载体。
+- `schemaVersion` 1→2 纯附加惰性迁移（跑在既有 `migrateProject` 调用点，不批量写回）；同名 >1 一律不猜，角色绝不自动创建。
+- AI 契约零改动：AI 继续收发名字串，名字→id 在客户端采纳边界（store 的 `updateChoice` / `updateNode` / `updateEnding` / `bulkSetStructure`）解析绑定。
+- 名字唯一：变量/角色重名自动加后缀；AI 批量覆盖按归一化名字对账保留既有 id。
+- 改名不做字符串重写：改名前把能唯一解析的未绑定引用「认领」到 id（`lib/refs/adopt`），预览 / 校验 / Ink 导出 / 覆盖率经 `refLabel` / `speakerLabel` 自动跟随；同名变量在预览各自计数、在 Ink 里产出不同标识符。
+- 工坊：说话人输入带角色名候选，未绑定有标记；选项条件有原文文本框 + 「变量/比较符/值」快捷追加。校验页 `UNRESOLVED_VARIABLE_REF` 一键「登记为变量」。
 
 ## 7. 数据模型概要
 

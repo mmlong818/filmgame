@@ -234,6 +234,8 @@ export const ValidationIssueSchema = z.object({
   code: z.string(),
   message: z.string(),
   relatedIds: z.array(z.string()).default([]),
+  fixHref: z.string().optional(),
+  fix: z.object({ kind: z.literal('register_variables'), names: z.array(z.string()) }).optional(),
 })
 
 export const ValidationReportSchema = z.object({

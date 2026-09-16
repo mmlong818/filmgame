@@ -194,6 +194,8 @@ export interface ValidationIssue {
   /** 无具体节点可跳时的兜底去处（相对项目根，如 'structure#endings'）；
       悬空结局定义这类问题没有有效节点，仍需把人送到能改的页面 */
   fixHref?: string
+  /** 校验页可直接执行的一键修（期 3）：目前只有「把未登记的变量名登记为变量」 */
+  fix?: { kind: 'register_variables'; names: string[] }
 }
 
 export interface ValidationReport {

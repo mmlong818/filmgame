@@ -28,8 +28,9 @@ import { useBulkAi } from './hooks/useBulkAi'
 import { NodeAssistRail } from './components/NodeAssistRail'
 import type { NodeDraft, SceneAnalysisResult, SceneTensionResult, ChoiceSuggestion, ChoiceConsequenceResult } from './components/types'
 import { setPendingDrafts, confirmLeaveWithDrafts } from '@/lib/ui/pendingDraftGuard'
-import { choiceEffects, refKey, refLabel } from '@/lib/refs/access'
+import { choiceEffects, refKey, refLabel, speakerLabel, speakerBound } from '@/lib/refs/access'
 import { printEffects } from '@/lib/refs/print'
+import { ConditionEditor } from './components/ConditionEditor'
 
 // 场景描述文本框 + 字数提示需共享同一份本地缓冲值（提示要随打字实时变化，而不是等回写 store 才更新）。
 function SceneDescField({ value, onCommit }: { value: string; onCommit: (v: string) => void }) {
@@ -501,16 +502,24 @@ function WorkshopPageInner() {
                 />
 
                 <Section title="对白">
+                  {/* 说话人候选：选中即写入角色名，store 按名字解析绑定 speakerId；自由输入照旧允许 */}
+                  <datalist id="workshop-speaker-names">
+                    {project.characters.map(c => <option key={c.id} value={c.name} />)}
+                  </datalist>
                   <div className="space-y-1">
                     {selected.dialogue.map((line, i) => (
                       <div key={line.id} className="group relative py-3">
                         <div className="flex items-center justify-center gap-2">
                           <BufferedInput
-                            value={line.speaker}
+                            value={speakerLabel(line, project.characters)}
+                            list="workshop-speaker-names"
                             onCommit={v => { const d = [...selected.dialogue]; d[i] = { ...line, speaker: v }; updateNode(selected.id, { dialogue: d }) }}
-                            className={`text-[13px] font-bold tracking-[0.2em] uppercase bg-transparent border-none outline-none text-center w-32 ${line.speaker ? speakerColor(line.speaker) : 'text-pencil'}`}
+                            className={`text-[13px] font-bold tracking-[0.2em] uppercase bg-transparent border-none outline-none text-center w-32 ${line.speaker ? speakerColor(speakerLabel(line, project.characters)) : 'text-pencil'}`}
                             placeholder="角色名"
                           />
+                          {line.speaker && project.characters.length > 0 && !speakerBound(line, project.characters) && (
+                            <span title="未绑定到角色表：角色改名时这行不会跟随。从下拉里选一个现有角色即可绑定" className="text-[10px] text-amberink cursor-help">未绑定</span>
+                          )}
                         </div>
                         <div className="flex items-center justify-center gap-0.5 text-[11px] text-pencil italic">
                           <span>（</span>
@@ -613,6 +622,11 @@ function WorkshopPageInner() {
                             {choice.consequence && (
                               <p className="text-[11px] text-pencil italic mt-1">↳ {choice.consequence}</p>
                             )}
+                            <ConditionEditor
+                              conditions={choice.conditions}
+                              variables={project.variables}
+                              onCommit={conditions => updateChoice(choice.id, { conditions })}
+                            />
                             {project.variables.length > 0 && (
                               <div className="mt-1.5 flex flex-wrap gap-1">
                                 {project.variables.map(v => {

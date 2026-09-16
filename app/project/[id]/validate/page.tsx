@@ -270,8 +270,16 @@ const LEVEL_CONF: Record<IssueLevel, { label: string; border: string }> = {
 
 function IssueGroup({ level, items, projectId }: { level: IssueLevel; items: ValidationIssue[]; projectId: string }) {
   const router = useRouter()
+  const { addVariable } = useProjectStore()
+  const { toast } = useToast()
   const [open, setOpen] = useState(level === 'error')
   const conf = LEVEL_CONF[level]
+  // 一键登记：store 的 addVariable 自带重名去重；报告随 project 变化自动重跑，该条随即消失
+  const applyFix = (issue: ValidationIssue) => {
+    if (issue.fix?.kind !== 'register_variables') return
+    issue.fix.names.forEach(name => addVariable(name))
+    toast(`已登记 ${issue.fix.names.length} 个变量：${issue.fix.names.join('、')}（类型默认为开关，可在结构页调整）`, 'success')
+  }
   return (
     <div className="mb-1.5">
       <button
@@ -289,6 +297,9 @@ function IssueGroup({ level, items, projectId }: { level: IssueLevel; items: Val
             <div key={issue.id} className={`bg-paper border-l-4 ${conf.border} px-3 py-2 text-sm text-ink`} style={{ boxShadow: 'var(--shadow-card)' }}>
               <div className="flex items-start justify-between gap-2">
                 <span><span className="courier text-xs text-pencil">[{issue.code}]</span> {issue.message}</span>
+                {issue.fix?.kind === 'register_variables' && (
+                  <Button variant="link" size="sm" className="shrink-0" onClick={() => applyFix(issue)}>登记为变量</Button>
+                )}
                 {(issue.relatedIds?.length > 0 || issue.fixHref) && (
                   <Button
                     variant="link"
